@@ -21,10 +21,21 @@ import { Canvas } from "@/components/Canvas";
 import { Editor } from "@/components/Editor";
 import { Toolbar } from "@/components/Toolbar";
 import { useDbmlParser } from "@/hooks/useDbmlParser";
+import {
+	buildDraftPayload,
+	createDiagramRouteHref,
+	getDraftHydrationResult,
+	getDiagramRouteState,
+	getInitialDraftState,
+	isSameDiagramRoute,
+	getPositionsFromNodes,
+	resolveDraftPersistence,
+} from "@/lib/draftPersistence";
 import { autoLayoutDiagram } from "@/lib/layout";
 import { SAMPLE_DBML } from "@/lib/sample-dbml";
 import { loadSharedSchema, saveSharedSchema } from "@/lib/sharing";
 import { buildDiagram } from "@/lib/transform";
+import { getDiagramDraft, useDiagramDraftStore } from "@/store/useDiagramDraftStore";
 import { useDiagramUiStore } from "@/store/useDiagramUiStore";
 import type {
 	DiagramEdge,
@@ -34,14 +45,6 @@ import type {
 	ParsedSchema,
 	SchemaPayload,
 } from "@/types";
-
-const SHARE_PATH_PATTERN = /^\/s\/([A-Za-z0-9_-]+)$/;
-
-const getShareIdFromPath = (pathname: string) =>
-	SHARE_PATH_PATTERN.exec(pathname)?.[1] ?? null;
-
-const getPositionsFromNodes = (nodes: readonly DiagramNode[]): DiagramPositions =>
-	Object.fromEntries(nodes.map((node) => [node.id, node.position]));
 
 const pickKnownPositions = (
 	nodeIds: readonly string[],
@@ -121,13 +124,30 @@ const createDiagramSearchState = (
 };
 
 function App() {
-	const initialShareId = getShareIdFromPath(window.location.pathname);
-	const [dbml, setDbml] = useState(initialShareId ? "" : SAMPLE_DBML);
-	const [shareSeedPositions, setShareSeedPositions] = useState<DiagramPositions>({});
-	const [currentShareId, setCurrentShareId] = useState<string | null>(initialShareId);
-	const [viewedShareId, setViewedShareId] = useState<string | null>(initialShareId);
+	const initialRoute = getDiagramRouteState(
+		window.location.pathname,
+		window.location.search,
+	);
+	const initialLocalDraft = getDiagramDraft(initialRoute.shareId);
+	const initialDraftState = getInitialDraftState({
+		route: initialRoute,
+		draft: initialLocalDraft,
+		sampleDbml: SAMPLE_DBML,
+	});
+	const initialHydration = getDraftHydrationResult({
+		route: initialRoute,
+		draft: initialLocalDraft,
+		sampleDbml: SAMPLE_DBML,
+	});
+	const [dbml, setDbml] = useState(() => initialDraftState.dbml);
+	const [shareSeedPositions, setShareSeedPositions] = useState<DiagramPositions>(
+		() => initialDraftState.positions,
+	);
+	const [viewedRoute, setViewedRoute] = useState(initialRoute);
 	const [shareLoadError, setShareLoadError] = useState<string | null>(null);
-	const [isLoadingShare, setIsLoadingShare] = useState(Boolean(initialShareId));
+	const [isLoadingShare, setIsLoadingShare] = useState(
+		initialHydration.remoteLoadMode === "blocking",
+	);
 	const [isSharing, setIsSharing] = useState(false);
 	const [isLayouting, setIsLayouting] = useState(false);
 	const [viewportZoom, setViewportZoom] = useState(1);
@@ -141,6 +161,9 @@ function App() {
 	const gridMode = useDiagramUiStore((state) => state.gridMode);
 	const layoutAlgorithm = useDiagramUiStore((state) => state.layoutAlgorithm);
 	const searchQuery = useDiagramUiStore((state) => state.searchQuery);
+	const getDraft = useDiagramDraftStore((state) => state.getDraft);
+	const setDraft = useDiagramDraftStore((state) => state.setDraft);
+	const clearDraft = useDiagramDraftStore((state) => state.clearDraft);
 	const deferredSearchQuery = useDeferredValue(searchQuery);
 	const searchState = createDiagramSearchState(parsed, deferredSearchQuery);
 	const matchedTableNames = parsed.tables
@@ -154,6 +177,12 @@ function App() {
 		null,
 	);
 	const nodesRef = useRef<DiagramNode[]>([]);
+	const [shareBaseline, setShareBaseline] = useState<{
+		shareId: string;
+		payload: SchemaPayload;
+	} | null>(null);
+	const currentShareBaseline =
+		shareBaseline?.shareId === viewedRoute.shareId ? shareBaseline.payload : null;
 
 	useEffect(() => {
 		nodesRef.current = nodes;
@@ -161,7 +190,9 @@ function App() {
 
 	useEffect(() => {
 		const onPopState = () => {
-			setViewedShareId(getShareIdFromPath(window.location.pathname));
+			setViewedRoute(
+				getDiagramRouteState(window.location.pathname, window.location.search),
+			);
 		};
 
 		window.addEventListener("popstate", onPopState);
@@ -170,6 +201,34 @@ function App() {
 			window.removeEventListener("popstate", onPopState);
 		};
 	}, []);
+
+	useEffect(() => {
+		setShareBaseline((current) => {
+			if (viewedRoute.shareId === null) {
+				return current === null ? current : null;
+			}
+
+			return current?.shareId === viewedRoute.shareId ? current : null;
+		});
+	}, [viewedRoute.shareId]);
+
+	const replaceViewedRoute = useCallback((nextRoute: typeof viewedRoute) => {
+		if (isSameDiagramRoute(nextRoute, viewedRoute)) {
+			return;
+		}
+
+		window.history.replaceState({}, "", createDiagramRouteHref(nextRoute));
+		setViewedRoute(nextRoute);
+	}, [viewedRoute]);
+
+	const pushViewedRoute = useCallback((nextRoute: typeof viewedRoute) => {
+		if (isSameDiagramRoute(nextRoute, viewedRoute)) {
+			return;
+		}
+
+		window.history.pushState({}, "", createDiagramRouteHref(nextRoute));
+		setViewedRoute(nextRoute);
+	}, [viewedRoute]);
 
 	const requestFitView = useCallback((nodeIds?: readonly string[]) => {
 		const focusedIds =
@@ -267,19 +326,82 @@ function App() {
 	);
 
 	useEffect(() => {
-		if (viewedShareId !== null) {
-			return;
+		let cancelled = false;
+		const localDraft = getDraft(viewedRoute.shareId);
+		const hydration = getDraftHydrationResult({
+			route: viewedRoute,
+			draft: localDraft,
+			sampleDbml: SAMPLE_DBML,
+		});
+
+		if (!isSameDiagramRoute(hydration.canonicalRoute, viewedRoute)) {
+			replaceViewedRoute(hydration.canonicalRoute);
+			return () => {
+				cancelled = true;
+			};
 		}
 
-		setIsLoadingShare(false);
-		setShareLoadError(null);
-	}, [viewedShareId]);
+		if (hydration.remoteLoadMode === "none") {
+			setShareLoadError(null);
+			setIsLoadingShare(false);
+			startTransition(() => {
+				setDbml(hydration.dbml);
+				setShareSeedPositions(hydration.positions);
+				setNodeMeasurements({});
+			});
+			return () => {
+				cancelled = true;
+			};
+		}
 
-	useEffect(() => {
-		let cancelled = false;
+		if (hydration.remoteLoadMode === "background") {
+			setShareLoadError(null);
+			setIsLoadingShare(false);
+			startTransition(() => {
+				setDbml(hydration.dbml);
+				setShareSeedPositions(hydration.positions);
+				setNodeMeasurements({});
+			});
 
-		if (!viewedShareId) {
-			return;
+			if (viewedRoute.shareId !== null && currentShareBaseline === null) {
+				const sharedId = viewedRoute.shareId;
+
+				void loadSharedSchema(sharedId)
+					.then((payload) => {
+						if (cancelled) {
+							return;
+						}
+
+						setShareBaseline({
+							shareId: sharedId,
+							payload,
+						});
+					})
+					.catch(() => {});
+			}
+
+			return () => {
+				cancelled = true;
+			};
+		}
+
+		if (viewedRoute.shareId !== null && currentShareBaseline !== null) {
+			setShareLoadError(null);
+			setIsLoadingShare(false);
+
+			if (hydration.clearLocalDraftOnRemoteLoad) {
+				clearDraft(viewedRoute.shareId);
+			}
+
+			startTransition(() => {
+				setDbml(currentShareBaseline.dbml);
+				setShareSeedPositions(currentShareBaseline.positions);
+				setNodeMeasurements({});
+			});
+
+			return () => {
+				cancelled = true;
+			};
 		}
 
 		setIsLoadingShare(true);
@@ -289,17 +411,30 @@ function App() {
 			setEdges([]);
 			setNodeMeasurements({});
 		});
+		const sharedId = viewedRoute.shareId;
 
-		void loadSharedSchema(viewedShareId)
+		if (sharedId === null) {
+			return () => {
+				cancelled = true;
+			};
+		}
+
+		void loadSharedSchema(sharedId)
 			.then((payload) => {
 				if (cancelled) {
 					return;
 				}
 
+				setShareBaseline({
+					shareId: sharedId,
+					payload,
+				});
+				if (hydration.clearLocalDraftOnRemoteLoad) {
+					clearDraft(sharedId);
+				}
 				startTransition(() => {
 					setDbml(payload.dbml);
 					setShareSeedPositions(payload.positions);
-					setCurrentShareId(viewedShareId);
 					setNodeMeasurements({});
 				});
 				requestFitView();
@@ -314,10 +449,10 @@ function App() {
 						? error.message
 						: "Unable to load the shared schema.",
 				);
+				setShareBaseline(null);
 				startTransition(() => {
 					setDbml("");
 					setShareSeedPositions({});
-					setCurrentShareId(null);
 				});
 			})
 			.finally(() => {
@@ -329,13 +464,62 @@ function App() {
 		return () => {
 			cancelled = true;
 		};
-	}, [requestFitView, setEdges, setNodes, viewedShareId]);
+	}, [
+		clearDraft,
+		currentShareBaseline,
+		getDraft,
+		requestFitView,
+		replaceViewedRoute,
+		setEdges,
+		setNodes,
+		viewedRoute,
+	]);
 
 	useEffect(() => {
-		if (!viewedShareId && dbml.length === 0) {
-			setDbml(SAMPLE_DBML);
+		if (isLoadingShare) {
+			return;
 		}
-	}, [dbml.length, viewedShareId]);
+
+		const payload = buildDraftPayload({
+			dbml,
+			nodes,
+			fallbackPositions: shareSeedPositions,
+		});
+		const timeoutId = window.setTimeout(() => {
+			const decision = resolveDraftPersistence({
+				route: viewedRoute,
+				payload,
+				sampleDbml: SAMPLE_DBML,
+				baseline: currentShareBaseline,
+			});
+
+			if (!isSameDiagramRoute(decision.nextRoute, viewedRoute)) {
+				replaceViewedRoute(decision.nextRoute);
+			}
+
+			if (decision.shouldClearDraft) {
+				clearDraft(viewedRoute.shareId);
+			}
+
+			if (decision.shouldStoreDraft) {
+				setDraft(viewedRoute.shareId, payload);
+			}
+		}, 180);
+
+		return () => {
+			window.clearTimeout(timeoutId);
+		};
+	}, [
+		clearDraft,
+		currentShareBaseline,
+		dbml,
+		isLoadingShare,
+		nodes,
+		replaceViewedRoute,
+		setDraft,
+		shareSeedPositions,
+		viewedRoute,
+	]);
 
 	useEffect(() => {
 		const preferredPositions = pickKnownPositions(
@@ -430,12 +614,11 @@ function App() {
 		setIsSharing(true);
 
 		try {
-			const positions = getPositionsFromNodes(nodesRef.current);
-			const payload: SchemaPayload = {
+			const payload = buildDraftPayload({
 				dbml,
-				positions,
-				version: 1,
-			};
+				nodes: nodesRef.current,
+				fallbackPositions: shareSeedPositions,
+			});
 			const result = await saveSharedSchema(payload);
 			const nextUrl = new URL(`/s/${result.id}`, window.location.origin).toString();
 
@@ -448,9 +631,21 @@ function App() {
 				});
 			}
 
-			window.history.pushState({}, "", `/s/${result.id}`);
-			setCurrentShareId(result.id);
-			setShareSeedPositions(positions);
+			if (viewedRoute.shareId !== null) {
+				clearDraft(viewedRoute.shareId);
+			}
+
+			const nextRoute = {
+				shareId: result.id,
+				isDirty: false,
+			} as const;
+			pushViewedRoute(nextRoute);
+			setShareSeedPositions(payload.positions);
+			setShareBaseline({
+				shareId: result.id,
+				payload,
+			});
+			setShareLoadError(null);
 		} catch (error) {
 			toast.error(
 				error instanceof Error ? error.message : "Unable to share this schema.",
@@ -467,7 +662,11 @@ function App() {
 					tableCount={parsed.tables.length}
 					relationCount={parsed.refs.length}
 					isSharing={isSharing}
-					shareId={currentShareId}
+					routeLabel={
+						viewedRoute.shareId === null
+							? "draft"
+							: createDiagramRouteHref(viewedRoute)
+					}
 					onShare={handleShare}
 				/>
 

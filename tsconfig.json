@@ -3,12 +3,13 @@
   "references": [
     { "path": "./tsconfig.app.json" },
     { "path": "./tsconfig.node.json" },
+    { "path": "./tsconfig.test.json" },
     { "path": "./tsconfig.worker.json" },
   ],
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/react-app"],
+      "@/*": ["./src/react-app/*"],
     },
   },
 }

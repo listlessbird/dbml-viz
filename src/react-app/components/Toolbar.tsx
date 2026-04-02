@@ -4,7 +4,7 @@ interface ToolbarProps {
 	readonly tableCount: number;
 	readonly relationCount: number;
 	readonly isSharing: boolean;
-	readonly shareId: string | null;
+	readonly routeLabel: string;
 	readonly onShare: () => void;
 }
 
@@ -12,7 +12,7 @@ export function Toolbar({
 	tableCount,
 	relationCount,
 	isSharing,
-	shareId,
+	routeLabel,
 	onShare,
 }: ToolbarProps) {
 	return (
@@ -28,7 +28,7 @@ export function Toolbar({
 					{relationCount} {relationCount === 1 ? "relationship" : "relationships"}
 				</span>
 				<span className="shrink-0 text-xs text-muted-foreground">
-					{shareId ? `/s/${shareId}` : "draft"}
+					{routeLabel}
 				</span>
 			</div>
 
