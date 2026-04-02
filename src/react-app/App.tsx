@@ -6,7 +6,6 @@ import {
 import {
 	Group as PanelGroup,
 	Panel,
-	Separator as PanelResizeHandle,
 } from "react-resizable-panels";
 import {
 	useDeferredValue,
@@ -487,45 +486,30 @@ function App() {
 							onChange={setDbml}
 						/>
 					</Panel>
-					<PanelResizeHandle className="group relative w-2 bg-border/80 transition-colors data-[dragging]:bg-ring">
-						<div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border group-data-[dragging]:bg-ring" />
-					</PanelResizeHandle>
 					<Panel defaultSize={70} minSize={24} className="min-w-0">
-						<div className="flex h-full min-h-0 flex-col bg-background">
-							<div className="flex h-10 items-center justify-between border-b border-border bg-muted/30 px-3 text-xs text-muted-foreground">
-								<span>
-									{isLoadingShare
-										? "Loading shared schema"
-										: isLayouting
-											? "Running auto layout"
-											: "Drag tables to arrange the schema"}
-								</span>
-								<span>{currentShareId ? `forkable snapshot /s/${currentShareId}` : "unsaved draft"}</span>
-							</div>
-							<div className="min-h-0 flex-1">
-								<Canvas
-									nodes={nodes}
-									edges={edges}
-									gridMode={gridMode}
-									isBusy={isLoadingShare || isLayouting}
-									isLayouting={isLayouting}
-									matchedTableNames={matchedTableNames}
-									zoom={viewportZoom}
-									onAutoLayout={handleAutoLayoutClick}
-									onNodesChange={onNodesChange}
-									onEdgesChange={onEdgesChange}
-									onFitView={handleFitViewClick}
-									onInit={(instance) => {
-										reactFlowRef.current = instance;
-										setViewportZoom(instance.getZoom());
-									}}
-									onViewportChange={(viewport) => {
-										setViewportZoom(viewport.zoom);
-									}}
-									onZoomIn={handleZoomInClick}
-									onZoomOut={handleZoomOutClick}
-								/>
-							</div>
+						<div className="h-full min-h-0 bg-background">
+							<Canvas
+								nodes={nodes}
+								edges={edges}
+								gridMode={gridMode}
+								isBusy={isLoadingShare || isLayouting}
+								isLayouting={isLayouting}
+								matchedTableNames={matchedTableNames}
+								zoom={viewportZoom}
+								onAutoLayout={handleAutoLayoutClick}
+								onNodesChange={onNodesChange}
+								onEdgesChange={onEdgesChange}
+								onFitView={handleFitViewClick}
+								onInit={(instance) => {
+									reactFlowRef.current = instance;
+									setViewportZoom(instance.getZoom());
+								}}
+								onViewportChange={(viewport) => {
+									setViewportZoom(viewport.zoom);
+								}}
+								onZoomIn={handleZoomInClick}
+								onZoomOut={handleZoomOutClick}
+							/>
 						</div>
 					</Panel>
 				</PanelGroup>

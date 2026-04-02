@@ -67,7 +67,7 @@ export const TableNode = memo(function TableNode({
 		<div
 			ref={containerRef}
 			className={cn(
-				"w-[320px] overflow-hidden border border-border bg-card text-card-foreground",
+				"w-[320px] overflow-hidden border border-border bg-card text-card-foreground hover:cursor-move",
 			)}
 			style={surfaceStyle}
 		>
