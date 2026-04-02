@@ -31,6 +31,7 @@ const EDGE_TRANSITION = [
 	`opacity 180ms ${EDGE_TRANSITION_EASING}`,
 	`stroke-width 180ms ${EDGE_TRANSITION_EASING}`,
 ].join(", ");
+const EMPTY_RELATION_COLUMNS_BY_TABLE = new Map<string, Set<string>>();
 
 const getNodeIdFromEventTarget = (target: EventTarget | null) =>
 	target instanceof HTMLElement
@@ -126,6 +127,10 @@ export function Canvas({
 	}, [activeFocusedNodeId, activeHoveredNodeId, activeSelectedNodeIds]);
 
 	const activeRelationColumnsByTable = useMemo(() => {
+		if (activeTableIds.size === 0) {
+			return EMPTY_RELATION_COLUMNS_BY_TABLE;
+		}
+
 		const columnsByTable = new Map<string, Set<string>>();
 
 		for (const edge of edges) {
@@ -149,27 +154,39 @@ export function Canvas({
 	}, [activeTableIds, edges]);
 
 	const displayNodes = useMemo(
-		() =>
-			nodes.map((node) => {
-				const activeRelationColumns = Array.from(
-					activeRelationColumnsByTable.get(node.id) ?? [],
-				);
+		() => {
+			if (activeRelationColumnsByTable.size === 0) {
+				return nodes;
+			}
+
+			return nodes.map((node) => {
+				const activeColumns = activeRelationColumnsByTable.get(node.id);
+				if (!activeColumns || activeColumns.size === 0) {
+					return node;
+				}
+
+				const activeRelationColumns = Array.from(activeColumns);
 
 				return {
 					...node,
 					data: {
 						...node.data,
 						activeRelationColumns,
-						isRelationContextActive: activeRelationColumns.length > 0,
+						isRelationContextActive: true,
 					},
 				} satisfies DiagramNode;
-			}),
+			});
+		},
 		[activeRelationColumnsByTable, nodes],
 	);
 
 	const displayEdges = useMemo(
-		() =>
-			edges.map((edge) => {
+		() => {
+			if (activeTableIds.size === 0) {
+				return edges;
+			}
+
+			return edges.map((edge) => {
 				if (edge.data === undefined) {
 					return edge;
 				}
@@ -177,6 +194,10 @@ export function Canvas({
 				const isRelationSourceActive = activeTableIds.has(edge.source);
 				const isRelationTargetActive = activeTableIds.has(edge.target);
 				const isRelationActive = isRelationSourceActive || isRelationTargetActive;
+				if (!isRelationActive) {
+					return edge;
+				}
+
 				const baseStrokeWidth = toNumber(edge.style?.strokeWidth, 1.4);
 				const stroke = isRelationActive
 					? "var(--primary)"
@@ -207,7 +228,8 @@ export function Canvas({
 								}
 							: edge.markerEnd,
 				} satisfies DiagramEdge;
-			}),
+			});
+		},
 		[activeTableIds, edges],
 	);
 

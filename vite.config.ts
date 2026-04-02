@@ -15,6 +15,9 @@ export default defineConfig({
 		},
 	},
 	plugins: isTest ? [react(), tailwindcss()] : [react(), tailwindcss(), cloudflare()],
+	worker: {
+		format: "es",
+	},
 	test: {
 		include: ["test/**/*.test.ts", "test/**/*.test.tsx"],
 		environment: "jsdom",

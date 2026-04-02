@@ -1,196 +1,124 @@
-import type {
-	ColumnData,
-	ParseDiagnostic,
-	ParsedSchema,
-	RefData,
-	RefType,
-	TableData,
-} from "@/types";
+import {
+	DbmlParseError,
+	EMPTY_SCHEMA,
+	type DbmlParserRequest,
+	type DbmlParserResponse,
+} from "@/lib/parser-shared";
+import type { ParsedSchema } from "@/types";
 
-const EMPTY_SCHEMA: ParsedSchema = {
-	tables: [],
-	refs: [],
-	errors: [],
+export { DbmlParseError } from "@/lib/parser-shared";
+
+const PARSER_WORKER_IDLE_TIMEOUT_MS = 20_000;
+
+let parserWorker: Worker | null = null;
+let nextRequestId = 0;
+let idleTimerId: number | null = null;
+
+const pendingParses = new Map<
+	number,
+	{
+		resolve: (value: ParsedSchema) => void;
+		reject: (reason?: unknown) => void;
+	}
+>();
+
+const clearIdleTermination = () => {
+	if (idleTimerId !== null) {
+		window.clearTimeout(idleTimerId);
+		idleTimerId = null;
+	}
 };
 
-const tableIdFromParts = (schemaName: string | null | undefined, tableName: string) =>
-	schemaName && schemaName !== "public" ? `${schemaName}.${tableName}` : tableName;
-
-const formatType = (type: {
-	schemaName?: string | null;
-	type_name?: string | null;
-	lengthParam?: number;
-	numericParams?: { precision: number; scale?: number };
-}): string => {
-	const baseName = [type.schemaName, type.type_name].filter(Boolean).join(".");
-	const lengthSuffix =
-		typeof type.lengthParam === "number" ? `(${type.lengthParam})` : "";
-	const numericSuffix =
-		type.numericParams && typeof type.numericParams.precision === "number"
-			? `(${type.numericParams.precision}${
-					typeof type.numericParams.scale === "number"
-						? `, ${type.numericParams.scale}`
-						: ""
-				})`
-			: "";
-
-	return `${baseName || "unknown"}${lengthSuffix || numericSuffix}`;
+const rejectPendingParses = (error: Error) => {
+	for (const { reject } of pendingParses.values()) {
+		reject(error);
+	}
+	pendingParses.clear();
 };
 
-const relationPairToType = (from: string, to: string): RefType => {
-	if (from === "1" && to === "1") {
-		return "one_to_one";
+const terminateParserWorker = (error?: Error) => {
+	clearIdleTermination();
+
+	if (parserWorker !== null) {
+		parserWorker.terminate();
+		parserWorker = null;
 	}
-	if (from === "1" && to === "*") {
-		return "one_to_many";
+
+	if (error) {
+		rejectPendingParses(error);
 	}
-	if (from === "*" && to === "*") {
-		return "many_to_many";
-	}
-	return "many_to_one";
 };
 
-const normalizeDiagnostics = (error: unknown): ParseDiagnostic[] => {
-	if (
-		typeof error === "object" &&
-		error !== null &&
-		"diags" in error &&
-		Array.isArray(error.diags)
-	) {
-		return error.diags.map((diag) => ({
-			message:
-				typeof diag?.message === "string" ? diag.message : "Error parsing statement(s).",
-			code: typeof diag?.code === "number" ? diag.code : undefined,
-			location:
-				diag?.location &&
-				typeof diag.location === "object" &&
-				diag.location.start &&
-				typeof diag.location.start.line === "number" &&
-				typeof diag.location.start.column === "number"
-					? {
-							start: {
-								line: diag.location.start.line,
-								column: diag.location.start.column,
-							},
-							end:
-								diag.location.end &&
-								typeof diag.location.end.line === "number" &&
-								typeof diag.location.end.column === "number"
-									? {
-											line: diag.location.end.line,
-											column: diag.location.end.column,
-										}
-									: undefined,
-						}
-					: undefined,
-		}));
+const scheduleIdleTermination = () => {
+	clearIdleTermination();
+
+	if (parserWorker === null || pendingParses.size > 0) {
+		return;
 	}
 
-	return [
-		{
-			message: error instanceof Error ? error.message : "Error parsing statement(s).",
-		},
-	];
-};
-
-export class DbmlParseError extends Error {
-	readonly diagnostics: readonly ParseDiagnostic[];
-
-	constructor(diagnostics: readonly ParseDiagnostic[]) {
-		super("Error parsing statement(s).");
-		this.name = "DbmlParseError";
-		this.diagnostics = diagnostics;
-	}
-}
-
-let parserModulePromise: Promise<typeof import("@dbml/core")> | null = null;
-
-const loadParserModule = () => {
-	if (parserModulePromise === null) {
-		parserModulePromise = import("@dbml/core");
-	}
-
-	return parserModulePromise;
-};
-
-export const parseDbml = async (dbml: string): Promise<ParsedSchema> => {
-	if (dbml.trim().length === 0) {
-		return EMPTY_SCHEMA;
-	}
-
-	try {
-		const { Parser } = await loadParserModule();
-		const exported = Parser.parse(dbml, "dbmlv2").export();
-		const outgoingForeignKeys = new Set<string>();
-		const refs: RefData[] = [];
-
-		for (const schema of exported.schemas) {
-			for (const ref of schema.refs) {
-				const [fromEndpoint, toEndpoint] = ref.endpoints;
-				if (!fromEndpoint || !toEndpoint) {
-					continue;
-				}
-
-				const fromTableId = tableIdFromParts(
-					fromEndpoint.schemaName ?? schema.name,
-					fromEndpoint.tableName,
-				);
-				const toTableId = tableIdFromParts(
-					toEndpoint.schemaName ?? schema.name,
-					toEndpoint.tableName,
-				);
-				const fromColumn = fromEndpoint.fieldNames[0];
-				const toColumn = toEndpoint.fieldNames[0];
-
-				if (!fromColumn || !toColumn) {
-					continue;
-				}
-
-				outgoingForeignKeys.add(`${fromTableId}:${fromColumn}`);
-				refs.push({
-					id: `${fromTableId}:${fromColumn}->${toTableId}:${toColumn}:${refs.length}`,
-					from: {
-						table: fromTableId,
-						column: fromColumn,
-					},
-					to: {
-						table: toTableId,
-						column: toColumn,
-					},
-					type: relationPairToType(fromEndpoint.relation, toEndpoint.relation),
-				});
-			}
+	idleTimerId = window.setTimeout(() => {
+		if (pendingParses.size === 0) {
+			terminateParserWorker();
 		}
+	}, PARSER_WORKER_IDLE_TIMEOUT_MS);
+};
 
-		const tables: TableData[] = exported.schemas.flatMap((schema) =>
-			schema.tables.map((table) => {
-				const tableId = tableIdFromParts(schema.name, table.name);
-				const columns: ColumnData[] = table.fields.map((field) => ({
-					name: field.name,
-					type: formatType(field.type),
-					pk: Boolean(field.pk),
-					notNull: Boolean(field.not_null),
-					unique: Boolean(field.unique),
-					isForeignKey: outgoingForeignKeys.has(`${tableId}:${field.name}`),
-					note: field.note ?? undefined,
-				}));
-
-				return {
-					id: tableId,
-					name: table.name,
-					schema: schema.name === "public" ? undefined : schema.name,
-					note: table.note ?? undefined,
-					columns,
-				};
-			}),
-		);
-
-		return {
-			tables,
-			refs,
-			errors: [],
-		};
-	} catch (error) {
-		throw new DbmlParseError(normalizeDiagnostics(error));
+const handleParserWorkerMessage = (event: MessageEvent<DbmlParserResponse>) => {
+	const pending = pendingParses.get(event.data.id);
+	if (!pending) {
+		return;
 	}
+
+	pendingParses.delete(event.data.id);
+
+	if (event.data.ok) {
+		pending.resolve(event.data.parsed);
+	} else {
+		pending.reject(new DbmlParseError(event.data.diagnostics));
+	}
+
+	scheduleIdleTermination();
+};
+
+const ensureParserWorker = () => {
+	clearIdleTermination();
+
+	if (parserWorker !== null) {
+		return parserWorker;
+	}
+
+	const worker = new Worker(new URL("../workers/dbml-parser.worker.ts", import.meta.url), {
+		type: "module",
+	});
+
+	worker.addEventListener("message", handleParserWorkerMessage);
+	worker.addEventListener("error", () => {
+		terminateParserWorker(new Error("DBML parser worker crashed."));
+	});
+	worker.addEventListener("messageerror", () => {
+		terminateParserWorker(new Error("DBML parser worker returned an invalid message."));
+	});
+
+	parserWorker = worker;
+	return worker;
+};
+
+export const parseDbml = (dbml: string): Promise<ParsedSchema> => {
+	if (dbml.trim().length === 0) {
+		return Promise.resolve(EMPTY_SCHEMA);
+	}
+
+	const worker = ensureParserWorker();
+	const requestId = ++nextRequestId;
+
+	return new Promise<ParsedSchema>((resolve, reject) => {
+		pendingParses.set(requestId, { resolve, reject });
+
+		const request: DbmlParserRequest = {
+			id: requestId,
+			dbml,
+		};
+
+		worker.postMessage(request);
+	});
 };

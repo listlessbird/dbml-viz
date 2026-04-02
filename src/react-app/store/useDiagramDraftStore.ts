@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
+import { areSchemaPayloadsEqual } from "@/lib/draftPersistence";
 import type { SchemaPayload } from "@/types";
 
 const LOCAL_DRAFT_STORAGE_PREFIX = "dbml-viz:local-draft:";
@@ -21,17 +22,32 @@ export const useDiagramDraftStore = create<DiagramDraftState>()(
 			drafts: {},
 			getDraft: (shareId) => get().drafts[getDraftKey(shareId)] ?? null,
 			setDraft: (shareId, payload) => {
-				set((state) => ({
-					drafts: {
-						...state.drafts,
-						[getDraftKey(shareId)]: payload,
-					},
-				}));
+				set((state) => {
+					const draftKey = getDraftKey(shareId);
+					const currentDraft = state.drafts[draftKey];
+
+					if (currentDraft && areSchemaPayloadsEqual(currentDraft, payload)) {
+						return state;
+					}
+
+					return {
+						drafts: {
+							...state.drafts,
+							[draftKey]: payload,
+						},
+					};
+				});
 			},
 			clearDraft: (shareId) => {
 				set((state) => {
+					const draftKey = getDraftKey(shareId);
+
+					if (!(draftKey in state.drafts)) {
+						return state;
+					}
+
 					const nextDrafts = { ...state.drafts };
-					delete nextDrafts[getDraftKey(shareId)];
+					delete nextDrafts[draftKey];
 					return {
 						drafts: nextDrafts,
 					};

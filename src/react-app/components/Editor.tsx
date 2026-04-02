@@ -13,7 +13,6 @@ import {
 	highlightActiveLineGutter,
 	lineNumbers,
 } from "@codemirror/view";
-import { sql } from "@codemirror/lang-sql";
 import { IconAlertTriangle } from "@tabler/icons-react";
 import { useEffectEvent } from "react";
 import { useEffect, useRef } from "react";
@@ -44,7 +43,25 @@ const getOffsetForPosition = (state: EditorState, position: EditorPosition) => {
 	return Math.min(line.to, line.from + characterOffset);
 };
 
-const buildDiagnosticDecorations = (
+const getDiagnosticMarkRange = (
+	state: EditorState,
+	diagnostic: ParseDiagnostic,
+) => {
+	const start = diagnostic.location?.start;
+	if (!start) {
+		return null;
+	}
+
+	const from = getOffsetForPosition(state, start);
+	const to = diagnostic.location?.end
+		? getOffsetForPosition(state, diagnostic.location.end)
+		: Math.min(state.doc.length, from + 1);
+	const safeTo = to > from ? to : Math.min(state.doc.length, from + 1);
+
+	return safeTo > from ? { from, to: safeTo } : null;
+};
+
+export const buildDiagnosticDecorations = (
 	state: EditorState,
 	diagnostics: readonly ParseDiagnostic[],
 ) => {
@@ -57,11 +74,8 @@ const buildDiagnosticDecorations = (
 			continue;
 		}
 
-		const from = getOffsetForPosition(state, start);
-		const to = diagnostic.location?.end
-			? getOffsetForPosition(state, diagnostic.location.end)
-			: Math.min(state.doc.length, from + 1);
-		const safeTo = to > from ? to : Math.min(state.doc.length, from + 1);
+		const markRange = getDiagnosticMarkRange(state, diagnostic);
+		const from = markRange?.from ?? getOffsetForPosition(state, start);
 		const line = state.doc.lineAt(from);
 
 		if (!highlightedLines.has(line.number)) {
@@ -69,7 +83,9 @@ const buildDiagnosticDecorations = (
 			highlightedLines.add(line.number);
 		}
 
-		decorations.push(diagnosticMark.range(from, safeTo));
+		if (markRange) {
+			decorations.push(diagnosticMark.range(markRange.from, markRange.to));
+		}
 	}
 
 	decorations.sort(
@@ -152,7 +168,6 @@ export function Editor({ value, diagnostics, isParsing, onChange }: EditorProps)
 					dropCursor(),
 					highlightActiveLine(),
 					EditorView.lineWrapping,
-					sql(),
 					oneDark,
 					editorTheme,
 					diagnosticField,

@@ -75,10 +75,40 @@ export const isSameDiagramRoute = (
 export const getPositionsFromNodes = (nodes: readonly DiagramNode[]): DiagramPositions =>
 	Object.fromEntries(nodes.map((node) => [node.id, node.position]));
 
+const arePositionsEqual = (
+	left: DiagramPositions,
+	right: DiagramPositions,
+) => {
+	const leftKeys = Object.keys(left);
+	const rightKeys = Object.keys(right);
+
+	if (leftKeys.length !== rightKeys.length) {
+		return false;
+	}
+
+	for (const key of leftKeys) {
+		const leftPosition = left[key];
+		const rightPosition = right[key];
+
+		if (
+			!rightPosition ||
+			leftPosition.x !== rightPosition.x ||
+			leftPosition.y !== rightPosition.y
+		) {
+			return false;
+		}
+	}
+
+	return true;
+};
+
 export const areSchemaPayloadsEqual = (
 	left: SchemaPayload,
 	right: SchemaPayload,
-) => JSON.stringify(left) === JSON.stringify(right);
+) =>
+	left.version === right.version &&
+	left.dbml === right.dbml &&
+	arePositionsEqual(left.positions, right.positions);
 
 export const getInitialDraftState = ({
 	route,

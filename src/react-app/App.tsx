@@ -12,6 +12,7 @@ import {
 	startTransition,
 	useCallback,
 	useEffect,
+	useMemo,
 	useRef,
 	useState,
 } from "react";
@@ -165,14 +166,24 @@ function App() {
 	const setDraft = useDiagramDraftStore((state) => state.setDraft);
 	const clearDraft = useDiagramDraftStore((state) => state.clearDraft);
 	const deferredSearchQuery = useDeferredValue(searchQuery);
-	const searchState = createDiagramSearchState(parsed, deferredSearchQuery);
-	const matchedTableNames = parsed.tables
-		.filter((table) => searchState.matchedTableIds.includes(table.id))
-		.map((table) => (table.schema ? `${table.schema}.${table.name}` : table.name));
-	const searchFocusKey = [
-		...searchState.matchedTableIds,
-		...searchState.relatedTableIds,
-	].join("|");
+	const searchState = useMemo(
+		() => createDiagramSearchState(parsed, deferredSearchQuery),
+		[deferredSearchQuery, parsed],
+	);
+	const matchedTableNames = useMemo(() => {
+		if (searchState.matchedTableIds.length === 0) {
+			return [];
+		}
+
+		const matchedTableIds = new Set(searchState.matchedTableIds);
+		return parsed.tables
+			.filter((table) => matchedTableIds.has(table.id))
+			.map((table) => (table.schema ? `${table.schema}.${table.name}` : table.name));
+	}, [parsed.tables, searchState.matchedTableIds]);
+	const searchFocusIds = useMemo(
+		() => [...searchState.matchedTableIds, ...searchState.relatedTableIds],
+		[searchState.matchedTableIds, searchState.relatedTableIds],
+	);
 	const reactFlowRef = useRef<ReactFlowInstance<DiagramNode, DiagramEdge> | null>(
 		null,
 	);
@@ -300,9 +311,7 @@ function App() {
 				setNeedsMeasuredLayout(enableMeasuredFollowUp);
 
 				if (fitView) {
-					requestFitView(
-						searchFocusKey.length > 0 ? searchFocusKey.split("|") : undefined,
-					);
+					requestFitView(searchFocusIds.length > 0 ? searchFocusIds : undefined);
 				}
 			} catch (error) {
 				toast.error(
@@ -319,7 +328,7 @@ function App() {
 			nodeMeasurements,
 			parsed,
 			requestFitView,
-			searchFocusKey,
+			searchFocusIds,
 			setEdges,
 			setNodes,
 		],
@@ -567,12 +576,12 @@ function App() {
 	]);
 
 	useEffect(() => {
-		if (searchFocusKey.length === 0) {
+		if (searchFocusIds.length === 0) {
 			return;
 		}
 
-		requestFitView(searchFocusKey.split("|"));
-	}, [requestFitView, searchFocusKey]);
+		requestFitView(searchFocusIds);
+	}, [requestFitView, searchFocusIds]);
 
 	useEffect(() => {
 		if (!needsMeasuredLayout || isLayouting || parsed.tables.length === 0) {
@@ -599,7 +608,7 @@ function App() {
 	};
 
 	const handleFitViewClick = () => {
-		requestFitView(searchFocusKey.length > 0 ? searchFocusKey.split("|") : undefined);
+		requestFitView(searchFocusIds.length > 0 ? searchFocusIds : undefined);
 	};
 
 	const handleZoomInClick = () => {
