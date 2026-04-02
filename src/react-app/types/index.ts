@@ -81,6 +81,8 @@ export interface TableNodeData extends Record<string, unknown> {
 	readonly table: TableData;
 	readonly accent: string;
 	readonly connectedColumns: readonly string[];
+	readonly activeRelationColumns?: readonly string[];
+	readonly isRelationContextActive?: boolean;
 	readonly isSearchMatch: boolean;
 	readonly isSearchRelated: boolean;
 	readonly isSearchDimmed: boolean;
@@ -99,6 +101,9 @@ export interface RelationshipEdgeData extends Record<string, unknown> {
 	readonly relationText: string;
 	readonly isSearchMatch: boolean;
 	readonly isSearchDimmed: boolean;
+	readonly isRelationActive?: boolean;
+	readonly isRelationSourceActive?: boolean;
+	readonly isRelationTargetActive?: boolean;
 }
 
 export type DiagramNode = Node<TableNodeData, "table">;

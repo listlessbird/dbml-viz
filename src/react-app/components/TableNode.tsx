@@ -14,6 +14,7 @@ export const TableNode = memo(function TableNode({
 }: NodeProps<DiagramNode>) {
 	const containerRef = useRef<HTMLDivElement | null>(null);
 	const connectedColumns = new Set(data.connectedColumns);
+	const activeRelationColumns = new Set(data.activeRelationColumns ?? []);
 	const headerStyle = {
 		backgroundColor: `color-mix(in oklab, ${data.accent} 76%, var(--foreground))`,
 		color: "var(--background)",
@@ -26,6 +27,8 @@ export const TableNode = memo(function TableNode({
 	const surfaceStyle = {
 		boxShadow: selected || data.isSearchMatch
 			? `0 0 0 1px ${data.accent}, 0 0 0 3px color-mix(in oklab, ${data.accent} 18%, transparent), 0 20px 44px color-mix(in oklab, var(--foreground) 18%, transparent)`
+			: data.isRelationContextActive
+				? "0 0 0 1px color-mix(in oklab, var(--primary) 18%, var(--border)), 0 18px 38px color-mix(in oklab, var(--primary) 12%, transparent)"
 			: data.isSearchRelated
 				? "0 0 0 1px color-mix(in oklab, var(--primary) 28%, var(--border)), 0 16px 36px color-mix(in oklab, var(--foreground) 14%, transparent)"
 				: "0 0 0 1px color-mix(in oklab, var(--foreground) 8%, transparent), 0 14px 34px color-mix(in oklab, var(--foreground) 12%, transparent)",
@@ -98,11 +101,32 @@ export const TableNode = memo(function TableNode({
 			<div className="divide-y divide-border">
 				{data.table.columns.map((column) => {
 					const isConnected = connectedColumns.has(column.name);
+					const isRelationActiveColumn = activeRelationColumns.has(column.name);
+					const rowStyle = isRelationActiveColumn
+						? {
+								backgroundColor:
+									"color-mix(in oklab, var(--primary) 12%, var(--background))",
+								boxShadow:
+									"inset 3px 0 0 color-mix(in oklab, var(--primary) 56%, transparent)",
+							}
+						: undefined;
+					const typeBadgeStyle = isRelationActiveColumn
+						? {
+								borderColor:
+									"color-mix(in oklab, var(--primary) 32%, var(--border))",
+								backgroundColor:
+									"color-mix(in oklab, var(--primary) 10%, var(--background))",
+							}
+						: undefined;
 
 					return (
 						<div
 							key={column.name}
-							className="group/row relative flex min-h-9 items-center gap-3 px-4 py-2.5 hover:bg-muted/40"
+							className={cn(
+								"group/row relative flex min-h-9 items-center gap-3 px-4 py-2.5 transition-[background-color,box-shadow,color] duration-200 ease-out",
+								isRelationActiveColumn ? "hover:bg-transparent" : "hover:bg-muted/40",
+							)}
+							style={rowStyle}
 						>
 							<Handle
 								id={getTargetHandleId(data.table.id, column.name)}
@@ -111,7 +135,9 @@ export const TableNode = memo(function TableNode({
 								isConnectable={false}
 								className={cn(
 									"!size-2.5 !border-0 !bg-primary !shadow-none transition-opacity",
-									isConnected ? "!opacity-100" : "!opacity-0 group-hover/row:!opacity-60",
+									isConnected || isRelationActiveColumn
+										? "!opacity-100"
+										: "!opacity-0 group-hover/row:!opacity-60",
 								)}
 								style={{ left: -6, top: "50%", transform: "translateY(-50%)" }}
 							/>
@@ -122,39 +148,84 @@ export const TableNode = memo(function TableNode({
 								isConnectable={false}
 								className={cn(
 									"!size-2.5 !border-0 !bg-primary !shadow-none transition-opacity",
-									isConnected ? "!opacity-100" : "!opacity-0 group-hover/row:!opacity-60",
+									isConnected || isRelationActiveColumn
+										? "!opacity-100"
+										: "!opacity-0 group-hover/row:!opacity-60",
 								)}
 								style={{ right: -6, top: "50%", transform: "translateY(-50%)" }}
 							/>
 
-							<div className="mt-0.5 flex w-5 shrink-0 justify-center text-primary">
+							<div className="mt-0.5 flex w-5 shrink-0 justify-center text-primary transition-colors duration-200 ease-out">
 								{column.pk ? (
 									<IconKey className="size-3.5" />
 								) : column.isForeignKey ? (
 									<IconLink className="size-3.5" />
 								) : (
-									<span className="size-1.5 bg-border" />
+									<span
+										className={cn(
+											"size-1.5 transition-colors duration-200 ease-out",
+											isRelationActiveColumn ? "bg-primary" : "bg-border",
+										)}
+									/>
 								)}
 							</div>
 
 							<div className="min-w-0 flex-1">
-								<p className="truncate text-sm font-medium text-card-foreground">
+								<p
+									className={cn(
+										"truncate text-sm font-medium transition-colors duration-200 ease-out",
+										isRelationActiveColumn
+											? "text-foreground"
+											: "text-card-foreground",
+									)}
+								>
 									{column.name}
 								</p>
 								{column.note ? (
-									<p className="truncate text-[0.72rem] text-muted-foreground">{column.note}</p>
+									<p
+										className={cn(
+											"truncate text-[0.72rem] transition-colors duration-200 ease-out",
+											isRelationActiveColumn
+												? "text-foreground/70"
+												: "text-muted-foreground",
+										)}
+									>
+										{column.note}
+									</p>
 								) : null}
 							</div>
 
-								<div className="flex flex-col items-end gap-1 text-[0.7rem] text-muted-foreground">
-									<span className="border border-border px-2 py-0.5 font-medium text-card-foreground">
-										{column.type}
-									</span>
-									<span className="text-[0.62rem] uppercase tracking-[0.18em] text-muted-foreground">
-										{column.notNull ? "NOT NULL" : "NULLABLE"}
-										{column.unique ? " · UNIQUE" : ""}
-									</span>
-								</div>
+							<div
+								className={cn(
+									"flex flex-col items-end gap-1 text-[0.7rem] transition-colors duration-200 ease-out",
+									isRelationActiveColumn
+										? "text-foreground/70"
+										: "text-muted-foreground",
+								)}
+							>
+								<span
+									className={cn(
+										"border border-border px-2 py-0.5 font-medium transition-colors duration-200 ease-out",
+										isRelationActiveColumn
+											? "text-foreground"
+											: "text-card-foreground",
+									)}
+									style={typeBadgeStyle}
+								>
+									{column.type}
+								</span>
+								<span
+									className={cn(
+										"text-[0.62rem] uppercase tracking-[0.18em] transition-colors duration-200 ease-out",
+										isRelationActiveColumn
+											? "text-foreground/70"
+											: "text-muted-foreground",
+									)}
+								>
+									{column.notNull ? "NOT NULL" : "NULLABLE"}
+									{column.unique ? " · UNIQUE" : ""}
+								</span>
+							</div>
 						</div>
 					);
 				})}

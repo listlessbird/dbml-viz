@@ -188,6 +188,16 @@
     ry: 0;
   }
 
+  .relation-edge-highlight {
+    pointer-events: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .relation-edge-particle {
+    pointer-events: none;
+  }
+
   .cm-editor {
     height: 100%;
   }
@@ -238,5 +248,15 @@
     text-decoration-color: var(--destructive);
     text-decoration-thickness: 1.5px;
     text-underline-offset: 0.16em;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .relation-edge-highlight {
+    transition-duration: 0ms !important;
+  }
+
+  .relation-edge-particle {
+    display: none;
   }
 }
