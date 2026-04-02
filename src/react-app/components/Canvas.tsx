@@ -297,12 +297,12 @@ export function Canvas({
 								? BackgroundVariant.Lines
 								: BackgroundVariant.Dots
 						}
-						gap={gridMode === "lines" ? 32 : 24}
-						size={gridMode === "lines" ? 1 : 1.6}
+						gap={gridMode === "lines" ? 48 : 36}
+						size={gridMode === "lines" ? 1 : 2}
 						color={
 							gridMode === "lines"
-								? "color-mix(in oklab, var(--foreground) 8%, var(--background))"
-								: "color-mix(in oklab, var(--foreground) 18%, var(--background))"
+								? "color-mix(in oklab, var(--foreground) 6%, var(--background))"
+								: "color-mix(in oklab, var(--foreground) 14%, var(--background))"
 						}
 					/>
 				)}

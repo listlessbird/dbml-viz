@@ -4,8 +4,9 @@ import {
 	getSmoothStepPath,
 	type EdgeProps,
 } from "@xyflow/react";
-import { memo } from "react";
+import { memo, useMemo } from "react";
 
+import { sampleEdgeLabelPosition } from "@/lib/edge-label";
 import type { DiagramEdge } from "@/types";
 
 const RELATION_ACTIVITY_EASING = "cubic-bezier(0.215, 0.61, 0.355, 1)";
@@ -29,7 +30,7 @@ export const RelationshipEdge = memo(function RelationshipEdge({
 	label,
 	data,
 }: EdgeProps<DiagramEdge>) {
-	const [edgePath, labelX, labelY] = getSmoothStepPath({
+	const [edgePath] = getSmoothStepPath({
 		sourceX,
 		sourceY,
 		targetX,
@@ -37,6 +38,12 @@ export const RelationshipEdge = memo(function RelationshipEdge({
 		sourcePosition,
 		targetPosition,
 	});
+
+	// Sample a point on the actual SVG path near the target end (where the
+	// arrow is) so the label always sits on the drawn edge, close to a table.
+	const labelPoint = useMemo(() => sampleEdgeLabelPosition(edgePath, 40), [edgePath]);
+	const labelX = labelPoint.x;
+	const labelY = labelPoint.y;
 
 	const relationBadge = typeof label === "string" ? label : data?.relationText;
 	const relationSummary =

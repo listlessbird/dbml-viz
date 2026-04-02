@@ -65,8 +65,8 @@ export const estimateTableSize = (
 	}
 
 	return {
-		width: 320,
-		height: 82 + table.columns.length * 34,
+		width: 260,
+		height: 60 + table.columns.length * 28,
 	};
 };
 
