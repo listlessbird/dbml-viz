@@ -48,7 +48,7 @@ const buildDiagnosticDecorations = (
 	state: EditorState,
 	diagnostics: readonly ParseDiagnostic[],
 ) => {
-	const decorations: ReturnType<typeof diagnosticMark.range>[] = [];
+	const decorations: Array<ReturnType<typeof diagnosticMark.range>> = [];
 	const highlightedLines = new Set<number>();
 
 	for (const diagnostic of diagnostics) {
@@ -72,7 +72,14 @@ const buildDiagnosticDecorations = (
 		decorations.push(diagnosticMark.range(from, safeTo));
 	}
 
-	return Decoration.set(decorations, true);
+	decorations.sort(
+		(left, right) =>
+			left.from - right.from ||
+			left.value.startSide - right.value.startSide ||
+			left.to - right.to,
+	);
+
+	return Decoration.set(decorations);
 };
 
 const diagnosticField = StateField.define({
@@ -104,9 +111,10 @@ const editorTheme = EditorView.theme({
 		fontSize: "13px",
 		lineHeight: "1.7",
 		padding: "0 0 24px",
+		scrollbarGutter: "stable",
 	},
 	".cm-content": {
-		padding: "14px 16px 28px",
+		padding: "14px 18px 28px 16px",
 	},
 	".cm-gutters": {
 		border: "none",
@@ -142,15 +150,15 @@ export function Editor({ value, diagnostics, isParsing, onChange }: EditorProps)
 					highlightActiveLineGutter(),
 					drawSelection(),
 					dropCursor(),
-						highlightActiveLine(),
-						EditorView.lineWrapping,
-						sql(),
-						oneDark,
-						editorTheme,
-						diagnosticField,
-						EditorView.updateListener.of((update) => {
-							if (update.docChanged) {
-								handleChange(update.state.doc.toString());
+					highlightActiveLine(),
+					EditorView.lineWrapping,
+					sql(),
+					oneDark,
+					editorTheme,
+					diagnosticField,
+					EditorView.updateListener.of((update) => {
+						if (update.docChanged) {
+							handleChange(update.state.doc.toString());
 						}
 					}),
 				],

@@ -192,6 +192,37 @@
     height: 100%;
   }
 
+  .cm-scroller {
+    scrollbar-color: color-mix(in oklab, var(--sidebar-foreground) 24%, transparent) transparent;
+    scrollbar-width: thin;
+  }
+
+  .cm-scroller::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+  }
+
+  .cm-scroller::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .cm-scroller::-webkit-scrollbar-thumb {
+    min-height: 36px;
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background: color-mix(in oklab, var(--sidebar-foreground) 24%, transparent);
+    background-clip: padding-box;
+  }
+
+  .cm-scroller::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in oklab, var(--sidebar-foreground) 34%, transparent);
+    background-clip: padding-box;
+  }
+
+  .cm-scroller::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
   .cm-focused {
     outline: none;
   }
