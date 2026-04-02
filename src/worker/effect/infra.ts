@@ -3,7 +3,7 @@ import { Layer } from "effect";
 
 import type { WorkerRuntimeInput } from "./runtime";
 import { makeWorkerRuntimeContextLayer } from "./runtime";
-import { RequestSummaryLive } from "../services/request-summary";
+import { SchemaShareStore } from "../services/schema-share-store";
 
 export const makeWorkerInfraLayer = (input: WorkerRuntimeInput) => {
 	// Keep the runtime context in a constant so downstream layers reuse the same reference.
@@ -12,6 +12,6 @@ export const makeWorkerInfraLayer = (input: WorkerRuntimeInput) => {
 	return Layer.mergeAll(
 		HttpServer.layerContext,
 		runtimeContextLayer,
-		RequestSummaryLive.pipe(Layer.provide(runtimeContextLayer)),
+		SchemaShareStore.layer(input.env),
 	);
 };
