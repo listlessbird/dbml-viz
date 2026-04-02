@@ -44,6 +44,11 @@ export const RelationshipEdge = memo(function RelationshipEdge({
 		relationSummary && relationDetail && relationText
 			? `${relationSummary}\n${relationDetail}\n${relationText}`
 			: undefined;
+	const badgeClassName = data?.isSearchDimmed
+		? "border border-border bg-background/85 px-2 py-1 text-[10px] font-semibold tracking-[0.16em] text-muted-foreground shadow-[0_8px_18px_color-mix(in_oklab,var(--foreground)_8%,transparent)] opacity-55"
+		: data?.isSearchMatch
+			? "border border-primary/40 bg-background px-2 py-1 text-[10px] font-semibold tracking-[0.16em] text-foreground shadow-[0_10px_22px_color-mix(in_oklab,var(--primary)_18%,transparent)]"
+			: "border border-border bg-background px-2 py-1 text-[10px] font-semibold tracking-[0.16em] text-foreground shadow-[0_8px_18px_color-mix(in_oklab,var(--foreground)_12%,transparent)]";
 
 	return (
 		<>
@@ -63,7 +68,7 @@ export const RelationshipEdge = memo(function RelationshipEdge({
 				>
 					{relationBadge ? (
 						<div
-							className="pointer-events-auto cursor-help border border-border bg-background px-2 py-1 text-[10px] font-semibold tracking-[0.16em] text-foreground shadow-[0_8px_18px_color-mix(in_oklab,var(--foreground)_12%,transparent)]"
+							className={`pointer-events-auto cursor-help ${badgeClassName}`}
 							title={nativeTooltip}
 						>
 							{relationBadge}

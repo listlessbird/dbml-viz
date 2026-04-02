@@ -1,19 +1,21 @@
+import { IconFocus2, IconMinus, IconPlus } from "@tabler/icons-react";
 import {
 	Background,
 	BackgroundVariant,
-	Controls,
 	MiniMap,
-	type EdgeTypes,
-	type NodeTypes,
-	ReactFlow,
 	type EdgeChange,
+	type EdgeTypes,
 	type NodeChange,
+	type NodeTypes,
 	type ReactFlowInstance,
+	type Viewport,
+	ReactFlow,
 } from "@xyflow/react";
 
+import { CanvasDock } from "@/components/CanvasDock";
 import { RelationshipEdge } from "@/components/RelationshipEdge";
 import { TableNode } from "@/components/TableNode";
-import type { DiagramEdge, DiagramNode } from "@/types";
+import type { DiagramEdge, DiagramGridMode, DiagramNode } from "@/types";
 
 const nodeTypes: NodeTypes = {
 	table: TableNode,
@@ -26,19 +28,37 @@ const edgeTypes: EdgeTypes = {
 interface CanvasProps {
 	readonly nodes: DiagramNode[];
 	readonly edges: DiagramEdge[];
+	readonly gridMode: DiagramGridMode;
 	readonly isBusy: boolean;
+	readonly isLayouting: boolean;
+	readonly matchedTableNames: readonly string[];
+	readonly zoom: number;
+	readonly onAutoLayout: () => void;
 	readonly onNodesChange: (changes: NodeChange<DiagramNode>[]) => void;
 	readonly onEdgesChange: (changes: EdgeChange<DiagramEdge>[]) => void;
+	readonly onFitView: () => void;
 	readonly onInit: (instance: ReactFlowInstance<DiagramNode, DiagramEdge>) => void;
+	readonly onViewportChange: (viewport: Viewport) => void;
+	readonly onZoomIn: () => void;
+	readonly onZoomOut: () => void;
 }
 
 export function Canvas({
 	nodes,
 	edges,
+	gridMode,
 	isBusy,
+	isLayouting,
+	matchedTableNames,
+	zoom,
+	onAutoLayout,
 	onNodesChange,
 	onEdgesChange,
+	onFitView,
 	onInit,
+	onViewportChange,
+	onZoomIn,
+	onZoomOut,
 }: CanvasProps) {
 	return (
 		<div className="relative h-full min-h-0 overflow-hidden bg-background">
@@ -50,6 +70,7 @@ export function Canvas({
 				onNodesChange={onNodesChange}
 				onEdgesChange={onEdgesChange}
 				onInit={onInit}
+				onViewportChange={onViewportChange}
 				nodesConnectable={false}
 				minZoom={0.25}
 				maxZoom={1.8}
@@ -60,26 +81,71 @@ export function Canvas({
 					animated: false,
 				}}
 			>
-				<Background
-					variant={BackgroundVariant.Dots}
-					gap={24}
-					size={1}
-					color="var(--border)"
-				/>
-				<Controls
-					position="bottom-right"
-					showInteractive={false}
-					className="!rounded-none !border !border-border !bg-background"
-				/>
-				<MiniMap
-					position="bottom-left"
-					pannable
-					zoomable
-					className="!rounded-none !border !border-border !bg-background"
-					maskColor="var(--muted)"
-					nodeColor={() => "var(--primary)"}
-				/>
+				{gridMode === "none" ? null : (
+					<Background
+						variant={
+							gridMode === "lines"
+								? BackgroundVariant.Lines
+								: BackgroundVariant.Dots
+						}
+						gap={gridMode === "lines" ? 32 : 24}
+						size={gridMode === "lines" ? 1 : 1.6}
+						color={
+							gridMode === "lines"
+								? "color-mix(in oklab, var(--foreground) 8%, var(--background))"
+								: "color-mix(in oklab, var(--foreground) 18%, var(--background))"
+						}
+					/>
+				)}
+				{nodes.length > 0 ? (
+					<MiniMap
+						position="bottom-right"
+						pannable
+						zoomable
+						className="!rounded-none !border !border-border !bg-background"
+						maskColor="color-mix(in oklab, var(--muted) 84%, transparent)"
+						nodeColor={() => "var(--primary)"}
+					/>
+				) : null}
 			</ReactFlow>
+
+			<div className="pointer-events-none absolute bottom-4 left-4 z-10">
+				<div className="pointer-events-auto inline-flex items-stretch overflow-hidden border border-border bg-background/96 text-foreground shadow-[0_18px_38px_color-mix(in_oklab,var(--foreground)_12%,transparent)] backdrop-blur-sm">
+					<button
+						type="button"
+						title="Zoom out"
+						className="inline-flex h-10 w-10 items-center justify-center border-r border-border transition-colors hover:bg-muted"
+						onClick={onZoomOut}
+					>
+						<IconMinus className="size-4" />
+					</button>
+					<div className="inline-flex min-w-16 items-center justify-center px-3 text-sm text-muted-foreground">
+						{Math.round(zoom * 100)}%
+					</div>
+					<button
+						type="button"
+						title="Zoom in"
+						className="inline-flex h-10 w-10 items-center justify-center border-l border-border transition-colors hover:bg-muted"
+						onClick={onZoomIn}
+					>
+						<IconPlus className="size-4" />
+					</button>
+					<button
+						type="button"
+						title="Fit view"
+						className="inline-flex h-10 w-10 items-center justify-center border-l border-border transition-colors hover:bg-muted"
+						onClick={onFitView}
+					>
+						<IconFocus2 className="size-4" />
+					</button>
+				</div>
+			</div>
+
+			<CanvasDock
+				isLayouting={isLayouting}
+				matchedTableNames={matchedTableNames}
+				onAutoLayout={onAutoLayout}
+			/>
 
 			{nodes.length === 0 ? (
 				<div className="pointer-events-none absolute inset-0 flex items-center justify-center p-6">

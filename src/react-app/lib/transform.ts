@@ -90,6 +90,11 @@ interface BuildDiagramOptions {
 	readonly positions?: DiagramPositions;
 	readonly measurements?: Record<string, DiagramNodeSize>;
 	readonly onMeasure?: (nodeId: string, size: DiagramNodeSize) => void;
+	readonly search?: {
+		readonly matchedTableIds: ReadonlySet<string>;
+		readonly relatedTableIds: ReadonlySet<string>;
+		readonly highlightedEdgeIds: ReadonlySet<string>;
+	};
 }
 
 export const buildDiagram = (
@@ -102,6 +107,10 @@ export const buildDiagram = (
 } => {
 	const positions = options.positions ?? {};
 	const measurements = options.measurements ?? {};
+	const matchedTableIds = options.search?.matchedTableIds ?? new Set<string>();
+	const relatedTableIds = options.search?.relatedTableIds ?? new Set<string>();
+	const highlightedEdgeIds = options.search?.highlightedEdgeIds ?? new Set<string>();
+	const hasSearchHighlights = matchedTableIds.size > 0;
 	const connectedColumnsByTable = new Map<string, Set<string>>();
 
 	for (const ref of parsed.refs) {
@@ -137,6 +146,12 @@ export const buildDiagram = (
 				table,
 				accent: accentFromTable(table.id),
 				connectedColumns: Array.from(connectedColumnsByTable.get(table.id) ?? []),
+				isSearchMatch: matchedTableIds.has(table.id),
+				isSearchRelated: relatedTableIds.has(table.id),
+				isSearchDimmed:
+					hasSearchHighlights &&
+					!matchedTableIds.has(table.id) &&
+					!relatedTableIds.has(table.id),
 				onMeasure: options.onMeasure,
 			},
 			sourcePosition: Position.Right,
@@ -146,30 +161,41 @@ export const buildDiagram = (
 		} satisfies DiagramNode;
 	});
 
-	const edges = parsed.refs.map((ref) => ({
-		id: ref.id,
-		source: ref.from.table,
-		target: ref.to.table,
-		sourceHandle: getSourceHandleId(ref.from.table, ref.from.column),
-		targetHandle: getTargetHandleId(ref.to.table, ref.to.column),
-		type: "relationship",
-		data: {
-			from: ref.from,
-			to: ref.to,
-			relationText: relationText(ref.type),
-		},
-		label: relationLabel(ref.type),
-		markerEnd: {
-			type: MarkerType.ArrowClosed,
-			width: 18,
-			height: 18,
-			color: "var(--primary)",
-		},
-		style: {
-			stroke: "var(--primary)",
-			strokeWidth: 1.4,
-		},
-	} satisfies DiagramEdge));
+	const edges = parsed.refs.map((ref) => {
+		const isSearchMatch = highlightedEdgeIds.has(ref.id);
+		const isSearchDimmed = hasSearchHighlights && !isSearchMatch;
+		const stroke = isSearchDimmed
+			? "color-mix(in oklab, var(--muted-foreground) 28%, transparent)"
+			: "var(--primary)";
+
+		return {
+			id: ref.id,
+			source: ref.from.table,
+			target: ref.to.table,
+			sourceHandle: getSourceHandleId(ref.from.table, ref.from.column),
+			targetHandle: getTargetHandleId(ref.to.table, ref.to.column),
+			type: "relationship",
+			data: {
+				from: ref.from,
+				to: ref.to,
+				relationText: relationText(ref.type),
+				isSearchMatch,
+				isSearchDimmed,
+			},
+			label: relationLabel(ref.type),
+			markerEnd: {
+				type: MarkerType.ArrowClosed,
+				width: 18,
+				height: 18,
+				color: stroke,
+			},
+			style: {
+				stroke,
+				strokeWidth: isSearchMatch ? 1.9 : 1.4,
+				opacity: isSearchDimmed ? 0.4 : 1,
+			},
+		} satisfies DiagramEdge;
+	});
 
 	return {
 		nodes,

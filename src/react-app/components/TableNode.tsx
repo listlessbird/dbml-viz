@@ -14,10 +14,22 @@ export const TableNode = memo(function TableNode({
 }: NodeProps<DiagramNode>) {
 	const containerRef = useRef<HTMLDivElement | null>(null);
 	const connectedColumns = new Set(data.connectedColumns);
+	const headerStyle = {
+		backgroundColor: `color-mix(in oklab, ${data.accent} 76%, var(--foreground))`,
+		color: "var(--background)",
+	} satisfies CSSProperties;
+	const badgeStyle = {
+		borderColor: "color-mix(in oklab, var(--background) 18%, transparent)",
+		backgroundColor: "color-mix(in oklab, var(--background) 12%, transparent)",
+		color: "var(--background)",
+	} satisfies CSSProperties;
 	const surfaceStyle = {
-		boxShadow: selected
-			? "0 0 0 1px var(--ring), 0 0 0 3px color-mix(in oklab, var(--ring) 14%, transparent), 0 18px 44px color-mix(in oklab, var(--foreground) 18%, transparent)"
-			: "0 0 0 1px color-mix(in oklab, var(--foreground) 8%, transparent), 0 14px 36px color-mix(in oklab, var(--foreground) 12%, transparent)",
+		boxShadow: selected || data.isSearchMatch
+			? `0 0 0 1px ${data.accent}, 0 0 0 3px color-mix(in oklab, ${data.accent} 18%, transparent), 0 20px 44px color-mix(in oklab, var(--foreground) 18%, transparent)`
+			: data.isSearchRelated
+				? "0 0 0 1px color-mix(in oklab, var(--primary) 28%, var(--border)), 0 16px 36px color-mix(in oklab, var(--foreground) 14%, transparent)"
+				: "0 0 0 1px color-mix(in oklab, var(--foreground) 8%, transparent), 0 14px 34px color-mix(in oklab, var(--foreground) 12%, transparent)",
+		opacity: data.isSearchDimmed ? 0.32 : 1,
 	} satisfies CSSProperties;
 
 	const reportMeasurement = useEffectEvent(() => {
@@ -61,24 +73,25 @@ export const TableNode = memo(function TableNode({
 		>
 			<div
 				className="border-b border-border px-4 py-3"
-				style={
-					{
-						backgroundColor: "color-mix(in oklab, var(--card) 78%, var(--muted))",
-					} satisfies CSSProperties
-				}
+				style={headerStyle}
 			>
 				<div className="flex items-end justify-between gap-3">
 					<div>
-						<h3 className="text-[1rem] font-semibold tracking-tight text-foreground">
+						<h3 className="text-[1rem] font-semibold tracking-tight text-inherit">
 							{data.table.name}
 						</h3>
 					</div>
-					<span className="border border-border bg-background/70 px-2 py-1 text-[0.68rem] uppercase tracking-[0.18em] text-muted-foreground">
+					<span
+						className="border px-2 py-1 text-[0.68rem] uppercase tracking-[0.18em]"
+						style={badgeStyle}
+					>
 						{data.table.columns.length} cols
 					</span>
 				</div>
 				{data.table.note ? (
-					<p className="mt-2 max-w-[28ch] text-xs text-foreground/72">{data.table.note}</p>
+					<p className="mt-2 max-w-[28ch] text-xs" style={{ opacity: 0.82 }}>
+						{data.table.note}
+					</p>
 				) : null}
 			</div>
 

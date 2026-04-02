@@ -9,6 +9,7 @@ import {
 	Separator as PanelResizeHandle,
 } from "react-resizable-panels";
 import {
+	useDeferredValue,
 	startTransition,
 	useCallback,
 	useEffect,
@@ -25,11 +26,13 @@ import { autoLayoutDiagram } from "@/lib/layout";
 import { SAMPLE_DBML } from "@/lib/sample-dbml";
 import { loadSharedSchema, saveSharedSchema } from "@/lib/sharing";
 import { buildDiagram } from "@/lib/transform";
+import { useDiagramUiStore } from "@/store/useDiagramUiStore";
 import type {
 	DiagramEdge,
 	DiagramNode,
 	DiagramNodeSize,
 	DiagramPositions,
+	ParsedSchema,
 	SchemaPayload,
 } from "@/types";
 
@@ -53,6 +56,71 @@ const pickKnownPositions = (
 		}),
 	);
 
+const createDiagramSearchState = (
+	parsed: ParsedSchema,
+	rawQuery: string,
+): {
+	matchedTableIds: string[];
+	relatedTableIds: string[];
+	highlightedEdgeIds: string[];
+} => {
+	const query = rawQuery.trim().toLowerCase();
+	if (query.length === 0) {
+		return {
+			matchedTableIds: [],
+			relatedTableIds: [],
+			highlightedEdgeIds: [],
+		};
+	}
+
+	const matchedTableIds = new Set<string>();
+
+	for (const table of parsed.tables) {
+		const identifiers = [
+			table.name,
+			table.id,
+			table.schema ? `${table.schema}.${table.name}` : null,
+		];
+
+		if (
+			identifiers.some(
+				(identifier) => identifier !== null && identifier.toLowerCase().includes(query),
+			)
+		) {
+			matchedTableIds.add(table.id);
+		}
+	}
+
+	if (matchedTableIds.size === 0) {
+		return {
+			matchedTableIds: [],
+			relatedTableIds: [],
+			highlightedEdgeIds: [],
+		};
+	}
+
+	const relatedTableIds = new Set<string>();
+	const highlightedEdgeIds = new Set<string>();
+
+	for (const ref of parsed.refs) {
+		if (matchedTableIds.has(ref.from.table) || matchedTableIds.has(ref.to.table)) {
+			relatedTableIds.add(ref.from.table);
+			relatedTableIds.add(ref.to.table);
+			highlightedEdgeIds.add(ref.id);
+		}
+	}
+
+	for (const tableId of matchedTableIds) {
+		relatedTableIds.delete(tableId);
+	}
+
+	return {
+		matchedTableIds: Array.from(matchedTableIds).sort(),
+		relatedTableIds: Array.from(relatedTableIds).sort(),
+		highlightedEdgeIds: Array.from(highlightedEdgeIds).sort(),
+	};
+};
+
 function App() {
 	const initialShareId = getShareIdFromPath(window.location.pathname);
 	const [dbml, setDbml] = useState(initialShareId ? "" : SAMPLE_DBML);
@@ -63,6 +131,7 @@ function App() {
 	const [isLoadingShare, setIsLoadingShare] = useState(Boolean(initialShareId));
 	const [isSharing, setIsSharing] = useState(false);
 	const [isLayouting, setIsLayouting] = useState(false);
+	const [viewportZoom, setViewportZoom] = useState(1);
 	const [nodeMeasurements, setNodeMeasurements] = useState<
 		Record<string, DiagramNodeSize>
 	>({});
@@ -70,11 +139,22 @@ function App() {
 	const [nodes, setNodes, onNodesChange] = useNodesState<DiagramNode>([]);
 	const [edges, setEdges, onEdgesChange] = useEdgesState<DiagramEdge>([]);
 	const { parsed, diagnostics, isParsing } = useDbmlParser(dbml);
+	const gridMode = useDiagramUiStore((state) => state.gridMode);
+	const layoutAlgorithm = useDiagramUiStore((state) => state.layoutAlgorithm);
+	const searchQuery = useDiagramUiStore((state) => state.searchQuery);
+	const deferredSearchQuery = useDeferredValue(searchQuery);
+	const searchState = createDiagramSearchState(parsed, deferredSearchQuery);
+	const matchedTableNames = parsed.tables
+		.filter((table) => searchState.matchedTableIds.includes(table.id))
+		.map((table) => (table.schema ? `${table.schema}.${table.name}` : table.name));
+	const searchFocusKey = [
+		...searchState.matchedTableIds,
+		...searchState.relatedTableIds,
+	].join("|");
 	const reactFlowRef = useRef<ReactFlowInstance<DiagramNode, DiagramEdge> | null>(
 		null,
 	);
 	const nodesRef = useRef<DiagramNode[]>([]);
-	const fitViewRequestedRef = useRef(false);
 
 	useEffect(() => {
 		nodesRef.current = nodes;
@@ -92,19 +172,21 @@ function App() {
 		};
 	}, []);
 
-	const requestFitView = useCallback(() => {
-		fitViewRequestedRef.current = true;
+	const requestFitView = useCallback((nodeIds?: readonly string[]) => {
+		const focusedIds =
+			nodeIds && nodeIds.length > 0 ? Array.from(new Set(nodeIds)) : undefined;
 
 		requestAnimationFrame(() => {
-			if (!fitViewRequestedRef.current) {
+			const instance = reactFlowRef.current;
+			if (!instance) {
 				return;
 			}
 
-			reactFlowRef.current?.fitView({
+			void instance.fitView({
 				padding: 0.16,
 				duration: 500,
+				nodes: focusedIds?.map((id) => ({ id })),
 			});
-			fitViewRequestedRef.current = false;
 		});
 	}, []);
 
@@ -132,16 +214,27 @@ function App() {
 			fitView?: boolean;
 			enableMeasuredFollowUp?: boolean;
 		}) => {
+			const nextSearchState = createDiagramSearchState(parsed, deferredSearchQuery);
+			const searchContext = {
+				matchedTableIds: new Set(nextSearchState.matchedTableIds),
+				relatedTableIds: new Set(nextSearchState.relatedTableIds),
+				highlightedEdgeIds: new Set(nextSearchState.highlightedEdgeIds),
+			};
 			const diagram = buildDiagram(parsed, {
 				positions,
 				measurements: nodeMeasurements,
 				onMeasure: handleMeasure,
+				search: searchContext,
 			});
 
 			setIsLayouting(true);
 
 			try {
-				const laidOutNodes = await autoLayoutDiagram(diagram.nodes, diagram.edges);
+				const laidOutNodes = await autoLayoutDiagram(
+					diagram.nodes,
+					diagram.edges,
+					layoutAlgorithm,
+				);
 				startTransition(() => {
 					setNodes(laidOutNodes);
 					setEdges(diagram.edges);
@@ -149,7 +242,9 @@ function App() {
 				setNeedsMeasuredLayout(enableMeasuredFollowUp);
 
 				if (fitView) {
-					requestFitView();
+					requestFitView(
+						searchFocusKey.length > 0 ? searchFocusKey.split("|") : undefined,
+					);
 				}
 			} catch (error) {
 				toast.error(
@@ -159,7 +254,17 @@ function App() {
 				setIsLayouting(false);
 			}
 		},
-		[handleMeasure, nodeMeasurements, parsed, requestFitView, setEdges, setNodes],
+		[
+			deferredSearchQuery,
+			handleMeasure,
+			layoutAlgorithm,
+			nodeMeasurements,
+			parsed,
+			requestFitView,
+			searchFocusKey,
+			setEdges,
+			setNodes,
+		],
 	);
 
 	useEffect(() => {
@@ -239,10 +344,17 @@ function App() {
 			getPositionsFromNodes(nodesRef.current),
 			shareSeedPositions,
 		);
+		const currentSearchState = createDiagramSearchState(parsed, deferredSearchQuery);
+		const searchContext = {
+			matchedTableIds: new Set(currentSearchState.matchedTableIds),
+			relatedTableIds: new Set(currentSearchState.relatedTableIds),
+			highlightedEdgeIds: new Set(currentSearchState.highlightedEdgeIds),
+		};
 		const diagram = buildDiagram(parsed, {
 			positions: preferredPositions,
 			measurements: nodeMeasurements,
 			onMeasure: handleMeasure,
+			search: searchContext,
 		});
 		const needsInitialAutoLayout =
 			diagram.nodes.length > 0 && Object.keys(preferredPositions).length === 0;
@@ -262,6 +374,7 @@ function App() {
 		});
 	}, [
 		applyAutoLayout,
+		deferredSearchQuery,
 		handleMeasure,
 		nodeMeasurements,
 		parsed,
@@ -269,6 +382,14 @@ function App() {
 		setNodes,
 		shareSeedPositions,
 	]);
+
+	useEffect(() => {
+		if (searchFocusKey.length === 0) {
+			return;
+		}
+
+		requestFitView(searchFocusKey.split("|"));
+	}, [requestFitView, searchFocusKey]);
 
 	useEffect(() => {
 		if (!needsMeasuredLayout || isLayouting || parsed.tables.length === 0) {
@@ -295,7 +416,15 @@ function App() {
 	};
 
 	const handleFitViewClick = () => {
-		requestFitView();
+		requestFitView(searchFocusKey.length > 0 ? searchFocusKey.split("|") : undefined);
+	};
+
+	const handleZoomInClick = () => {
+		void reactFlowRef.current?.zoomIn({ duration: 180 });
+	};
+
+	const handleZoomOutClick = () => {
+		void reactFlowRef.current?.zoomOut({ duration: 180 });
 	};
 
 	const handleShare = async () => {
@@ -338,11 +467,8 @@ function App() {
 				<Toolbar
 					tableCount={parsed.tables.length}
 					relationCount={parsed.refs.length}
-					isLayouting={isLayouting}
 					isSharing={isSharing}
 					shareId={currentShareId}
-					onAutoLayout={handleAutoLayoutClick}
-					onFitView={handleFitViewClick}
 					onShare={handleShare}
 				/>
 
@@ -380,12 +506,24 @@ function App() {
 								<Canvas
 									nodes={nodes}
 									edges={edges}
+									gridMode={gridMode}
 									isBusy={isLoadingShare || isLayouting}
+									isLayouting={isLayouting}
+									matchedTableNames={matchedTableNames}
+									zoom={viewportZoom}
+									onAutoLayout={handleAutoLayoutClick}
 									onNodesChange={onNodesChange}
 									onEdgesChange={onEdgesChange}
+									onFitView={handleFitViewClick}
 									onInit={(instance) => {
 										reactFlowRef.current = instance;
+										setViewportZoom(instance.getZoom());
 									}}
+									onViewportChange={(viewport) => {
+										setViewportZoom(viewport.zoom);
+									}}
+									onZoomIn={handleZoomInClick}
+									onZoomOut={handleZoomOutClick}
 								/>
 							</div>
 						</div>

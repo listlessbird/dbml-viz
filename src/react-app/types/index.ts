@@ -66,6 +66,10 @@ export interface ParsedSchema {
 	readonly errors: readonly string[];
 }
 
+export type DiagramGridMode = "none" | "dots" | "lines";
+
+export type DiagramLayoutAlgorithm = "left-right" | "snowflake" | "compact";
+
 export interface DiagramNodeSize {
 	readonly width: number;
 	readonly height: number;
@@ -77,6 +81,9 @@ export interface TableNodeData extends Record<string, unknown> {
 	readonly table: TableData;
 	readonly accent: string;
 	readonly connectedColumns: readonly string[];
+	readonly isSearchMatch: boolean;
+	readonly isSearchRelated: boolean;
+	readonly isSearchDimmed: boolean;
 	readonly onMeasure?: (nodeId: string, size: DiagramNodeSize) => void;
 }
 
@@ -90,6 +97,8 @@ export interface RelationshipEdgeData extends Record<string, unknown> {
 		readonly column: string;
 	};
 	readonly relationText: string;
+	readonly isSearchMatch: boolean;
+	readonly isSearchDimmed: boolean;
 }
 
 export type DiagramNode = Node<TableNodeData, "table">;

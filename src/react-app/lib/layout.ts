@@ -1,4 +1,8 @@
-import type { DiagramEdge, DiagramNode } from "@/types";
+import type {
+	DiagramEdge,
+	DiagramLayoutAlgorithm,
+	DiagramNode,
+} from "@/types";
 
 let elkPromise: Promise<{
 	layout: (graph: unknown) => Promise<{
@@ -20,18 +24,59 @@ const loadElk = async () => {
 	return elkPromise!;
 };
 
-const layoutOptions = {
-	"elk.algorithm": "layered",
-	"elk.direction": "RIGHT",
-	"elk.edgeRouting": "ORTHOGONAL",
-	"elk.layered.spacing.nodeNodeBetweenLayers": "120",
-	"elk.spacing.nodeNode": "60",
-	"org.eclipse.elk.portConstraints": "FIXED_ORDER",
-} as const;
+export const LAYOUT_ALGORITHM_OPTIONS = [
+	{
+		id: "left-right",
+		label: "Left-right",
+		description: "Arrange tables from left to right based on relationship flow.",
+	},
+	{
+		id: "snowflake",
+		label: "Snowflake",
+		description: "Spread connected tables around dense hubs for star-like schemas.",
+	},
+	{
+		id: "compact",
+		label: "Compact",
+		description: "Pack the diagram into a tighter block for shorter overviews.",
+	},
+] as const satisfies ReadonlyArray<{
+	id: DiagramLayoutAlgorithm;
+	label: string;
+	description: string;
+}>;
+
+const layoutOptionsByAlgorithm: Record<
+	DiagramLayoutAlgorithm,
+	Record<string, string>
+> = {
+	"left-right": {
+		"elk.algorithm": "layered",
+		"elk.direction": "RIGHT",
+		"elk.edgeRouting": "ORTHOGONAL",
+		"elk.layered.spacing.nodeNodeBetweenLayers": "136",
+		"elk.spacing.nodeNode": "68",
+		"org.eclipse.elk.portConstraints": "FIXED_ORDER",
+	},
+	snowflake: {
+		"elk.algorithm": "force",
+		"elk.spacing.nodeNode": "92",
+		"org.eclipse.elk.portConstraints": "FIXED_ORDER",
+	},
+	compact: {
+		"elk.algorithm": "layered",
+		"elk.direction": "DOWN",
+		"elk.edgeRouting": "ORTHOGONAL",
+		"elk.layered.spacing.nodeNodeBetweenLayers": "84",
+		"elk.spacing.nodeNode": "36",
+		"org.eclipse.elk.portConstraints": "FIXED_ORDER",
+	},
+};
 
 export const autoLayoutDiagram = async (
 	nodes: readonly DiagramNode[],
 	edges: readonly DiagramEdge[],
+	algorithm: DiagramLayoutAlgorithm,
 ) => {
 	if (nodes.length === 0) {
 		return [];
@@ -39,7 +84,7 @@ export const autoLayoutDiagram = async (
 
 	const graph = {
 		id: "dbml-root",
-		layoutOptions,
+		layoutOptions: layoutOptionsByAlgorithm[algorithm],
 		children: nodes.map((node) => ({
 			id: node.id,
 			width: node.width ?? 320,
