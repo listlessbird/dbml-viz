@@ -1,6 +1,6 @@
 {
 	"name": "vite-react-template",
-	"description": "A template for building a React application with Vite, Hono, and Cloudflare Workers",
+	"description": "A template for building a React application with Vite, Effect HTTP, and Cloudflare Workers",
 	"cloudflare": {
 		"label": "Vite React Template",
 		"products": [
@@ -23,7 +23,6 @@
 		"date-fns": "^4.1.0",
 		"effect": "^3.21.0",
 		"embla-carousel-react": "^8.6.0",
-		"hono": "4.11.1",
 		"input-otp": "^1.4.2",
 		"next-themes": "^0.4.6",
 		"react": "19.2.1",
