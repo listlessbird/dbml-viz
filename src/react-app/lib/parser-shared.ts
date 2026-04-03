@@ -37,39 +37,81 @@ export type DbmlParserResponse =
 	| DbmlParserSuccessResponse
 	| DbmlParserErrorResponse;
 
-export const normalizeDiagnostics = (error: unknown): ParseDiagnostic[] => {
+const hasDiagnosticsArray = (error: unknown): error is { diags: unknown[] } =>
+	typeof error === "object" &&
+	error !== null &&
+	"diags" in error &&
+	Array.isArray(error.diags);
+
+const readDiagnosticMessage = (diagnostic: unknown) =>
+	typeof diagnostic === "object" &&
+	diagnostic !== null &&
+	"message" in diagnostic &&
+	typeof diagnostic.message === "string"
+		? diagnostic.message
+		: "Error parsing statement(s).";
+
+const readDiagnosticCode = (diagnostic: unknown) =>
+	typeof diagnostic === "object" &&
+	diagnostic !== null &&
+	"code" in diagnostic &&
+	typeof diagnostic.code === "number"
+		? diagnostic.code
+		: undefined;
+
+const readDiagnosticLocation = (
+	diagnostic: unknown,
+): ParseDiagnostic["location"] | undefined => {
 	if (
-		typeof error === "object" &&
-		error !== null &&
-		"diags" in error &&
-		Array.isArray(error.diags)
+		typeof diagnostic !== "object" ||
+		diagnostic === null ||
+		!("location" in diagnostic) ||
+		typeof diagnostic.location !== "object" ||
+		diagnostic.location === null ||
+		!("start" in diagnostic.location) ||
+		typeof diagnostic.location.start !== "object" ||
+		diagnostic.location.start === null ||
+		!("line" in diagnostic.location.start) ||
+		!("column" in diagnostic.location.start) ||
+		typeof diagnostic.location.start.line !== "number" ||
+		typeof diagnostic.location.start.column !== "number"
 	) {
-		return error.diags.map((diag) => ({
-			message:
-				typeof diag?.message === "string" ? diag.message : "Error parsing statement(s).",
-			code: typeof diag?.code === "number" ? diag.code : undefined,
-			location:
-				diag?.location &&
-				typeof diag.location === "object" &&
-				diag.location.start &&
-				typeof diag.location.start.line === "number" &&
-				typeof diag.location.start.column === "number"
-					? {
-							start: {
-								line: diag.location.start.line,
-								column: diag.location.start.column,
-							},
-							end:
-								diag.location.end &&
-								typeof diag.location.end.line === "number" &&
-								typeof diag.location.end.column === "number"
-									? {
-											line: diag.location.end.line,
-											column: diag.location.end.column,
-										}
-									: undefined,
-						}
-					: undefined,
+		return undefined;
+	}
+
+	const end =
+		"end" in diagnostic.location &&
+		typeof diagnostic.location.end === "object" &&
+		diagnostic.location.end !== null &&
+		"line" in diagnostic.location.end &&
+		"column" in diagnostic.location.end &&
+		typeof diagnostic.location.end.line === "number" &&
+		typeof diagnostic.location.end.column === "number"
+			? {
+					line: diagnostic.location.end.line,
+					column: diagnostic.location.end.column,
+				}
+			: undefined;
+
+	return {
+		start: {
+			line: diagnostic.location.start.line,
+			column: diagnostic.location.start.column,
+		},
+		end,
+	};
+};
+
+/**
+ * @dbml/core throws errors with an untyped `.diags` array.
+ * This extracts structured diagnostics from that format.
+ */
+export const extractDiagnostics = (error: unknown): ParseDiagnostic[] => {
+	if (hasDiagnosticsArray(error)) {
+		return error.diags.map((diagnostic) => ({
+			message: readDiagnosticMessage(diagnostic),
+			code: readDiagnosticCode(diagnostic),
+			location: readDiagnosticLocation(diagnostic),
 		}));
 	}
 

@@ -11,50 +11,15 @@ import {
 	type Viewport,
 	ReactFlow,
 } from "@xyflow/react";
-import { useMemo, useState } from "react";
 
 import { CanvasDock } from "@/components/CanvasDock";
 import { RelationshipEdge } from "@/components/RelationshipEdge";
 import { TableNode } from "@/components/TableNode";
+import { useRelationHighlighting } from "@/hooks/useRelationHighlighting";
 import type { DiagramEdge, DiagramGridMode, DiagramNode } from "@/types";
 
-const nodeTypes: NodeTypes = {
-	table: TableNode,
-};
-
-const edgeTypes: EdgeTypes = {
-	relationship: RelationshipEdge,
-};
-
-const EDGE_TRANSITION_EASING = "cubic-bezier(0.215, 0.61, 0.355, 1)";
-const EDGE_TRANSITION = [
-	`opacity 180ms ${EDGE_TRANSITION_EASING}`,
-	`stroke-width 180ms ${EDGE_TRANSITION_EASING}`,
-].join(", ");
-const EMPTY_RELATION_COLUMNS_BY_TABLE = new Map<string, Set<string>>();
-
-const getNodeIdFromEventTarget = (target: EventTarget | null) =>
-	target instanceof HTMLElement
-		? target.closest<HTMLElement>(".react-flow__node[data-id]")?.dataset.id ?? null
-		: null;
-
-const toNumber = (value: number | string | undefined, fallback: number) => {
-	if (typeof value === "number" && Number.isFinite(value)) {
-		return value;
-	}
-
-	if (typeof value === "string") {
-		const parsed = Number(value);
-		if (Number.isFinite(parsed)) {
-			return parsed;
-		}
-	}
-
-	return fallback;
-};
-
-const sameIds = (left: readonly string[], right: readonly string[]) =>
-	left.length === right.length && left.every((value, index) => value === right[index]);
+const nodeTypes: NodeTypes = { table: TableNode };
+const edgeTypes: EdgeTypes = { relationship: RelationshipEdge };
 
 interface CanvasProps {
 	readonly nodes: DiagramNode[];
@@ -91,168 +56,13 @@ export function Canvas({
 	onZoomIn,
 	onZoomOut,
 }: CanvasProps) {
-	const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
-	const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
-	const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
-
-	const availableNodeIds = useMemo(
-		() => new Set(nodes.map((node) => node.id)),
-		[nodes],
-	);
-	const activeSelectedNodeIds = useMemo(
-		() => selectedNodeIds.filter((nodeId) => availableNodeIds.has(nodeId)),
-		[availableNodeIds, selectedNodeIds],
-	);
-	const activeHoveredNodeId =
-		hoveredNodeId !== null && availableNodeIds.has(hoveredNodeId)
-			? hoveredNodeId
-			: null;
-	const activeFocusedNodeId =
-		focusedNodeId !== null && availableNodeIds.has(focusedNodeId)
-			? focusedNodeId
-			: null;
-
-	const activeTableIds = useMemo(() => {
-		const ids = new Set(activeSelectedNodeIds);
-
-		if (activeHoveredNodeId !== null) {
-			ids.add(activeHoveredNodeId);
-		}
-
-		if (activeFocusedNodeId !== null) {
-			ids.add(activeFocusedNodeId);
-		}
-
-		return ids;
-	}, [activeFocusedNodeId, activeHoveredNodeId, activeSelectedNodeIds]);
-
-	const activeRelationColumnsByTable = useMemo(() => {
-		if (activeTableIds.size === 0) {
-			return EMPTY_RELATION_COLUMNS_BY_TABLE;
-		}
-
-		const columnsByTable = new Map<string, Set<string>>();
-
-		for (const edge of edges) {
-			if (
-				edge.data === undefined ||
-				(!activeTableIds.has(edge.source) && !activeTableIds.has(edge.target))
-			) {
-				continue;
-			}
-
-			const sourceColumns = columnsByTable.get(edge.data.from.table) ?? new Set<string>();
-			sourceColumns.add(edge.data.from.column);
-			columnsByTable.set(edge.data.from.table, sourceColumns);
-
-			const targetColumns = columnsByTable.get(edge.data.to.table) ?? new Set<string>();
-			targetColumns.add(edge.data.to.column);
-			columnsByTable.set(edge.data.to.table, targetColumns);
-		}
-
-		return columnsByTable;
-	}, [activeTableIds, edges]);
-
-	const displayNodes = useMemo(
-		() => {
-			if (activeRelationColumnsByTable.size === 0) {
-				return nodes;
-			}
-
-			return nodes.map((node) => {
-				const activeColumns = activeRelationColumnsByTable.get(node.id);
-				if (!activeColumns || activeColumns.size === 0) {
-					return node;
-				}
-
-				const activeRelationColumns = Array.from(activeColumns);
-
-				return {
-					...node,
-					data: {
-						...node.data,
-						activeRelationColumns,
-						isRelationContextActive: true,
-					},
-				} satisfies DiagramNode;
-			});
-		},
-		[activeRelationColumnsByTable, nodes],
-	);
-
-	const displayEdges = useMemo(
-		() => {
-			if (activeTableIds.size === 0) {
-				return edges;
-			}
-
-			return edges.map((edge) => {
-				if (edge.data === undefined) {
-					return edge;
-				}
-
-				const isRelationSourceActive = activeTableIds.has(edge.source);
-				const isRelationTargetActive = activeTableIds.has(edge.target);
-				const isRelationActive = isRelationSourceActive || isRelationTargetActive;
-				if (!isRelationActive) {
-					return edge;
-				}
-
-				const baseStrokeWidth = toNumber(edge.style?.strokeWidth, 1.4);
-				const stroke = isRelationActive
-					? "var(--primary)"
-					: typeof edge.style?.stroke === "string"
-						? edge.style.stroke
-						: "var(--primary)";
-
-				return {
-					...edge,
-					data: {
-						...edge.data,
-						isRelationActive,
-						isRelationSourceActive,
-						isRelationTargetActive,
-					},
-					style: {
-						...edge.style,
-						stroke,
-						strokeWidth: isRelationActive ? baseStrokeWidth + 0.9 : baseStrokeWidth,
-						opacity: toNumber(edge.style?.opacity, 1),
-						transition: EDGE_TRANSITION,
-					},
-					markerEnd:
-						edge.markerEnd && typeof edge.markerEnd === "object"
-							? {
-									...edge.markerEnd,
-									color: stroke,
-								}
-							: edge.markerEnd,
-				} satisfies DiagramEdge;
-			});
-		},
-		[activeTableIds, edges],
-	);
+	const { displayNodes, displayEdges, handlers } = useRelationHighlighting(nodes, edges);
 
 	return (
 		<div
 			className="relative h-full min-h-0 overflow-hidden bg-background"
-			onFocusCapture={(event) => {
-				const nodeId = getNodeIdFromEventTarget(event.target);
-				if (nodeId !== null) {
-					setFocusedNodeId((current) => (current === nodeId ? current : nodeId));
-				}
-			}}
-			onBlurCapture={(event) => {
-				const currentNodeId = getNodeIdFromEventTarget(event.target);
-				if (currentNodeId === null) {
-					return;
-				}
-
-				const nextFocusedNodeId = getNodeIdFromEventTarget(event.relatedTarget);
-				setFocusedNodeId((current) =>
-					current === nextFocusedNodeId ? current : nextFocusedNodeId,
-				);
-			}}
+			onFocusCapture={handlers.onFocusCapture}
+			onBlurCapture={handlers.onBlurCapture}
 		>
 			<ReactFlow<DiagramNode, DiagramEdge>
 				nodes={displayNodes}
@@ -263,23 +73,9 @@ export function Canvas({
 				onEdgesChange={onEdgesChange}
 				onInit={onInit}
 				onViewportChange={onViewportChange}
-				onNodeMouseEnter={(_, node) => {
-					setHoveredNodeId((current) => (current === node.id ? current : node.id));
-				}}
-				onNodeMouseLeave={(_, node) => {
-					setHoveredNodeId((current) => (current === node.id ? null : current));
-				}}
-				onSelectionChange={({ nodes: selectedNodes }) => {
-					const nextSelectedNodeIds = selectedNodes
-						.map((node) => node.id)
-						.sort();
-
-					setSelectedNodeIds((current) =>
-						sameIds(current, nextSelectedNodeIds)
-							? current
-							: nextSelectedNodeIds,
-					);
-				}}
+				onNodeMouseEnter={handlers.onNodeMouseEnter}
+				onNodeMouseLeave={handlers.onNodeMouseLeave}
+				onSelectionChange={handlers.onSelectionChange}
 				nodesConnectable={false}
 				minZoom={0.25}
 				maxZoom={1.8}

@@ -2,7 +2,7 @@
 
 import {
 	EMPTY_SCHEMA,
-	normalizeDiagnostics,
+	extractDiagnostics,
 	type DbmlParserRequest,
 	type DbmlParserResponse,
 } from "@/lib/parser-shared";
@@ -148,7 +148,7 @@ workerScope.addEventListener("message", (event: MessageEvent<DbmlParserRequest>)
 			const response: DbmlParserResponse = {
 				id,
 				ok: false,
-				diagnostics: normalizeDiagnostics(error),
+				diagnostics: extractDiagnostics(error),
 			};
 			workerScope.postMessage(response);
 		});

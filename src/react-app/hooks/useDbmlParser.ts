@@ -9,9 +9,6 @@ const EMPTY_SCHEMA: ParsedSchema = {
 	errors: [],
 };
 
-const normalizeError = (error: unknown) =>
-	error instanceof Error ? error.message : "Unable to parse DBML.";
-
 export const useDbmlParser = (dbml: string, delay = 300) => {
 	const [parsed, setParsed] = useState<ParsedSchema>(EMPTY_SCHEMA);
 	const [diagnostics, setDiagnostics] = useState<ParseDiagnostic[]>([]);
@@ -39,7 +36,14 @@ export const useDbmlParser = (dbml: string, delay = 300) => {
 					setDiagnostics(
 						error instanceof DbmlParseError
 							? [...error.diagnostics]
-							: [{ message: normalizeError(error) }],
+							: [
+									{
+										message:
+											error instanceof Error
+												? error.message
+												: "Unable to parse DBML.",
+									},
+								],
 					);
 				})
 				.finally(() => {
