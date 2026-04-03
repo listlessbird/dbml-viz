@@ -183,6 +183,14 @@
     border-bottom: 0;
   }
 
+  .canvas-pan-mode .react-flow__pane {
+    cursor: grab;
+  }
+
+  .canvas-pan-mode .react-flow__pane.dragging {
+    cursor: grabbing;
+  }
+
   .react-flow__edge-textbg {
     rx: 0;
     ry: 0;

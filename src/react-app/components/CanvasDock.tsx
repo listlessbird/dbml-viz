@@ -37,12 +37,12 @@ const GRID_OPTIONS: ReadonlyArray<{
 	{
 		value: "dots",
 		label: "Dot grid",
-		description: "A subtle drafting grid for freeform placement.",
+		description: "A tighter dot field for easier freeform alignment.",
 	},
 	{
 		value: "lines",
 		label: "Line grid",
-		description: "A stronger grid for more structured layouts.",
+		description: "A tighter guide grid for structured layouts.",
 	},
 ];
 
