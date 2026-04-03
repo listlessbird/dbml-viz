@@ -1,5 +1,6 @@
 import {
 	IconBinaryTree2,
+	IconBorderNone,
 	IconGridDots,
 	IconLayoutGrid,
 	IconSearch,
@@ -17,6 +18,12 @@ import { LAYOUT_ALGORITHM_OPTIONS } from "@/lib/layout-options";
 import { cn } from "@/lib/utils";
 import { useDiagramUiStore } from "@/store/useDiagramUiStore";
 import type { DiagramGridMode } from "@/types";
+
+const GRID_MODE_ICONS = {
+	none: IconBorderNone,
+	dots: IconGridDots,
+	lines: IconLayoutGrid,
+} as const;
 
 interface CanvasDockProps {
 	readonly isLayouting: boolean;
@@ -66,6 +73,7 @@ export function CanvasDock({
 	const setGridMode = useDiagramUiStore((state) => state.setGridMode);
 	const setLayoutAlgorithm = useDiagramUiStore((state) => state.setLayoutAlgorithm);
 	const setSearchQuery = useDiagramUiStore((state) => state.setSearchQuery);
+	const CurrentGridIcon = GRID_MODE_ICONS[gridMode];
 
 	return (
 		<div className="pointer-events-none absolute bottom-4 left-1/2 z-10 -translate-x-1/2">
@@ -79,7 +87,7 @@ export function CanvasDock({
 								data-active={isGridOpen || gridMode !== "none"}
 								title="Grid controls"
 							>
-								<IconGridDots className="size-4" />
+								<CurrentGridIcon className="size-4" />
 							</button>
 						}
 					/>
@@ -93,32 +101,36 @@ export function CanvasDock({
 							<PopoverTitle className="text-sm">Canvas grid</PopoverTitle>
 						</PopoverHeader>
 						<div className="flex flex-col">
-							{GRID_OPTIONS.map((option) => (
-								<button
-									key={option.value}
-									type="button"
-									className={cn(
-										optionCardClass,
-										gridMode === option.value && "bg-muted",
-									)}
-									onClick={() => {
-										setGridMode(option.value);
-										setGridOpen(false);
-									}}
-								>
-									<div className="pt-0.5 text-foreground">
-										<IconGridDots className="size-4" />
-									</div>
-									<div className="min-w-0">
-										<div className="text-sm font-medium text-foreground">
-											{option.label}
+							{GRID_OPTIONS.map((option) => {
+								const OptionIcon = GRID_MODE_ICONS[option.value];
+
+								return (
+									<button
+										key={option.value}
+										type="button"
+										className={cn(
+											optionCardClass,
+											gridMode === option.value && "bg-muted",
+										)}
+										onClick={() => {
+											setGridMode(option.value);
+											setGridOpen(false);
+										}}
+									>
+										<div className="pt-0.5 text-foreground">
+											<OptionIcon className="size-4" />
 										</div>
-										<p className="mt-1 text-xs leading-5 text-muted-foreground">
-											{option.description}
-										</p>
-									</div>
-								</button>
-							))}
+										<div className="min-w-0">
+											<div className="text-sm font-medium text-foreground">
+												{option.label}
+											</div>
+											<p className="mt-1 text-xs leading-5 text-muted-foreground">
+												{option.description}
+											</p>
+										</div>
+									</button>
+								);
+							})}
 						</div>
 					</PopoverContent>
 				</Popover>
