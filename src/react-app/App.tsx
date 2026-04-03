@@ -32,7 +32,6 @@ import {
 	getPositionsFromNodes,
 	resolveDraftPersistence,
 } from "@/lib/draftPersistence";
-import { autoLayoutDiagram } from "@/lib/layout";
 import { SAMPLE_DBML } from "@/lib/sample-dbml";
 import { loadSharedSchema, saveSharedSchema } from "@/lib/sharing";
 import { buildDiagram } from "@/lib/transform";
@@ -299,6 +298,7 @@ function App() {
 			setIsLayouting(true);
 
 			try {
+				const { autoLayoutDiagram } = await import("@/lib/layout");
 				const laidOutNodes = await autoLayoutDiagram(
 					diagram.nodes,
 					diagram.edges,

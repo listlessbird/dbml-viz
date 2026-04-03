@@ -13,7 +13,7 @@ import {
 	PopoverTitle,
 	PopoverTrigger,
 } from "@/components/ui/popover";
-import { LAYOUT_ALGORITHM_OPTIONS } from "@/lib/layout";
+import { LAYOUT_ALGORITHM_OPTIONS } from "@/lib/layout-options";
 import { cn } from "@/lib/utils";
 import { useDiagramUiStore } from "@/store/useDiagramUiStore";
 import type { DiagramGridMode } from "@/types";

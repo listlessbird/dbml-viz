@@ -15,6 +15,23 @@ export default defineConfig({
 		},
 	},
 	plugins: isTest ? [react(), tailwindcss()] : [react(), tailwindcss(), cloudflare()],
+	build: {
+		rollupOptions: {
+			output: {
+				manualChunks(id) {
+					if (id.includes("node_modules/react-dom/") || id.includes("node_modules/react/")) {
+						return "react-vendor";
+					}
+					if (id.includes("node_modules/@xyflow/")) {
+						return "xyflow";
+					}
+					if (id.includes("node_modules/@codemirror/")) {
+						return "codemirror";
+					}
+				},
+			},
+		},
+	},
 	worker: {
 		format: "es",
 	},

@@ -53,22 +53,13 @@ const relationPairToType = (from: string, to: string): RefType => {
 	return "many_to_one";
 };
 
-let parserModulePromise: Promise<typeof import("@dbml/core")> | null = null;
-
-const loadParserModule = () => {
-	if (parserModulePromise === null) {
-		parserModulePromise = import("@dbml/core");
-	}
-
-	return parserModulePromise;
-};
+import { Parser } from "@dbml/core";
 
 const parseDbmlInWorker = async (dbml: string): Promise<ParsedSchema> => {
 	if (dbml.trim().length === 0) {
 		return EMPTY_SCHEMA;
 	}
 
-	const { Parser } = await loadParserModule();
 	const exported = Parser.parse(dbml, "dbmlv2").export();
 	const outgoingForeignKeys = new Set<string>();
 	const refs: RefData[] = [];
