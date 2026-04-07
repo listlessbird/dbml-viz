@@ -2,6 +2,9 @@
 # Edit at https://www.toptal.com/developers/gitignore?templates=macos,node,git
 
 ### Git ###
+.codex
+.impeccable.md
+
 # Created by git for backups. To disable backups in Git:
 # $ git config --global mergetool.keepBackup false
 *.orig
