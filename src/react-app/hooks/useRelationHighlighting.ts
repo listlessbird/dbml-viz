@@ -108,11 +108,11 @@ export function useRelationHighlighting(
 			}
 
 			const sourceColumns = columnsByTable.get(edge.data.from.table) ?? new Set<string>();
-			sourceColumns.add(edge.data.from.column);
+			edge.data.from.columns.forEach((column) => sourceColumns.add(column));
 			columnsByTable.set(edge.data.from.table, sourceColumns);
 
 			const targetColumns = columnsByTable.get(edge.data.to.table) ?? new Set<string>();
-			targetColumns.add(edge.data.to.column);
+			edge.data.to.columns.forEach((column) => targetColumns.add(column));
 			columnsByTable.set(edge.data.to.table, targetColumns);
 		}
 

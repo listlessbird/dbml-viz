@@ -4,6 +4,36 @@ import type {
 	DiagramNode,
 } from "@/types";
 
+interface ElkPort {
+	readonly id: string;
+	readonly properties: {
+		readonly "org.eclipse.elk.port.side": "WEST" | "EAST";
+	};
+}
+
+interface ElkNode {
+	readonly id: string;
+	readonly width: number;
+	readonly height: number;
+	readonly layoutOptions: {
+		readonly "org.eclipse.elk.portConstraints": "FIXED_ORDER";
+	};
+	readonly ports: readonly ElkPort[];
+}
+
+interface ElkEdge {
+	readonly id: string;
+	readonly sources: readonly string[];
+	readonly targets: readonly string[];
+}
+
+interface ElkGraph {
+	readonly id: "dbml-root";
+	readonly layoutOptions: Record<string, string>;
+	readonly children: readonly ElkNode[];
+	readonly edges: readonly ElkEdge[];
+}
+
 let elkPromise: Promise<{
 	layout: (graph: unknown) => Promise<{
 		children?: Array<{
@@ -51,6 +81,57 @@ const layoutOptionsByAlgorithm: Record<
 	},
 };
 
+const buildNodePorts = (node: DiagramNode): ElkPort[] => {
+	const ports = node.data.table.columns.flatMap<ElkPort>((column) => [
+		{
+			id: `${node.id}-${column.name}-target`,
+			properties: {
+				"org.eclipse.elk.port.side": "WEST",
+			},
+		},
+		{
+			id: `${node.id}-${column.name}-source`,
+			properties: {
+				"org.eclipse.elk.port.side": "EAST",
+			},
+		},
+	]);
+
+	for (const anchor of node.data.relationAnchors) {
+		ports.push({
+			id: anchor.id,
+			properties: {
+				"org.eclipse.elk.port.side": anchor.side === "target" ? "WEST" : "EAST",
+			},
+		});
+	}
+
+	return ports;
+};
+
+export const buildElkLayoutGraph = (
+	nodes: readonly DiagramNode[],
+	edges: readonly DiagramEdge[],
+	algorithm: DiagramLayoutAlgorithm,
+): ElkGraph => ({
+	id: "dbml-root",
+	layoutOptions: layoutOptionsByAlgorithm[algorithm],
+	children: nodes.map((node) => ({
+		id: node.id,
+		width: node.width ?? 320,
+		height: node.height ?? 160,
+		layoutOptions: {
+			"org.eclipse.elk.portConstraints": "FIXED_ORDER",
+		},
+		ports: buildNodePorts(node),
+	})),
+	edges: edges.map((edge) => ({
+		id: edge.id,
+		sources: edge.sourceHandle ? [edge.sourceHandle] : [edge.source],
+		targets: edge.targetHandle ? [edge.targetHandle] : [edge.target],
+	})),
+});
+
 export const autoLayoutDiagram = async (
 	nodes: readonly DiagramNode[],
 	edges: readonly DiagramEdge[],
@@ -60,38 +141,7 @@ export const autoLayoutDiagram = async (
 		return [];
 	}
 
-	const graph = {
-		id: "dbml-root",
-		layoutOptions: layoutOptionsByAlgorithm[algorithm],
-		children: nodes.map((node) => ({
-			id: node.id,
-			width: node.width ?? 320,
-			height: node.height ?? 160,
-			layoutOptions: {
-				"org.eclipse.elk.portConstraints": "FIXED_ORDER",
-			},
-			ports: node.data.table.columns.flatMap((column) => [
-				{
-					id: `${node.id}-${column.name}-target`,
-					properties: {
-						"org.eclipse.elk.port.side": "WEST",
-					},
-				},
-				{
-					id: `${node.id}-${column.name}-source`,
-					properties: {
-						"org.eclipse.elk.port.side": "EAST",
-					},
-				},
-			]),
-		})),
-		edges: edges.map((edge) => ({
-			id: edge.id,
-			sources: edge.sourceHandle ? [edge.sourceHandle] : [edge.source],
-			targets: edge.targetHandle ? [edge.targetHandle] : [edge.target],
-		})),
-	};
-
+	const graph = buildElkLayoutGraph(nodes, edges, algorithm);
 	const elk = await loadElk();
 	const result = await elk.layout(graph as never);
 	const positionedChildren = new Map(

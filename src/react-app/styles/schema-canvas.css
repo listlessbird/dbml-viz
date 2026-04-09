@@ -1,0 +1,106 @@
+@layer components {
+	.schema-table-node {
+		isolation: isolate;
+		opacity: var(--schema-node-opacity, 1);
+		background-image: linear-gradient(
+			180deg,
+			color-mix(in oklab, var(--schema-accent) 3%, var(--card)),
+			var(--card) 28%
+		);
+		box-shadow: var(--schema-surface-shadow);
+		transition:
+			box-shadow 180ms cubic-bezier(0.215, 0.61, 0.355, 1),
+			opacity 180ms cubic-bezier(0.215, 0.61, 0.355, 1),
+			background-color 180ms ease,
+			border-color 180ms ease;
+	}
+
+	.schema-table-accent-rail {
+		background: linear-gradient(
+			90deg,
+			color-mix(in oklab, var(--schema-accent) 56%, transparent),
+			transparent 82%
+		);
+	}
+
+	.schema-table-header {
+		background-color: color-mix(in oklab, var(--schema-accent) 10%, var(--card));
+		border-bottom-color: color-mix(in oklab, var(--schema-accent) 18%, var(--border));
+	}
+
+	.schema-table-heading {
+		color: color-mix(in oklab, var(--schema-accent) 62%, var(--foreground));
+	}
+
+	.schema-table-count {
+		border-color: color-mix(in oklab, var(--schema-accent) 18%, var(--border));
+		background-color: color-mix(in oklab, var(--schema-accent) 6%, var(--background));
+		color: color-mix(in oklab, var(--schema-accent) 36%, var(--muted-foreground));
+		font-variant-numeric: tabular-nums;
+	}
+
+	.schema-column-row {
+		transition:
+			background-color 150ms cubic-bezier(0.215, 0.61, 0.355, 1),
+			box-shadow 150ms cubic-bezier(0.215, 0.61, 0.355, 1),
+			color 150ms ease,
+			border-color 150ms ease;
+	}
+
+	.schema-column-row:hover {
+		background-color: color-mix(in oklab, var(--muted) 62%, transparent);
+	}
+
+	.schema-column-row--active,
+	.schema-column-row--active:hover {
+		background-color: color-mix(in oklab, var(--primary) 12%, var(--background));
+		box-shadow: inset 3px 0 0 color-mix(in oklab, var(--primary) 56%, transparent);
+	}
+
+	.schema-column-type {
+		border-color: color-mix(in oklab, var(--foreground) 6%, var(--border));
+		background-color: color-mix(in oklab, var(--background) 92%, var(--card));
+	}
+
+	.schema-column-type--active {
+		border-color: color-mix(in oklab, var(--primary) 32%, var(--border));
+		background-color: color-mix(in oklab, var(--primary) 10%, var(--background));
+	}
+
+	.schema-column-meta {
+		letter-spacing: 0.12em;
+	}
+
+	.schema-table-chip {
+		border-color: color-mix(in oklab, var(--foreground) 7%, var(--border));
+		background-color: color-mix(in oklab, var(--background) 88%, var(--card));
+		transition:
+			background-color 150ms ease,
+			border-color 150ms ease,
+			color 150ms ease;
+	}
+
+	.relation-edge-highlight {
+		pointer-events: none;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+	}
+
+	.relation-edge-particle {
+		pointer-events: none;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.schema-table-node,
+	.schema-column-row,
+	.schema-column-type,
+	.schema-table-chip,
+	.relation-edge-highlight {
+		transition-duration: 1ms !important;
+	}
+
+	.relation-edge-particle {
+		display: none;
+	}
+}

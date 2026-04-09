@@ -1,20 +1,20 @@
 import { MarkerType, Position } from "@xyflow/react";
 
+import {
+	getRefSourceHandleId,
+	getRefTargetHandleId,
+} from "@/lib/relation-handles";
+import { countColumnsWithConstraintBadges } from "@/lib/table-constraints";
 import type {
 	DiagramEdge,
 	DiagramNode,
 	DiagramNodeSize,
 	DiagramPositions,
 	ParsedSchema,
+	RelationAnchorData,
 	RefType,
 	TableData,
 } from "@/types";
-
-export const getSourceHandleId = (tableId: string, columnName: string) =>
-	`${tableId}-${columnName}-source`;
-
-export const getTargetHandleId = (tableId: string, columnName: string) =>
-	`${tableId}-${columnName}-target`;
 
 export const relationLabel = (type: RefType) => {
 	switch (type) {
@@ -91,7 +91,7 @@ export const estimateTableSize = (
 
 	return {
 		width: estimateTableWidth(table),
-		height: 60 + table.columns.length * 28,
+		height: 60 + table.columns.length * 28 + countColumnsWithConstraintBadges(table) * 18,
 	};
 };
 
@@ -122,6 +122,44 @@ interface BuildDiagramOptions {
 	};
 }
 
+const addColumnsToMap = (
+	columnsByTable: Map<string, Set<string>>,
+	tableId: string,
+	columns: readonly string[],
+) => {
+	const tableColumns = columnsByTable.get(tableId) ?? new Set<string>();
+	columns.forEach((column) => tableColumns.add(column));
+	columnsByTable.set(tableId, tableColumns);
+};
+
+const buildRelationAnchors = (parsed: ParsedSchema) => {
+	const anchorsByTable = new Map<string, RelationAnchorData[]>();
+
+	for (const ref of parsed.refs) {
+		if (ref.from.columns.length > 1) {
+			const anchors = anchorsByTable.get(ref.from.table) ?? [];
+			anchors.push({
+				id: getRefSourceHandleId(ref),
+				columns: ref.from.columns,
+				side: "source",
+			});
+			anchorsByTable.set(ref.from.table, anchors);
+		}
+
+		if (ref.to.columns.length > 1) {
+			const anchors = anchorsByTable.get(ref.to.table) ?? [];
+			anchors.push({
+				id: getRefTargetHandleId(ref),
+				columns: ref.to.columns,
+				side: "target",
+			});
+			anchorsByTable.set(ref.to.table, anchors);
+		}
+	}
+
+	return anchorsByTable;
+};
+
 export const buildDiagram = (
 	parsed: ParsedSchema,
 	options: BuildDiagramOptions = {},
@@ -137,15 +175,11 @@ export const buildDiagram = (
 	const highlightedEdgeIds = options.search?.highlightedEdgeIds ?? new Set<string>();
 	const hasSearchHighlights = matchedTableIds.size > 0;
 	const connectedColumnsByTable = new Map<string, Set<string>>();
+	const relationAnchorsByTable = buildRelationAnchors(parsed);
 
 	for (const ref of parsed.refs) {
-		const fromColumns = connectedColumnsByTable.get(ref.from.table) ?? new Set<string>();
-		fromColumns.add(ref.from.column);
-		connectedColumnsByTable.set(ref.from.table, fromColumns);
-
-		const toColumns = connectedColumnsByTable.get(ref.to.table) ?? new Set<string>();
-		toColumns.add(ref.to.column);
-		connectedColumnsByTable.set(ref.to.table, toColumns);
+		addColumnsToMap(connectedColumnsByTable, ref.from.table, ref.from.columns);
+		addColumnsToMap(connectedColumnsByTable, ref.to.table, ref.to.columns);
 	}
 
 	const fallbackAnchor = getFallbackAnchor(positions);
@@ -177,6 +211,7 @@ export const buildDiagram = (
 					hasSearchHighlights &&
 					!matchedTableIds.has(table.id) &&
 					!relatedTableIds.has(table.id),
+				relationAnchors: relationAnchorsByTable.get(table.id) ?? [],
 				onMeasure: options.onMeasure,
 			},
 			sourcePosition: Position.Right,
@@ -197,8 +232,8 @@ export const buildDiagram = (
 			id: ref.id,
 			source: ref.from.table,
 			target: ref.to.table,
-			sourceHandle: getSourceHandleId(ref.from.table, ref.from.column),
-			targetHandle: getTargetHandleId(ref.to.table, ref.to.column),
+			sourceHandle: getRefSourceHandleId(ref),
+			targetHandle: getRefTargetHandleId(ref),
 			type: "relationship",
 			data: {
 				from: ref.from,
@@ -206,6 +241,9 @@ export const buildDiagram = (
 				relationText: relationText(ref.type),
 				isSearchMatch,
 				isSearchDimmed,
+				name: ref.name,
+				onDelete: ref.onDelete,
+				onUpdate: ref.onUpdate,
 			},
 			label: relationLabel(ref.type),
 			markerEnd: {

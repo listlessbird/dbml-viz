@@ -1,11 +1,67 @@
-import { IconKey, IconLink } from "@tabler/icons-react";
-import { type CSSProperties, memo, useLayoutEffect, useRef } from "react";
-import { useEffectEvent } from "react";
+import {
+	type CSSProperties,
+	memo,
+	useEffectEvent,
+	useLayoutEffect,
+	useRef,
+	useState,
+} from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 
-import { getSourceHandleId, getTargetHandleId } from "@/lib/transform";
+import { ColumnConstraintBadges } from "@/components/table-node/ColumnConstraintBadges";
+import { ColumnStatusIcon } from "@/components/table-node/ColumnStatusIcon";
+import { CompositeRelationHandles } from "@/components/table-node/CompositeRelationHandles";
+import { getSourceHandleId, getTargetHandleId } from "@/lib/relation-handles";
+import { getColumnConstraintBadges } from "@/lib/table-constraints";
 import { cn } from "@/lib/utils";
-import type { DiagramNode } from "@/types";
+import type { ColumnData, DiagramNode, TableNodeData } from "@/types";
+
+const areHandleOffsetsEqual = (
+	left: Readonly<Record<string, number>>,
+	right: Readonly<Record<string, number>>,
+) => {
+	const leftKeys = Object.keys(left);
+	const rightKeys = Object.keys(right);
+
+	return (
+		leftKeys.length === rightKeys.length &&
+		leftKeys.every((key) => left[key] === right[key])
+	);
+};
+
+const COLUMN_HANDLE_CLASS_NAME =
+	"!size-2.5 !border-0 !bg-primary !shadow-none transition-opacity";
+
+type SchemaTableNodeStyle = CSSProperties &
+	Record<
+		"--schema-accent" | "--schema-node-opacity" | "--schema-surface-shadow",
+		string | number
+	>;
+
+const getSurfaceShadow = (data: TableNodeData, selected: boolean) => {
+	if (selected || data.isSearchMatch) {
+		return `0 0 0 1px ${data.accent}, 0 0 0 3px color-mix(in oklab, ${data.accent} 14%, transparent), 0 16px 34px color-mix(in oklab, var(--foreground) 14%, transparent)`;
+	}
+
+	if (data.isRelationContextActive) {
+		return "0 0 0 1px color-mix(in oklab, var(--primary) 18%, var(--border)), 0 16px 30px color-mix(in oklab, var(--primary) 10%, transparent)";
+	}
+
+	if (data.isSearchRelated) {
+		return "0 0 0 1px color-mix(in oklab, var(--primary) 24%, var(--border)), 0 14px 28px color-mix(in oklab, var(--foreground) 12%, transparent)";
+	}
+
+	return "0 0 0 1px color-mix(in oklab, var(--foreground) 8%, transparent), 0 10px 24px color-mix(in oklab, var(--foreground) 10%, transparent)";
+};
+
+const getColumnMetaLabel = (column: ColumnData) =>
+	[
+		column.notNull ? "NOT NULL" : "NULLABLE",
+		column.unique ? "UNIQUE" : null,
+		column.isIndexed && !column.pk && !column.unique ? "INDEXED" : null,
+	]
+		.filter(Boolean)
+		.join(" · ");
 
 export const TableNode = memo(function TableNode({
 	id,
@@ -13,30 +69,19 @@ export const TableNode = memo(function TableNode({
 	selected,
 }: NodeProps<DiagramNode>) {
 	const containerRef = useRef<HTMLDivElement | null>(null);
+	const columnRowRefs = useRef(new Map<string, HTMLDivElement>());
+	const [compositeHandleOffsets, setCompositeHandleOffsets] = useState<
+		Record<string, number>
+	>({});
+
 	const connectedColumns = new Set(data.connectedColumns);
 	const activeRelationColumns = new Set(data.activeRelationColumns ?? []);
-	const headerStyle = {
-		backgroundColor: `color-mix(in oklab, ${data.accent} 14%, var(--card))`,
-		borderBottomColor: `color-mix(in oklab, ${data.accent} 24%, var(--border))`,
-	} satisfies CSSProperties;
-	const headerTextStyle = {
-		color: `color-mix(in oklab, ${data.accent} 70%, var(--foreground))`,
-	} satisfies CSSProperties;
-	const badgeStyle = {
-		borderColor: `color-mix(in oklab, ${data.accent} 20%, var(--border))`,
-		backgroundColor: `color-mix(in oklab, ${data.accent} 8%, var(--card))`,
-		color: `color-mix(in oklab, ${data.accent} 50%, var(--muted-foreground))`,
-	} satisfies CSSProperties;
-	const surfaceStyle = {
-		boxShadow: selected || data.isSearchMatch
-			? `0 0 0 1px ${data.accent}, 0 0 0 3px color-mix(in oklab, ${data.accent} 18%, transparent), 0 20px 44px color-mix(in oklab, var(--foreground) 18%, transparent)`
-			: data.isRelationContextActive
-				? "0 0 0 1px color-mix(in oklab, var(--primary) 18%, var(--border)), 0 18px 38px color-mix(in oklab, var(--primary) 12%, transparent)"
-			: data.isSearchRelated
-				? "0 0 0 1px color-mix(in oklab, var(--primary) 28%, var(--border)), 0 16px 36px color-mix(in oklab, var(--foreground) 14%, transparent)"
-				: "0 0 0 1px color-mix(in oklab, var(--foreground) 8%, transparent), 0 14px 34px color-mix(in oklab, var(--foreground) 12%, transparent)",
-		opacity: data.isSearchDimmed ? 0.32 : 1,
-	} satisfies CSSProperties;
+	const constraintBadgesByColumn = getColumnConstraintBadges(data.table);
+	const nodeStyle: SchemaTableNodeStyle = {
+		"--schema-accent": data.accent,
+		"--schema-node-opacity": data.isSearchDimmed ? 0.32 : 1,
+		"--schema-surface-shadow": getSurfaceShadow(data, selected),
+	};
 
 	const reportMeasurement = useEffectEvent(() => {
 		const element = containerRef.current;
@@ -50,8 +95,41 @@ export const TableNode = memo(function TableNode({
 		});
 	});
 
+	const updateCompositeHandleOffsets = useEffectEvent(() => {
+		const container = containerRef.current;
+		if (!container) {
+			return;
+		}
+
+		const containerRect = container.getBoundingClientRect();
+		const nextOffsets: Record<string, number> = {};
+
+		for (const anchor of data.relationAnchors) {
+			if (anchor.columns.length <= 1) {
+				continue;
+			}
+
+			const rowRects = anchor.columns
+				.map((column) => columnRowRefs.current.get(column)?.getBoundingClientRect())
+				.filter((rect): rect is DOMRect => rect !== undefined);
+
+			if (rowRects.length === 0) {
+				continue;
+			}
+
+			const top = Math.min(...rowRects.map((rect) => rect.top));
+			const bottom = Math.max(...rowRects.map((rect) => rect.bottom));
+			nextOffsets[anchor.id] = (top + bottom) / 2 - containerRect.top;
+		}
+
+		setCompositeHandleOffsets((currentOffsets) =>
+			areHandleOffsetsEqual(currentOffsets, nextOffsets) ? currentOffsets : nextOffsets,
+		);
+	});
+
 	useLayoutEffect(() => {
 		reportMeasurement();
+		updateCompositeHandleOffsets();
 
 		const element = containerRef.current;
 		if (!element) {
@@ -60,6 +138,7 @@ export const TableNode = memo(function TableNode({
 
 		const observer = new ResizeObserver(() => {
 			reportMeasurement();
+			updateCompositeHandleOffsets();
 		});
 
 		observer.observe(element);
@@ -67,31 +146,28 @@ export const TableNode = memo(function TableNode({
 		return () => {
 			observer.disconnect();
 		};
-	}, []);
+	}, [data.relationAnchors, data.table.columns]);
 
 	return (
 		<div
 			ref={containerRef}
-			className={cn(
-				"w-fit min-w-[260px] max-w-[420px] overflow-hidden border border-border bg-card text-card-foreground hover:cursor-move",
-			)}
-			style={surfaceStyle}
+			className="schema-table-node relative w-fit min-w-[260px] max-w-[420px] overflow-hidden border border-border bg-card text-card-foreground hover:cursor-move"
+			style={nodeStyle}
 		>
-			<div
-				className="border-b px-3 py-2"
-				style={headerStyle}
-			>
+			<div className="schema-table-accent-rail pointer-events-none absolute inset-x-0 top-0 h-px" />
+			<CompositeRelationHandles
+				activeColumns={activeRelationColumns}
+				connectedColumns={connectedColumns}
+				relationAnchors={data.relationAnchors}
+				topOffsets={compositeHandleOffsets}
+			/>
+
+			<div className="schema-table-header border-b px-3 py-2">
 				<div className="flex items-center justify-between gap-2">
-					<h3
-						className="truncate text-[0.8rem] font-semibold tracking-tight"
-						style={headerTextStyle}
-					>
+					<h3 className="schema-table-heading truncate text-[0.8rem] font-semibold tracking-tight">
 						{data.table.name}
 					</h3>
-					<span
-						className="shrink-0 border px-1.5 py-0.5 text-[0.6rem] uppercase tracking-[0.12em]"
-						style={badgeStyle}
-					>
+					<span className="schema-table-count shrink-0 border px-1.5 py-0.5 text-[0.6rem] uppercase tracking-[0.12em]">
 						{data.table.columns.length}
 					</span>
 				</div>
@@ -106,31 +182,22 @@ export const TableNode = memo(function TableNode({
 				{data.table.columns.map((column) => {
 					const isConnected = connectedColumns.has(column.name);
 					const isRelationActiveColumn = activeRelationColumns.has(column.name);
-					const rowStyle = isRelationActiveColumn
-						? {
-								backgroundColor:
-									"color-mix(in oklab, var(--primary) 12%, var(--background))",
-								boxShadow:
-									"inset 3px 0 0 color-mix(in oklab, var(--primary) 56%, transparent)",
-							}
-						: undefined;
-					const typeBadgeStyle = isRelationActiveColumn
-						? {
-								borderColor:
-									"color-mix(in oklab, var(--primary) 32%, var(--border))",
-								backgroundColor:
-									"color-mix(in oklab, var(--primary) 10%, var(--background))",
-							}
-						: undefined;
+					const constraintBadges = constraintBadgesByColumn.get(column.name) ?? [];
 
 					return (
 						<div
 							key={column.name}
+							ref={(element) => {
+								if (element) {
+									columnRowRefs.current.set(column.name, element);
+								} else {
+									columnRowRefs.current.delete(column.name);
+								}
+							}}
 							className={cn(
-								"group/row relative flex min-h-7 items-center gap-2 px-3 py-1.5 transition-[background-color,box-shadow,color] duration-200 ease-out",
-								isRelationActiveColumn ? "hover:bg-transparent" : "hover:bg-muted/40",
+								"schema-column-row group/row relative flex min-h-8 items-center gap-2 px-3 py-1.5",
+								isRelationActiveColumn && "schema-column-row--active",
 							)}
-							style={rowStyle}
 						>
 							<Handle
 								id={getTargetHandleId(data.table.id, column.name)}
@@ -138,7 +205,7 @@ export const TableNode = memo(function TableNode({
 								position={Position.Left}
 								isConnectable={false}
 								className={cn(
-									"!size-2.5 !border-0 !bg-primary !shadow-none transition-opacity",
+									COLUMN_HANDLE_CLASS_NAME,
 									isConnected || isRelationActiveColumn
 										? "!opacity-100"
 										: "!opacity-0 group-hover/row:!opacity-60",
@@ -151,7 +218,7 @@ export const TableNode = memo(function TableNode({
 								position={Position.Right}
 								isConnectable={false}
 								className={cn(
-									"!size-2.5 !border-0 !bg-primary !shadow-none transition-opacity",
+									COLUMN_HANDLE_CLASS_NAME,
 									isConnected || isRelationActiveColumn
 										? "!opacity-100"
 										: "!opacity-0 group-hover/row:!opacity-60",
@@ -160,35 +227,31 @@ export const TableNode = memo(function TableNode({
 							/>
 
 							<div className="flex w-4 shrink-0 justify-center text-primary transition-colors duration-200 ease-out">
-								{column.pk ? (
-									<IconKey className="size-3" />
-								) : column.isForeignKey ? (
-									<IconLink className="size-3" />
-								) : (
-									<span
-										className={cn(
-											"size-1 transition-colors duration-200 ease-out",
-											isRelationActiveColumn ? "bg-primary" : "bg-border",
-										)}
-									/>
-								)}
+								<ColumnStatusIcon
+									isForeignKey={column.isForeignKey}
+									isPrimaryKey={column.pk}
+									isRelationActive={isRelationActiveColumn}
+								/>
 							</div>
 
 							<div className="min-w-0 flex-1">
 								<p
 									className={cn(
 										"truncate text-xs font-medium transition-colors duration-200 ease-out",
-										isRelationActiveColumn
-											? "text-foreground"
-											: "text-card-foreground",
+										isRelationActiveColumn ? "text-foreground" : "text-card-foreground",
 									)}
 								>
 									{column.name}
 								</p>
+								<ColumnConstraintBadges
+									badges={constraintBadges}
+									isActive={isRelationActiveColumn}
+								/>
 								{column.note ? (
 									<p
 										className={cn(
 											"truncate text-[0.65rem] transition-colors duration-200 ease-out",
+											constraintBadges.length > 0 ? "mt-1" : "",
 											isRelationActiveColumn
 												? "text-foreground/70"
 												: "text-muted-foreground",
@@ -202,32 +265,27 @@ export const TableNode = memo(function TableNode({
 							<div
 								className={cn(
 									"flex flex-col items-end gap-0.5 text-[0.65rem] transition-colors duration-200 ease-out",
-									isRelationActiveColumn
-										? "text-foreground/70"
-										: "text-muted-foreground",
+									isRelationActiveColumn ? "text-foreground/70" : "text-muted-foreground",
 								)}
 							>
 								<span
 									className={cn(
-										"max-w-[13rem] border border-border px-1.5 py-0.5 text-right font-medium whitespace-normal break-words transition-colors duration-200 ease-out",
-										isRelationActiveColumn
-											? "text-foreground"
-											: "text-card-foreground",
+										"schema-column-type max-w-[13rem] border px-1.5 py-0.5 text-right font-medium whitespace-normal break-words transition-colors duration-200 ease-out",
+										isRelationActiveColumn && "schema-column-type--active",
+										isRelationActiveColumn ? "text-foreground" : "text-card-foreground",
 									)}
-									style={typeBadgeStyle}
 								>
 									{column.type}
 								</span>
 								<span
 									className={cn(
-										"text-[0.55rem] uppercase tracking-[0.12em] transition-colors duration-200 ease-out",
+										"schema-column-meta text-[0.55rem] uppercase transition-colors duration-200 ease-out",
 										isRelationActiveColumn
 											? "text-foreground/70"
 											: "text-muted-foreground",
 									)}
 								>
-									{column.notNull ? "NOT NULL" : "NULLABLE"}
-									{column.unique ? " · UNIQUE" : ""}
+									{getColumnMetaLabel(column)}
 								</span>
 							</div>
 						</div>

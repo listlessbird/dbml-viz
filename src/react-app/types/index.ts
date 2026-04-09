@@ -34,6 +34,18 @@ export interface ColumnData {
 	readonly notNull: boolean;
 	readonly unique: boolean;
 	readonly isForeignKey: boolean;
+	readonly isIndexed: boolean;
+	readonly note?: string;
+}
+
+export type TableIndexKind = "primary" | "unique" | "index";
+
+export interface TableIndexData {
+	readonly id: string;
+	readonly kind: TableIndexKind;
+	readonly columns: readonly string[];
+	readonly name?: string;
+	readonly method?: string;
 	readonly note?: string;
 }
 
@@ -43,21 +55,24 @@ export interface TableData {
 	readonly schema?: string;
 	readonly note?: string;
 	readonly columns: readonly ColumnData[];
+	readonly indexes: readonly TableIndexData[];
 }
 
 export type RefType = "one_to_one" | "one_to_many" | "many_to_one" | "many_to_many";
 
+export interface RefEndpointData {
+	readonly table: string;
+	readonly columns: readonly string[];
+}
+
 export interface RefData {
 	readonly id: string;
-	readonly from: {
-		readonly table: string;
-		readonly column: string;
-	};
-	readonly to: {
-		readonly table: string;
-		readonly column: string;
-	};
+	readonly from: RefEndpointData;
+	readonly to: RefEndpointData;
 	readonly type: RefType;
+	readonly name?: string;
+	readonly onDelete?: string;
+	readonly onUpdate?: string;
 }
 
 export interface ParsedSchema {
@@ -77,6 +92,12 @@ export interface DiagramNodeSize {
 
 export type DiagramPositions = Record<string, XYPosition>;
 
+export interface RelationAnchorData {
+	readonly id: string;
+	readonly columns: readonly string[];
+	readonly side: "source" | "target";
+}
+
 export interface TableNodeData extends Record<string, unknown> {
 	readonly table: TableData;
 	readonly accent: string;
@@ -86,24 +107,22 @@ export interface TableNodeData extends Record<string, unknown> {
 	readonly isSearchMatch: boolean;
 	readonly isSearchRelated: boolean;
 	readonly isSearchDimmed: boolean;
+	readonly relationAnchors: readonly RelationAnchorData[];
 	readonly onMeasure?: (nodeId: string, size: DiagramNodeSize) => void;
 }
 
 export interface RelationshipEdgeData extends Record<string, unknown> {
-	readonly from: {
-		readonly table: string;
-		readonly column: string;
-	};
-	readonly to: {
-		readonly table: string;
-		readonly column: string;
-	};
+	readonly from: RefEndpointData;
+	readonly to: RefEndpointData;
 	readonly relationText: string;
 	readonly isSearchMatch: boolean;
 	readonly isSearchDimmed: boolean;
 	readonly isRelationActive?: boolean;
 	readonly isRelationSourceActive?: boolean;
 	readonly isRelationTargetActive?: boolean;
+	readonly name?: string;
+	readonly onDelete?: string;
+	readonly onUpdate?: string;
 }
 
 export type DiagramNode = Node<TableNodeData, "table">;

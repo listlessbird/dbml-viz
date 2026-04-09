@@ -7,6 +7,7 @@ import {
 import { memo, useMemo } from "react";
 
 import { sampleEdgeLabelPosition } from "@/lib/edge-label";
+import { formatRefEndpointSummary } from "@/lib/schema-format";
 import type { DiagramEdge } from "@/types";
 
 const RELATION_ACTIVITY_EASING = "cubic-bezier(0.215, 0.61, 0.355, 1)";
@@ -51,14 +52,20 @@ export const RelationshipEdge = memo(function RelationshipEdge({
 			? null
 			: `${data.from.table} -> ${data.to.table}`;
 	const relationDetail =
-		data === undefined
-			? null
-			: `${data.from.table}.${data.from.column} references ${data.to.table}.${data.to.column}`;
+		data === undefined ? null : formatRefEndpointSummary(data.from, data.to);
 	const relationText = data?.relationText ?? null;
-	const nativeTooltip =
-		relationSummary && relationDetail && relationText
-			? `${relationSummary}\n${relationDetail}\n${relationText}`
-			: undefined;
+	const nativeTooltip = data
+		? [
+				relationSummary,
+				relationDetail,
+				relationText,
+				data.name ? `constraint ${data.name}` : null,
+				data.onDelete ? `on delete ${data.onDelete}` : null,
+				data.onUpdate ? `on update ${data.onUpdate}` : null,
+			]
+				.filter(Boolean)
+				.join("\n")
+		: undefined;
 	const isRelationActive = data?.isRelationActive ?? false;
 	const strokeWidth =
 		typeof style?.strokeWidth === "number"
@@ -96,10 +103,10 @@ export const RelationshipEdge = memo(function RelationshipEdge({
 			/>
 			{isRelationActive ? (
 				<g aria-hidden="true">
-					{RELATION_PARTICLE_OFFSETS.map((begin, index) => (
-						<rect
-							key={`${id}-particle-${index}`}
-							x={-6}
+						{RELATION_PARTICLE_OFFSETS.map((begin) => (
+							<rect
+								key={`${id}-particle-${begin}`}
+								x={-6}
 							y={-2.4}
 							width={12}
 							height={4.8}
