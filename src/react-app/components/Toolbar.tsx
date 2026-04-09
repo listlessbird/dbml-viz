@@ -1,4 +1,4 @@
-import { IconCheck, IconLink } from "@tabler/icons-react";
+import { IconCheck, IconCopy } from "@tabler/icons-react";
 import { useState } from "react";
 
 import { ShareButton } from "@/components/ShareButton";
@@ -12,14 +12,21 @@ interface ToolbarProps {
 	readonly onShare: () => void;
 }
 
-function RouteLabel({ shareId, isDirty }: { shareId: string | null; isDirty: boolean }) {
+function StatusDot() {
+	return <span className="size-1.5 rounded-full bg-primary/60" />;
+}
+
+function ShareStatus({ shareId, isDirty }: { shareId: string | null; isDirty: boolean }) {
 	const [copied, setCopied] = useState(false);
 
 	if (shareId === null) {
 		return (
-			<span className="shrink-0 flex items-center gap-1.5 text-xs text-muted-foreground">
-				<span className="size-1.5 rounded-full bg-primary/60" />
-				Auto-saved
+			<span
+				title="Saved in this browser until you create a share link."
+				className="shrink-0 inline-flex items-center gap-1.5 text-xs text-muted-foreground"
+			>
+				<StatusDot />
+				Auto-saved locally
 			</span>
 		);
 	}
@@ -37,22 +44,34 @@ function RouteLabel({ shareId, isDirty }: { shareId: string | null; isDirty: boo
 	};
 
 	return (
-		<button
-			type="button"
-			title={copied ? "Copied!" : "Copy share link"}
-			className="shrink-0 inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
-			onClick={() => void handleCopy()}
-		>
-			{copied ? (
-				<IconCheck className="size-3 text-primary" />
-			) : (
-				<IconLink className="size-3" />
-			)}
-			<span className="font-mono">{shareId}</span>
+		<div className="shrink-0 inline-flex items-center gap-2 text-xs text-muted-foreground">
+			<span className="inline-flex items-center gap-1.5">
+				<StatusDot />
+				Shared snapshot
+			</span>
+			<span className="inline-flex items-center gap-1 border border-border/70 px-1.5 py-0.5 text-[11px] text-muted-foreground/75">
+				<span className="text-[9px] uppercase tracking-[0.12em] text-muted-foreground/45">
+					ID
+				</span>
+				<span className="font-mono">{shareId}</span>
+			</span>
+			<button
+				type="button"
+				title={copied ? "Copied!" : "Copy share link"}
+				className="inline-flex items-center gap-1 border border-border/70 px-2 py-1 text-[11px] text-sidebar-foreground transition-colors hover:border-border hover:text-foreground"
+				onClick={() => void handleCopy()}
+			>
+				{copied ? (
+					<IconCheck className="size-3 text-primary" />
+				) : (
+					<IconCopy className="size-3" />
+				)}
+				{copied ? "Copied" : "Copy link"}
+			</button>
 			{isDirty ? (
-				<span className="text-muted-foreground/60">· edited</span>
+				<span className="text-muted-foreground/60">Local edits not shared</span>
 			) : null}
-		</button>
+		</div>
 	);
 }
 
@@ -76,7 +95,7 @@ export function Toolbar({
 				<span className="shrink-0 text-xs text-muted-foreground">
 					{relationCount} {relationCount === 1 ? "relationship" : "relationships"}
 				</span>
-				<RouteLabel shareId={shareId} isDirty={isDirty} />
+				<ShareStatus shareId={shareId} isDirty={isDirty} />
 			</div>
 
 			<div className="flex shrink-0 items-stretch border-l border-border">
