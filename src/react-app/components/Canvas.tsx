@@ -1,6 +1,7 @@
 import {
   IconFocus2,
   IconHandMove,
+  IconLayoutSidebarLeftExpand,
   IconMinus,
   IconPlus,
 } from "@tabler/icons-react";
@@ -58,6 +59,7 @@ interface CanvasProps {
   readonly gridMode: DiagramGridMode;
   readonly isBusy: boolean;
   readonly isLayouting: boolean;
+  readonly isEditorHidden: boolean;
   readonly matchedTableNames: readonly string[];
   readonly zoom: number;
   readonly onAutoLayout: () => void;
@@ -67,6 +69,7 @@ interface CanvasProps {
   readonly onInit: (
     instance: ReactFlowInstance<DiagramNode, DiagramEdge>,
   ) => void;
+  readonly onShowEditor: () => void;
   readonly onViewportChange: (viewport: Viewport) => void;
   readonly onZoomIn: () => void;
   readonly onZoomOut: () => void;
@@ -78,6 +81,7 @@ export function Canvas({
   gridMode,
   isBusy,
   isLayouting,
+  isEditorHidden,
   matchedTableNames,
   zoom,
   onAutoLayout,
@@ -85,6 +89,7 @@ export function Canvas({
   onEdgesChange,
   onFitView,
   onInit,
+  onShowEditor,
   onViewportChange,
   onZoomIn,
   onZoomOut,
@@ -149,6 +154,23 @@ export function Canvas({
           nodeColor={() => "var(--primary)"}
         />
       </ReactFlow>
+
+      <div
+        className={cn(
+          "pointer-events-none absolute left-4 top-4 z-10 transition-[opacity,transform] duration-200 ease-out motion-reduce:transition-none",
+          isEditorHidden ? "translate-x-0 opacity-100" : "-translate-x-3 opacity-0",
+        )}
+      >
+        <button
+          type="button"
+          tabIndex={isEditorHidden ? 0 : -1}
+          aria-hidden={!isEditorHidden}
+          className="pointer-events-auto inline-flex min-h-9 items-center gap-2 border border-border/80 bg-background/96 px-3 text-xs font-medium text-foreground shadow-[0_16px_32px_color-mix(in_oklab,var(--foreground)_12%,transparent)] transition-[background-color,border-color,color,transform] duration-200 ease-out hover:-translate-y-px hover:border-border hover:bg-background focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+          onClick={onShowEditor}
+        >
+          <IconLayoutSidebarLeftExpand className="size-4 text-primary" />
+        </button>
+      </div>
 
       <div className="pointer-events-none absolute bottom-4 left-4 z-10">
         <div className="pointer-events-auto overflow-hidden bg-background/96 text-foreground shadow-[0_18px_38px_color-mix(in_oklab,var(--foreground)_12%,transparent)] backdrop-blur-sm">

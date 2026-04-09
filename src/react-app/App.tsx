@@ -1,5 +1,9 @@
 import { useEdgesState, useNodesState } from "@xyflow/react";
-import { Group as PanelGroup, Panel } from "react-resizable-panels";
+import {
+	Group as PanelGroup,
+	Panel,
+	type PanelImperativeHandle,
+} from "react-resizable-panels";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Canvas } from "@/components/Canvas";
@@ -53,9 +57,11 @@ const getInitialAppState = (): InitialAppState => {
 
 function App() {
 	const [initialState] = useState(getInitialAppState);
+	const [isEditorHidden, setIsEditorHidden] = useState(false);
 
 	const [nodes, setNodes, onNodesChange] = useNodesState<DiagramNode>([]);
 	const [edges, setEdges, onEdgesChange] = useEdgesState<DiagramEdge>([]);
+	const editorPanelRef = useRef<PanelImperativeHandle | null>(null);
 	const {
 		viewedRoute,
 		setShareBaseline,
@@ -114,6 +120,20 @@ function App() {
 	useEffect(() => {
 		nodesRef.current = nodes;
 	}, [nodes]);
+
+	useEffect(() => {
+		const editorPanel = editorPanelRef.current;
+		if (!editorPanel) {
+			return;
+		}
+
+		if (isEditorHidden) {
+			editorPanel.collapse();
+			return;
+		}
+
+		editorPanel.expand();
+	}, [isEditorHidden]);
 
 	const handleMeasure = useCallback(
 		(nodeId: string, size: DiagramNodeSize) => {
@@ -176,6 +196,14 @@ function App() {
 		requestFitView(fitViewTargetIds.length > 0 ? fitViewTargetIds : undefined);
 	}, [fitViewTargetIds, requestFitView]);
 
+	const handleToggleEditor = useCallback(() => {
+		setIsEditorHidden((currentValue) => !currentValue);
+	}, []);
+
+	const handleShowEditor = useCallback(() => {
+		setIsEditorHidden(false);
+	}, []);
+
 	return (
 		<div className="h-screen bg-background text-foreground">
 			<div className="flex h-full flex-col">
@@ -203,12 +231,20 @@ function App() {
 				) : null}
 
 				<PanelGroup orientation="horizontal" className="min-h-0 flex-1">
-					<Panel defaultSize={30} minSize={18} className="min-w-0">
+					<Panel
+						panelRef={editorPanelRef}
+						defaultSize={30}
+						minSize={18}
+						collapsible
+						collapsedSize={0}
+						className="min-w-0"
+					>
 						<Editor
 							value={source}
 							diagnostics={diagnostics}
 							isParsing={isParsing}
 							onChange={setSource}
+							onHide={handleToggleEditor}
 						/>
 					</Panel>
 					<Panel defaultSize={70} minSize={24} className="min-w-0">
@@ -219,6 +255,7 @@ function App() {
 								gridMode={gridMode}
 								isBusy={isLoadingShare || isLayouting}
 								isLayouting={isLayouting}
+								isEditorHidden={isEditorHidden}
 								matchedTableNames={matchedTableNames}
 								zoom={viewportZoom}
 								onAutoLayout={handleAutoLayoutClick}
@@ -226,6 +263,7 @@ function App() {
 								onEdgesChange={onEdgesChange}
 								onFitView={handleFitViewClick}
 								onInit={handleCanvasInit}
+								onShowEditor={handleShowEditor}
 								onViewportChange={handleViewportChange}
 								onZoomIn={handleZoomIn}
 								onZoomOut={handleZoomOut}

@@ -49,6 +49,7 @@ const renderCanvas = (): RenderCanvasResult => {
 					gridMode="dots"
 					isBusy={false}
 					isLayouting={false}
+					isEditorHidden={false}
 					matchedTableNames={[]}
 					zoom={1}
 					onAutoLayout={vi.fn()}
@@ -56,6 +57,7 @@ const renderCanvas = (): RenderCanvasResult => {
 					onEdgesChange={vi.fn()}
 					onFitView={vi.fn()}
 					onInit={vi.fn()}
+					onShowEditor={vi.fn()}
 					onViewportChange={vi.fn()}
 					onZoomIn={vi.fn()}
 					onZoomOut={vi.fn()}

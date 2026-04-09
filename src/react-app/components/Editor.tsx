@@ -13,7 +13,10 @@ import {
 	highlightActiveLineGutter,
 	lineNumbers,
 } from "@codemirror/view";
-import { IconAlertTriangle } from "@tabler/icons-react";
+import {
+	IconAlertTriangle,
+	IconLayoutSidebarLeftCollapse,
+} from "@tabler/icons-react";
 import { useEffectEvent } from "react";
 import { useEffect, useRef } from "react";
 
@@ -24,6 +27,7 @@ interface EditorProps {
 	readonly diagnostics: readonly ParseDiagnostic[];
 	readonly isParsing: boolean;
 	readonly onChange: (value: string) => void;
+	readonly onHide: () => void;
 }
 
 const setDiagnosticsEffect = StateEffect.define<readonly ParseDiagnostic[]>();
@@ -146,7 +150,13 @@ const editorTheme = EditorView.theme({
 	},
 });
 
-export function Editor({ value, diagnostics, isParsing, onChange }: EditorProps) {
+export function Editor({
+	value,
+	diagnostics,
+	isParsing,
+	onChange,
+	onHide,
+}: EditorProps) {
 	const containerRef = useRef<HTMLDivElement | null>(null);
 	const initialValueRef = useRef(value);
 	const viewRef = useRef<EditorView | null>(null);
@@ -225,6 +235,18 @@ export function Editor({ value, diagnostics, isParsing, onChange }: EditorProps)
 			className="dark flex h-full min-h-0 flex-col overflow-hidden bg-sidebar text-sidebar-foreground"
 			aria-busy={isParsing}
 		>
+			<div className="flex min-h-12 items-center justify-between border-b border-sidebar-border/80 px-3 text-xs text-muted-foreground">
+				<div className="flex items-center gap-2">
+
+				</div>
+				<button
+					type="button"
+					className="inline-flex min-h-8 items-center gap-1.5 border border-sidebar-border/70 px-2.5 text-[11px] font-medium text-sidebar-foreground transition-[background-color,border-color,color,transform] duration-200 ease-out hover:-translate-y-px hover:border-sidebar-border hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-sidebar-ring motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+					onClick={onHide}
+				>
+					<IconLayoutSidebarLeftCollapse className="size-3.5" />
+				</button>
+			</div>
 			{diagnostics.length > 0 ? (
 				<div className="border-b border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
 					<div className="flex items-start gap-2">
