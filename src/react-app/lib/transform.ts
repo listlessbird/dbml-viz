@@ -56,6 +56,31 @@ const chartAccents = [
 const accentFromTable = (tableId: string) =>
 	chartAccents[hashString(tableId) % chartAccents.length];
 
+const MIN_TABLE_WIDTH = 260;
+const MAX_TABLE_WIDTH = 420;
+const ESTIMATED_CHAR_WIDTH = 6.1;
+const TABLE_WIDTH_PADDING = 168;
+
+const estimateTableWidth = (table: TableData) => {
+	const longestContentLength = Math.max(
+		table.name.length,
+		...table.columns.map((column) =>
+			Math.max(
+				column.name.length + column.type.length,
+				column.type.length + (column.unique ? 9 : 0) + (column.notNull ? 10 : 8),
+			),
+		),
+	);
+
+	return Math.max(
+		MIN_TABLE_WIDTH,
+		Math.min(
+			MAX_TABLE_WIDTH,
+			Math.round(TABLE_WIDTH_PADDING + longestContentLength * ESTIMATED_CHAR_WIDTH),
+		),
+	);
+};
+
 export const estimateTableSize = (
 	table: TableData,
 	measurement?: DiagramNodeSize,
@@ -65,7 +90,7 @@ export const estimateTableSize = (
 	}
 
 	return {
-		width: 260,
+		width: estimateTableWidth(table),
 		height: 60 + table.columns.length * 28,
 	};
 };

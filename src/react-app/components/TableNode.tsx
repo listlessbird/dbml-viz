@@ -73,7 +73,7 @@ export const TableNode = memo(function TableNode({
 		<div
 			ref={containerRef}
 			className={cn(
-				"w-[260px] overflow-hidden border border-border bg-card text-card-foreground hover:cursor-move",
+				"w-fit min-w-[260px] max-w-[420px] overflow-hidden border border-border bg-card text-card-foreground hover:cursor-move",
 			)}
 			style={surfaceStyle}
 		>
@@ -209,7 +209,7 @@ export const TableNode = memo(function TableNode({
 							>
 								<span
 									className={cn(
-										"border border-border px-1.5 py-0.5 font-medium transition-colors duration-200 ease-out",
+										"max-w-[13rem] border border-border px-1.5 py-0.5 text-right font-medium whitespace-normal break-words transition-colors duration-200 ease-out",
 										isRelationActiveColumn
 											? "text-foreground"
 											: "text-card-foreground",

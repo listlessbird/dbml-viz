@@ -26,6 +26,7 @@ import { TableNode } from "@/components/TableNode";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup, ButtonGroupText } from "@/components/ui/button-group";
 import { useRelationHighlighting } from "@/hooks/useRelationHighlighting";
+import { cn } from "@/lib/utils";
 import { useDiagramUiStore } from "@/store/useDiagramUiStore";
 import type { DiagramEdge, DiagramGridMode, DiagramNode } from "@/types";
 
@@ -92,6 +93,7 @@ export function Canvas({
     nodes,
     edges,
   );
+  const hasDiagram = nodes.length > 0;
   const isPanModeEnabled = useDiagramUiStore((state) => state.panModeEnabled);
   const togglePanMode = useDiagramUiStore((state) => state.togglePanMode);
 
@@ -133,16 +135,19 @@ export function Canvas({
         {gridMode === "none" ? null : (
           <Background {...GRID_PATTERNS[gridMode]} />
         )}
-        {nodes.length > 0 ? (
-          <MiniMap
-            position="bottom-right"
-            pannable
-            zoomable
-            className="!rounded-none !border !border-border !bg-background"
-            maskColor="color-mix(in oklab, var(--muted) 84%, transparent)"
-            nodeColor={() => "var(--primary)"}
-          />
-        ) : null}
+        <MiniMap
+          position="bottom-right"
+          pannable={hasDiagram}
+          zoomable={hasDiagram}
+          className={cn(
+            "rounded-none! border! border-border! bg-background! transition-[opacity,transform]! duration-200! ease-out!",
+            hasDiagram
+              ? "translate-y-0! opacity-100!"
+              : "pointer-events-none! translate-y-2! opacity-0!",
+          )}
+          maskColor="color-mix(in oklab, var(--muted) 84%, transparent)"
+          nodeColor={() => "var(--primary)"}
+        />
       </ReactFlow>
 
       <div className="pointer-events-none absolute bottom-4 left-4 z-10">
@@ -151,6 +156,7 @@ export function Canvas({
             <Button
               type="button"
               title="Zoom out"
+              aria-label="Zoom out"
               variant="outline"
               size="icon-lg"
               onClick={onZoomOut}
@@ -163,6 +169,7 @@ export function Canvas({
             <Button
               type="button"
               title="Zoom in"
+              aria-label="Zoom in"
               variant="outline"
               size="icon-lg"
               onClick={onZoomIn}
@@ -172,6 +179,7 @@ export function Canvas({
             <Button
               type="button"
               title="Fit view"
+              aria-label="Fit view"
               variant="outline"
               size="icon-lg"
               onClick={onFitView}
@@ -206,7 +214,7 @@ export function Canvas({
         onZoomOut={onZoomOut}
       />
 
-      {nodes.length === 0 ? (
+      {!hasDiagram ? (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-6">
           <div className="max-w-sm text-center">
             <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">

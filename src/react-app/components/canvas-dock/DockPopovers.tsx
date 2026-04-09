@@ -49,6 +49,7 @@ export function GridDockPopover({
 						shortcut="G"
 						isActive={open || gridMode !== "none"}
 						title="Canvas grid (G)"
+						aria-label="Canvas grid"
 					/>
 				}
 			/>
@@ -122,6 +123,7 @@ export function LayoutDockPopover({
 						shortcut="L"
 						isActive={open}
 						title="Arrange diagram (L)"
+						aria-label="Arrange diagram"
 					/>
 				}
 			/>
@@ -209,6 +211,7 @@ export function SearchDockPopover({
 						shortcut="/"
 						isActive={open || searchQuery.trim().length > 0}
 						title="Search tables (/)"
+						aria-label="Search tables"
 					/>
 				}
 			/>
@@ -231,6 +234,7 @@ export function SearchDockPopover({
 							id="table-search"
 							ref={searchInputRef}
 							type="search"
+							aria-label="Search tables"
 							value={searchQuery}
 							onChange={(event) => onSearchQueryChange(event.target.value)}
 							placeholder="Type a table name"

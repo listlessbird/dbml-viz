@@ -117,8 +117,21 @@ describe("CanvasDock hotkeys", () => {
 		const searchInput = document.getElementById("table-search");
 		expect(event.defaultPrevented).toBe(true);
 		expect(searchInput).toBeInstanceOf(HTMLInputElement);
+		expect(searchInput?.getAttribute("aria-label")).toBe("Search tables");
 		expect(document.activeElement).toBe(searchInput);
 		editorSurface.remove();
+	});
+
+	it("exposes explicit aria-labels on dock controls", () => {
+		const rendered = renderDock();
+		activeRoot = rendered.root;
+		activeContainer = rendered.container;
+
+		expect(rendered.container.querySelector('[aria-label="Canvas grid"]')).toBeTruthy();
+		expect(
+			rendered.container.querySelector('[aria-label="Arrange diagram"]'),
+		).toBeTruthy();
+		expect(rendered.container.querySelector('[aria-label="Search tables"]')).toBeTruthy();
 	});
 
 	it("routes viewport hotkeys to the dock callbacks", async () => {
