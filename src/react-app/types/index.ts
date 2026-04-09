@@ -25,6 +25,11 @@ export type SchemaSourceFormat = "dbml" | "sql";
 
 export type SqlDialect = "postgres" | "mysql" | "mssql" | "oracle" | "snowflake";
 
+export interface SchemaSourceMetadata {
+	readonly format: SchemaSourceFormat;
+	readonly dialect?: SqlDialect;
+}
+
 export interface SchemaPayload {
 	readonly source: string;
 	readonly positions: Record<string, SharePosition>;

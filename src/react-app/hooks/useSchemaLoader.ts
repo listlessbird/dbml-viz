@@ -108,7 +108,11 @@ export function useSchemaLoader({
 							setShareBaseline({ shareId: sharedId, payload });
 						}
 					})
-					.catch(() => {});
+					.catch((error) => {
+						if (!cancelled) {
+							console.error(error);
+						}
+					});
 			}
 
 			return () => {
@@ -157,6 +161,8 @@ export function useSchemaLoader({
 				if (cancelled) {
 					return;
 				}
+
+				console.error(error);
 
 				startTransition(() => {
 					dispatch({

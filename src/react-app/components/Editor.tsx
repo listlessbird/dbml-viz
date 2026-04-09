@@ -1,5 +1,6 @@
 import { oneDark } from "@codemirror/theme-one-dark";
 import {
+	Compartment,
 	EditorState,
 	StateEffect,
 	StateField,
@@ -20,86 +21,39 @@ import {
 import { useEffectEvent } from "react";
 import { useEffect, useRef } from "react";
 
-import type { EditorPosition, ParseDiagnostic } from "@/types";
+import { buildDiagnosticDecorations } from "@/lib/editor-diagnostics";
+import type {
+	ParseDiagnostic,
+	SchemaSourceMetadata,
+} from "@/types";
 
 interface EditorProps {
 	readonly value: string;
 	readonly diagnostics: readonly ParseDiagnostic[];
 	readonly isParsing: boolean;
+	readonly sourceMetadata: SchemaSourceMetadata;
 	readonly onChange: (value: string) => void;
 	readonly onHide: () => void;
 }
 
 const setDiagnosticsEffect = StateEffect.define<readonly ParseDiagnostic[]>();
+const languageCompartment = new Compartment();
+const MAX_VISIBLE_DIAGNOSTICS = 6;
+const MAX_DIAGNOSTIC_MESSAGE_LENGTH = 160;
 
-const diagnosticMark = Decoration.mark({
-	class: "cm-parse-error-range",
-});
-
-const diagnosticLine = Decoration.line({
-	class: "cm-parse-error-line",
-});
-
-const getOffsetForPosition = (state: EditorState, position: EditorPosition) => {
-	const lineNumber = Math.max(1, Math.min(position.line, state.doc.lines));
-	const line = state.doc.line(lineNumber);
-	const characterOffset = Math.max(0, position.column - 1);
-	return Math.min(line.to, line.from + characterOffset);
-};
-
-const getDiagnosticMarkRange = (
-	state: EditorState,
-	diagnostic: ParseDiagnostic,
-) => {
+const truncateDiagnosticMessage = (message: string) =>
+	message.length > MAX_DIAGNOSTIC_MESSAGE_LENGTH
+		? `${message.slice(0, MAX_DIAGNOSTIC_MESSAGE_LENGTH - 1)}…`
+		: message;
+const getDiagnosticKey = (diagnostic: ParseDiagnostic) => {
 	const start = diagnostic.location?.start;
-	if (!start) {
-		return null;
-	}
+	const end = diagnostic.location?.end;
 
-	const from = getOffsetForPosition(state, start);
-	const to = diagnostic.location?.end
-		? getOffsetForPosition(state, diagnostic.location.end)
-		: Math.min(state.doc.length, from + 1);
-	const safeTo = to > from ? to : Math.min(state.doc.length, from + 1);
-
-	return safeTo > from ? { from, to: safeTo } : null;
-};
-
-export const buildDiagnosticDecorations = (
-	state: EditorState,
-	diagnostics: readonly ParseDiagnostic[],
-) => {
-	const decorations: Array<ReturnType<typeof diagnosticMark.range>> = [];
-	const highlightedLines = new Set<number>();
-
-	for (const diagnostic of diagnostics) {
-		const start = diagnostic.location?.start;
-		if (!start) {
-			continue;
-		}
-
-		const markRange = getDiagnosticMarkRange(state, diagnostic);
-		const from = markRange?.from ?? getOffsetForPosition(state, start);
-		const line = state.doc.lineAt(from);
-
-		if (!highlightedLines.has(line.number)) {
-			decorations.push(diagnosticLine.range(line.from));
-			highlightedLines.add(line.number);
-		}
-
-		if (markRange) {
-			decorations.push(diagnosticMark.range(markRange.from, markRange.to));
-		}
-	}
-
-	decorations.sort(
-		(left, right) =>
-			left.from - right.from ||
-			left.value.startSide - right.value.startSide ||
-			left.to - right.to,
-	);
-
-	return Decoration.set(decorations);
+	return [
+		start ? `${start.line}:${start.column}` : "unknown",
+		end ? `${end.line}:${end.column}` : "unknown",
+		diagnostic.message,
+	].join(":");
 };
 
 const diagnosticField = StateField.define({
@@ -154,6 +108,7 @@ export function Editor({
 	value,
 	diagnostics,
 	isParsing,
+	sourceMetadata,
 	onChange,
 	onHide,
 }: EditorProps) {
@@ -161,6 +116,8 @@ export function Editor({
 	const initialValueRef = useRef(value);
 	const viewRef = useRef<EditorView | null>(null);
 	const handleChange = useEffectEvent(onChange);
+	const visibleDiagnostics = diagnostics.slice(0, MAX_VISIBLE_DIAGNOSTICS);
+	const hiddenDiagnosticCount = Math.max(0, diagnostics.length - visibleDiagnostics.length);
 
 	useEffect(() => {
 		const parent = containerRef.current;
@@ -172,6 +129,7 @@ export function Editor({
 			state: EditorState.create({
 				doc: initialValueRef.current,
 				extensions: [
+					languageCompartment.of([]),
 					lineNumbers(),
 					highlightActiveLineGutter(),
 					drawSelection(),
@@ -230,6 +188,52 @@ export function Editor({
 		});
 	}, [diagnostics]);
 
+	useEffect(() => {
+		let cancelled = false;
+		const sourceFormat = sourceMetadata.format;
+		const sourceDialect = sourceMetadata.dialect;
+
+		void import("@/lib/editor-language")
+			.then(({ loadEditorLanguage }) =>
+				loadEditorLanguage({
+					format: sourceFormat,
+					dialect: sourceDialect,
+				}),
+			)
+			.then((languageSupport) => {
+				if (cancelled) {
+					return;
+				}
+
+				viewRef.current?.dispatch({
+					effects: languageCompartment.reconfigure(languageSupport),
+				});
+			})
+			.catch((error) => {
+				if (cancelled) {
+					return;
+				}
+
+				console.error("Failed to load editor language support.", {
+					scope: "editor-language",
+					format: sourceFormat,
+					dialect: sourceDialect,
+					error:
+						error instanceof Error
+							? {
+									name: error.name,
+									message: error.message,
+									stack: error.stack,
+								}
+							: error,
+				});
+			});
+
+		return () => {
+			cancelled = true;
+		};
+	}, [sourceMetadata.dialect, sourceMetadata.format]);
+
 	return (
 		<div
 			className="dark flex h-full min-h-0 flex-col overflow-hidden bg-sidebar text-sidebar-foreground"
@@ -253,17 +257,23 @@ export function Editor({
 						<IconAlertTriangle className="mt-0.5 size-3.5 shrink-0" />
 						<div className="space-y-1">
 							<p className="font-medium">Error parsing statement(s).</p>
-							{diagnostics.map((diagnostic, index) => (
+							{visibleDiagnostics.map((diagnostic) => (
 								<p
-									key={`${diagnostic.message}-${index}`}
+									key={getDiagnosticKey(diagnostic)}
 									className="text-destructive/90"
+									title={diagnostic.message}
 								>
 									{diagnostic.location?.start
 										? `Line ${diagnostic.location.start.line}, Col ${diagnostic.location.start.column}: `
 										: ""}
-									{diagnostic.message}
+									{truncateDiagnosticMessage(diagnostic.message)}
 								</p>
 							))}
+							{hiddenDiagnosticCount > 0 ? (
+								<p className="text-destructive/80">
+									{`${hiddenDiagnosticCount} more parser error${hiddenDiagnosticCount === 1 ? "" : "s"} hidden.`}
+								</p>
+							) : null}
 						</div>
 					</div>
 				</div>

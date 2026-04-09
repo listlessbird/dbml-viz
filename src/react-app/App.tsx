@@ -4,7 +4,7 @@ import {
 	Panel,
 	type PanelImperativeHandle,
 } from "react-resizable-panels";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Canvas } from "@/components/Canvas";
 import { Editor } from "@/components/Editor";
@@ -108,18 +108,21 @@ function App() {
 		setNodes,
 		setEdges,
 	});
-	const { parsed, diagnostics, isParsing } = useSchemaParser(source);
+	const { parsed, diagnostics, isParsing, metadata } = useSchemaParser(source);
 	const { searchState, matchedTableNames, searchFocusIds } = useDiagramSearch(
 		parsed,
 		searchQuery,
 	);
+	const availableTableIds = useMemo(
+		() => new Set(parsed.tables.map((table) => table.id)),
+		[parsed.tables],
+	);
+	const activeFocusedTableIds = useMemo(
+		() => focusedTableIds.filter((tableId) => availableTableIds.has(tableId)),
+		[availableTableIds, focusedTableIds],
+	);
 	const fitViewTargetIds =
-		focusedTableIds.length > 0 ? focusedTableIds : searchFocusIds;
-	const nodesRef = useRef<DiagramNode[]>([]);
-
-	useEffect(() => {
-		nodesRef.current = nodes;
-	}, [nodes]);
+		activeFocusedTableIds.length > 0 ? activeFocusedTableIds : searchFocusIds;
 
 	useEffect(() => {
 		const editorPanel = editorPanelRef.current;
@@ -149,7 +152,7 @@ function App() {
 		nodeMeasurements,
 		layoutAlgorithm,
 		focusIds: fitViewTargetIds,
-		nodesRef,
+		nodes,
 		handleMeasure,
 		requestFitView,
 		setNodes,
@@ -178,7 +181,7 @@ function App() {
 
 	const { isSharing, handleShare } = useShareSchema({
 		source,
-		nodesRef,
+		nodes,
 		shareSeedPositions,
 		viewedRoute,
 		clearDraft,
@@ -243,6 +246,7 @@ function App() {
 							value={source}
 							diagnostics={diagnostics}
 							isParsing={isParsing}
+							sourceMetadata={metadata}
 							onChange={setSource}
 							onHide={handleToggleEditor}
 						/>

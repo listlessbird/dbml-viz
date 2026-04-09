@@ -4,7 +4,7 @@ import {
 	type SchemaParserRequest,
 	type SchemaParserResponse,
 } from "@/lib/parser-shared";
-import type { ParsedSchema } from "@/types";
+import type { ParsedSourceResult } from "@/lib/schema-source-parser";
 
 export { SchemaParseError } from "@/lib/parser-shared";
 
@@ -17,7 +17,7 @@ let idleTimerId: number | null = null;
 const pendingParses = new Map<
 	number,
 	{
-		resolve: (value: ParsedSchema) => void;
+		resolve: (value: ParsedSourceResult) => void;
 		reject: (reason?: unknown) => void;
 	}
 >();
@@ -72,7 +72,10 @@ const handleParserWorkerMessage = (event: MessageEvent<SchemaParserResponse>) =>
 	pendingParses.delete(event.data.id);
 
 	if (event.data.ok) {
-		pending.resolve(event.data.parsed);
+		pending.resolve({
+			parsed: event.data.parsed,
+			metadata: event.data.metadata,
+		});
 	} else {
 		pending.reject(new SchemaParseError(event.data.diagnostics));
 	}
@@ -92,10 +95,14 @@ const ensureParserWorker = () => {
 	});
 
 	worker.addEventListener("message", handleParserWorkerMessage);
-	worker.addEventListener("error", () => {
+	worker.addEventListener("error", (event) => {
+		console.error("Schema parser web worker crashed.", event.error ?? event);
+
 		terminateParserWorker(new Error("Schema parser worker crashed."));
 	});
-	worker.addEventListener("messageerror", () => {
+	worker.addEventListener("messageerror", (event) => {
+		console.error("Schema parser web worker returned an invalid message.", event);
+
 		terminateParserWorker(new Error("Schema parser worker returned an invalid message."));
 	});
 
@@ -103,15 +110,20 @@ const ensureParserWorker = () => {
 	return worker;
 };
 
-export const parseSchema = (source: string): Promise<ParsedSchema> => {
+export const parseSchema = (source: string): Promise<ParsedSourceResult> => {
 	if (source.trim().length === 0) {
-		return Promise.resolve(EMPTY_SCHEMA);
+		return Promise.resolve({
+			parsed: EMPTY_SCHEMA,
+			metadata: {
+				format: "dbml",
+			},
+		});
 	}
 
 	const worker = ensureParserWorker();
 	const requestId = ++nextRequestId;
 
-	return new Promise<ParsedSchema>((resolve, reject) => {
+	return new Promise<ParsedSourceResult>((resolve, reject) => {
 		pendingParses.set(requestId, { resolve, reject });
 
 		const request: SchemaParserRequest = {

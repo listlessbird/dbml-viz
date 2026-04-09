@@ -1,7 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useReducer } from "react";
 
+import {
+	getPreferredSourceMetadata,
+	hasSameSourceMetadata,
+} from "@/lib/schema-source-detection";
 import { parseSchema, SchemaParseError } from "@/lib/parser";
-import type { ParseDiagnostic, ParsedSchema } from "@/types";
+import type {
+	ParseDiagnostic,
+	ParsedSchema,
+	SchemaSourceMetadata,
+} from "@/types";
 
 const EMPTY_SCHEMA: ParsedSchema = {
 	tables: [],
@@ -9,31 +17,106 @@ const EMPTY_SCHEMA: ParsedSchema = {
 	errors: [],
 };
 
+interface ParsedMetadataState {
+	readonly source: string;
+	readonly metadata: SchemaSourceMetadata;
+}
+
+interface SchemaParserState {
+	readonly parsed: ParsedSchema;
+	readonly diagnostics: readonly ParseDiagnostic[];
+	readonly isParsing: boolean;
+	readonly parsedMetadata: ParsedMetadataState | null;
+}
+
+type SchemaParserAction =
+	| { readonly type: "start-parse" }
+	| {
+			readonly type: "parse-success";
+			readonly source: string;
+			readonly parsed: ParsedSchema;
+			readonly metadata: SchemaSourceMetadata;
+	  }
+	| {
+			readonly type: "parse-error";
+			readonly diagnostics: readonly ParseDiagnostic[];
+	  };
+
+const INITIAL_SCHEMA_PARSER_STATE: SchemaParserState = {
+	parsed: EMPTY_SCHEMA,
+	diagnostics: [],
+	isParsing: false,
+	parsedMetadata: null,
+};
+
+const schemaParserReducer = (
+	state: SchemaParserState,
+	action: SchemaParserAction,
+): SchemaParserState => {
+	switch (action.type) {
+		case "start-parse":
+			return state.isParsing ? state : { ...state, isParsing: true };
+		case "parse-success":
+			return {
+				parsed: action.parsed,
+				diagnostics: [],
+				isParsing: false,
+				parsedMetadata:
+					state.parsedMetadata !== null &&
+					state.parsedMetadata.source === action.source &&
+					hasSameSourceMetadata(state.parsedMetadata.metadata, action.metadata)
+						? state.parsedMetadata
+						: {
+								source: action.source,
+								metadata: action.metadata,
+							},
+			};
+		case "parse-error":
+			return {
+				...state,
+				diagnostics: action.diagnostics,
+				isParsing: false,
+			};
+	}
+};
+
 export const useSchemaParser = (source: string, delay = 300) => {
-	const [parsed, setParsed] = useState<ParsedSchema>(EMPTY_SCHEMA);
-	const [diagnostics, setDiagnostics] = useState<ParseDiagnostic[]>([]);
-	const [isParsing, setIsParsing] = useState(false);
+	const [state, dispatch] = useReducer(
+		schemaParserReducer,
+		INITIAL_SCHEMA_PARSER_STATE,
+	);
+	const heuristicMetadata = getPreferredSourceMetadata(source);
+	const metadata =
+		state.parsedMetadata !== null && state.parsedMetadata.source === source
+			? state.parsedMetadata.metadata
+			: heuristicMetadata;
 
 	useEffect(() => {
 		let cancelled = false;
 
 		const timeoutId = window.setTimeout(() => {
-			setIsParsing(true);
+			dispatch({ type: "start-parse" });
 			void parseSchema(source)
-				.then((nextParsed) => {
+				.then(({ parsed: nextParsed, metadata: nextMetadata }) => {
 					if (cancelled) {
 						return;
 					}
 
-					setParsed(nextParsed);
-					setDiagnostics([]);
+					dispatch({
+						type: "parse-success",
+						source,
+						parsed: nextParsed,
+						metadata: nextMetadata,
+					});
 				})
 				.catch((error) => {
 					if (cancelled) {
 						return;
 					}
 
-					setDiagnostics(
+					console.error(error);
+
+					const diagnostics =
 						error instanceof SchemaParseError
 							? [...error.diagnostics]
 							: [
@@ -43,15 +126,14 @@ export const useSchemaParser = (source: string, delay = 300) => {
 												? error.message
 												: "Unable to parse schema source.",
 									},
-								],
-					);
-				})
-				.finally(() => {
-					if (!cancelled) {
-						setIsParsing(false);
-					}
+								];
+
+					dispatch({
+						type: "parse-error",
+						diagnostics,
+					});
 				});
-		}, delay);
+			}, delay);
 
 		return () => {
 			cancelled = true;
@@ -60,8 +142,9 @@ export const useSchemaParser = (source: string, delay = 300) => {
 	}, [source, delay]);
 
 	return {
-		parsed,
-		diagnostics,
-		isParsing,
+		parsed: state.parsed,
+		diagnostics: state.diagnostics,
+		isParsing: state.isParsing,
+		metadata,
 	};
 };

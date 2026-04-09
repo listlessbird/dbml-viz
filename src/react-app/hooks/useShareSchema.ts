@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import type { Dispatch, MutableRefObject, SetStateAction } from "react";
+import type { Dispatch, SetStateAction } from "react";
 import { toast } from "sonner";
 
 import {
@@ -11,7 +11,7 @@ import type { DiagramNode, DiagramPositions, SchemaPayload } from "@/types";
 
 interface ShareSchemaOptions {
 	readonly source: string;
-	readonly nodesRef: MutableRefObject<DiagramNode[]>;
+	readonly nodes: readonly DiagramNode[];
 	readonly shareSeedPositions: DiagramPositions;
 	readonly viewedRoute: DiagramRouteState;
 	readonly clearDraft: (shareId: string | null) => void;
@@ -25,7 +25,7 @@ interface ShareSchemaOptions {
 
 export function useShareSchema({
 	source,
-	nodesRef,
+	nodes,
 	shareSeedPositions,
 	viewedRoute,
 	clearDraft,
@@ -42,7 +42,7 @@ export function useShareSchema({
 		try {
 			const payload = buildDraftPayload({
 				source,
-				nodes: nodesRef.current,
+				nodes,
 				fallbackPositions: shareSeedPositions,
 			});
 			const result = await saveSharedSchema(payload);
@@ -80,6 +80,8 @@ export function useShareSchema({
 			});
 			setShareLoadError(null);
 		} catch (error) {
+			console.error(error);
+
 			toast.error(
 				error instanceof Error ? error.message : "Unable to share this schema.",
 			);
@@ -88,8 +90,8 @@ export function useShareSchema({
 		}
 	}, [
 		clearDraft,
+		nodes,
 		source,
-		nodesRef,
 		pushViewedRoute,
 		setShareBaseline,
 		setShareLoadError,

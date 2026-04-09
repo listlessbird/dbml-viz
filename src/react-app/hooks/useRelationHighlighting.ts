@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { FocusEvent, MouseEvent } from "react";
 
 import { useDiagramUiStore } from "@/store/useDiagramUiStore";
@@ -41,7 +41,6 @@ export function useRelationHighlighting(
 	const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
 	const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
 	const panModeEnabled = useDiagramUiStore((state) => state.panModeEnabled);
-	const focusedTableIds = useDiagramUiStore((state) => state.focusedTableIds);
 	const selectedTableIds = useDiagramUiStore((state) => state.selectedTableIds);
 	const setFocusedTableIds = useDiagramUiStore((state) => state.setFocusedTableIds);
 	const setSelectedTableIds = useDiagramUiStore((state) => state.setSelectedTableIds);
@@ -50,38 +49,14 @@ export function useRelationHighlighting(
 		() => new Set(nodes.map((node) => node.id)),
 		[nodes],
 	);
-
-	useEffect(() => {
-		const nextFocusedTableIds = focusedTableIds.filter((id) => availableNodeIds.has(id));
-		if (
-			nextFocusedTableIds.length === focusedTableIds.length &&
-			nextFocusedTableIds.every((id, index) => id === focusedTableIds[index])
-		) {
-			return;
-		}
-
-		setFocusedTableIds(nextFocusedTableIds);
-	}, [availableNodeIds, focusedTableIds, setFocusedTableIds]);
-
-	useEffect(() => {
-		const nextSelectedTableIds = selectedTableIds.filter((id) =>
-			availableNodeIds.has(id),
-		);
-		if (
-			nextSelectedTableIds.length === selectedTableIds.length &&
-			nextSelectedTableIds.every((id, index) => id === selectedTableIds[index])
-		) {
-			return;
-		}
-
-		setSelectedTableIds(nextSelectedTableIds);
-	}, [availableNodeIds, selectedTableIds, setSelectedTableIds]);
+	const activeSelectedTableIds = useMemo(
+		() => selectedTableIds.filter((id) => availableNodeIds.has(id)),
+		[availableNodeIds, selectedTableIds],
+	);
 
 	const activeTableIds = useMemo(() => {
 		const ids = new Set(
-			(panModeEnabled ? selectedTableIds : []).filter((id) =>
-				availableNodeIds.has(id),
-			),
+			panModeEnabled ? activeSelectedTableIds : [],
 		);
 		if (hoveredNodeId !== null && availableNodeIds.has(hoveredNodeId)) {
 			ids.add(hoveredNodeId);
@@ -90,7 +65,13 @@ export function useRelationHighlighting(
 			ids.add(focusedNodeId);
 		}
 		return ids;
-	}, [availableNodeIds, focusedNodeId, hoveredNodeId, panModeEnabled, selectedTableIds]);
+	}, [
+		activeSelectedTableIds,
+		availableNodeIds,
+		focusedNodeId,
+		hoveredNodeId,
+		panModeEnabled,
+	]);
 
 	const activeRelationColumnsByTable = useMemo(() => {
 		if (activeTableIds.size === 0) {

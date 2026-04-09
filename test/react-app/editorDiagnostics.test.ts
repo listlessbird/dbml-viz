@@ -1,7 +1,7 @@
 import { EditorState } from "@codemirror/state";
 import { describe, expect, it } from "vitest";
 
-import { buildDiagnosticDecorations } from "@/components/Editor";
+import { buildDiagnosticDecorations } from "@/lib/editor-diagnostics";
 
 describe("buildDiagnosticDecorations", () => {
 	it("does not create an empty mark range for an empty document", () => {

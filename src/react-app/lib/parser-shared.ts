@@ -1,4 +1,8 @@
-import type { ParseDiagnostic, ParsedSchema } from "@/types";
+import type {
+	ParseDiagnostic,
+	ParsedSchema,
+	SchemaSourceMetadata,
+} from "@/types";
 
 export const EMPTY_SCHEMA: ParsedSchema = {
 	tables: [],
@@ -25,6 +29,7 @@ export interface SchemaParserSuccessResponse {
 	readonly id: number;
 	readonly ok: true;
 	readonly parsed: ParsedSchema;
+	readonly metadata: SchemaSourceMetadata;
 }
 
 export interface SchemaParserErrorResponse {

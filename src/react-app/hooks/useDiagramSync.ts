@@ -1,5 +1,11 @@
-import { startTransition, useCallback, useEffect, useState } from "react";
-import type { Dispatch, MutableRefObject, SetStateAction } from "react";
+import {
+	startTransition,
+	useCallback,
+	useEffect,
+	useEffectEvent,
+	useState,
+} from "react";
+import type { Dispatch, SetStateAction } from "react";
 import { toast } from "sonner";
 
 import { getPositionsFromNodes } from "@/lib/draftPersistence";
@@ -24,7 +30,7 @@ interface DiagramSyncOptions {
 	readonly nodeMeasurements: Record<string, DiagramNodeSize>;
 	readonly layoutAlgorithm: DiagramLayoutAlgorithm;
 	readonly focusIds: readonly string[];
-	readonly nodesRef: MutableRefObject<DiagramNode[]>;
+	readonly nodes: readonly DiagramNode[];
 	readonly handleMeasure: (nodeId: string, size: DiagramNodeSize) => void;
 	readonly requestFitView: (nodeIds?: readonly string[]) => void;
 	readonly setNodes: Dispatch<SetStateAction<DiagramNode[]>>;
@@ -50,7 +56,7 @@ export function useDiagramSync({
 	nodeMeasurements,
 	layoutAlgorithm,
 	focusIds,
-	nodesRef,
+	nodes,
 	handleMeasure,
 	requestFitView,
 	setNodes,
@@ -58,6 +64,7 @@ export function useDiagramSync({
 }: DiagramSyncOptions) {
 	const [isLayouting, setIsLayouting] = useState(false);
 	const [needsMeasuredLayout, setNeedsMeasuredLayout] = useState(false);
+	const getCurrentNodePositions = useEffectEvent(() => getPositionsFromNodes(nodes));
 
 	const applyAutoLayout = useCallback(
 		async ({
@@ -96,6 +103,8 @@ export function useDiagramSync({
 					requestFitView(focusIds.length > 0 ? focusIds : undefined);
 				}
 			} catch (error) {
+				console.error(error);
+
 				toast.error(
 					error instanceof Error ? error.message : "Unable to auto-layout schema.",
 				);
@@ -120,7 +129,7 @@ export function useDiagramSync({
 	useEffect(() => {
 		const preferredPositions = getPreferredNodePositions(
 			parsed.tables.map((table) => table.id),
-			getPositionsFromNodes(nodesRef.current),
+			getCurrentNodePositions(),
 			shareSeedPositions,
 		);
 		const diagram = buildDiagram(parsed, {
@@ -149,7 +158,6 @@ export function useDiagramSync({
 		applyAutoLayout,
 		handleMeasure,
 		nodeMeasurements,
-		nodesRef,
 		parsed,
 		searchState,
 		setEdges,
