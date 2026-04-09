@@ -10,13 +10,13 @@ export interface DiagramRouteState {
 interface InitialDraftStateOptions {
 	readonly route: DiagramRouteState;
 	readonly draft: SchemaPayload | null;
-	readonly sampleDbml: string;
+	readonly sampleSource: string;
 }
 
 type DraftHydrationOptions = InitialDraftStateOptions;
 
 interface DraftPayloadOptions {
-	readonly dbml: string;
+	readonly source: string;
 	readonly nodes: readonly DiagramNode[];
 	readonly fallbackPositions: DiagramPositions;
 }
@@ -24,12 +24,12 @@ interface DraftPayloadOptions {
 interface DraftPersistenceOptions {
 	readonly route: DiagramRouteState;
 	readonly payload: SchemaPayload;
-	readonly sampleDbml: string;
+	readonly sampleSource: string;
 	readonly baseline: SchemaPayload | null;
 }
 
 export interface DraftHydrationResult {
-	readonly dbml: string;
+	readonly source: string;
 	readonly positions: DiagramPositions;
 	readonly currentShareId: string | null;
 	readonly remoteLoadMode: "none" | "blocking" | "background";
@@ -107,30 +107,30 @@ export const areSchemaPayloadsEqual = (
 	right: SchemaPayload,
 ) =>
 	left.version === right.version &&
-	left.dbml === right.dbml &&
+	left.source === right.source &&
 	arePositionsEqual(left.positions, right.positions);
 
 export const getInitialDraftState = ({
 	route,
 	draft,
-	sampleDbml,
+	sampleSource,
 }: InitialDraftStateOptions) => {
 	if (route.shareId === null) {
 		return {
-			dbml: draft?.dbml ?? sampleDbml,
+			source: draft?.source ?? sampleSource,
 			positions: draft?.positions ?? {},
 		};
 	}
 
 	if (route.isDirty && draft !== null) {
 		return {
-			dbml: draft.dbml,
+			source: draft.source,
 			positions: draft.positions,
 		};
 	}
 
 	return {
-		dbml: "",
+		source: "",
 		positions: {},
 	};
 };
@@ -138,11 +138,11 @@ export const getInitialDraftState = ({
 export const getDraftHydrationResult = ({
 	route,
 	draft,
-	sampleDbml,
+	sampleSource,
 }: DraftHydrationOptions): DraftHydrationResult => {
 	if (route.shareId === null) {
 		return {
-			dbml: draft?.dbml ?? sampleDbml,
+			source: draft?.source ?? sampleSource,
 			positions: draft?.positions ?? {},
 			currentShareId: null,
 			remoteLoadMode: "none",
@@ -153,7 +153,7 @@ export const getDraftHydrationResult = ({
 
 	if (route.isDirty && draft !== null) {
 		return {
-			dbml: draft.dbml,
+			source: draft.source,
 			positions: draft.positions,
 			currentShareId: route.shareId,
 			remoteLoadMode: "background",
@@ -163,7 +163,7 @@ export const getDraftHydrationResult = ({
 	}
 
 	return {
-		dbml: "",
+		source: "",
 		positions: {},
 		currentShareId: route.shareId,
 		remoteLoadMode: "blocking",
@@ -176,24 +176,24 @@ export const getDraftHydrationResult = ({
 };
 
 export const buildDraftPayload = ({
-	dbml,
+	source,
 	nodes,
 	fallbackPositions,
 }: DraftPayloadOptions): SchemaPayload => ({
-	dbml,
+	source,
 	positions: nodes.length > 0 ? getPositionsFromNodes(nodes) : fallbackPositions,
-	version: 1,
+	version: 2,
 });
 
 export const resolveDraftPersistence = ({
 	route,
 	payload,
-	sampleDbml,
+	sampleSource,
 	baseline,
 }: DraftPersistenceOptions): DraftPersistenceDecision => {
 	if (route.shareId === null) {
 		const shouldClearRootDraft =
-			payload.dbml === sampleDbml && Object.keys(payload.positions).length === 0;
+			payload.source === sampleSource && Object.keys(payload.positions).length === 0;
 
 		return {
 			shouldStoreDraft: !shouldClearRootDraft,

@@ -6,11 +6,11 @@ import {
 	resolveDraftPersistence,
 	type DiagramRouteState,
 } from "@/lib/draftPersistence";
-import { SAMPLE_DBML } from "@/lib/sample-dbml";
+import { SAMPLE_SCHEMA_SOURCE } from "@/lib/sample-dbml";
 import type { DiagramNode, DiagramPositions, SchemaPayload } from "@/types";
 
 interface DraftPersistenceOptions {
-	readonly dbml: string;
+	readonly source: string;
 	readonly nodes: readonly DiagramNode[];
 	readonly shareSeedPositions: DiagramPositions;
 	readonly isLoadingShare: boolean;
@@ -22,7 +22,7 @@ interface DraftPersistenceOptions {
 }
 
 export function useDraftPersistence({
-	dbml,
+	source,
 	nodes,
 	shareSeedPositions,
 	isLoadingShare,
@@ -38,7 +38,7 @@ export function useDraftPersistence({
 		}
 
 		const payload = buildDraftPayload({
-			dbml,
+			source,
 			nodes,
 			fallbackPositions: shareSeedPositions,
 		});
@@ -46,7 +46,7 @@ export function useDraftPersistence({
 			const decision = resolveDraftPersistence({
 				route: viewedRoute,
 				payload,
-				sampleDbml: SAMPLE_DBML,
+				sampleSource: SAMPLE_SCHEMA_SOURCE,
 				baseline: currentShareBaseline,
 			});
 
@@ -69,7 +69,7 @@ export function useDraftPersistence({
 	}, [
 		clearDraft,
 		currentShareBaseline,
-		dbml,
+		source,
 		isLoadingShare,
 		nodes,
 		replaceViewedRoute,

@@ -1,7 +1,7 @@
 import { Data, Effect, Schema } from "effect";
 
 export const SHARE_TTL_SECONDS = 60 * 60 * 24 * 90;
-export const MAX_DBML_LENGTH = 500_000;
+export const MAX_SCHEMA_SOURCE_LENGTH = 500_000;
 
 export class SharePosition extends Schema.Class<SharePosition>("SharePosition")({
 	x: Schema.Number,
@@ -9,9 +9,9 @@ export class SharePosition extends Schema.Class<SharePosition>("SharePosition")(
 }) {}
 
 export class SharedSchemaPayload extends Schema.Class<SharedSchemaPayload>("SharedSchemaPayload")({
-	dbml: Schema.String.pipe(Schema.maxLength(MAX_DBML_LENGTH)),
+	source: Schema.String.pipe(Schema.maxLength(MAX_SCHEMA_SOURCE_LENGTH)),
 	positions: Schema.Record({ key: Schema.String, value: SharePosition }),
-	version: Schema.Literal(1),
+	version: Schema.Literal(2),
 }) {}
 
 export interface SharedSchemaReference {
@@ -33,10 +33,10 @@ export class SchemaShareStorageError extends Data.TaggedError("SchemaShareStorag
 }> {}
 
 export const validateSharedSchemaPayload = (payload: SharedSchemaPayload) =>
-	payload.dbml.trim().length === 0
+	payload.source.trim().length === 0
 		? Effect.fail(
 				new InvalidSchemaPayloadError({
-				reason: "dbml must be a non-empty string",
+					reason: "source must be a non-empty string",
 				}),
 			)
 		: Effect.succeed(payload);

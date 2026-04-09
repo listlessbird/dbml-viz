@@ -5,7 +5,8 @@ import {
 	buildParsedSchemaFromDatabase,
 	parseDbmlSource,
 } from "@/lib/dbml-schema";
-import { SAMPLE_DBML } from "@/lib/sample-dbml";
+import { SAMPLE_SCHEMA_SOURCE } from "@/lib/sample-dbml";
+import { parseSchemaSource } from "@/lib/schema-source-parser";
 import { getColumnConstraintBadges } from "@/lib/table-constraints";
 
 describe("buildParsedSchemaFromDatabase", () => {
@@ -127,15 +128,18 @@ describe("parseDbmlSource", () => {
 	});
 
 	it("ships a sample schema that exercises composite constraints and relations", () => {
-		const parsed = parseDbmlSource(SAMPLE_DBML);
-		const memberships = parsed.tables.find((table) => table.id === "identity.memberships");
+		const { parsed, metadata } = parseSchemaSource(SAMPLE_SCHEMA_SOURCE);
+		const invoices = parsed.tables.find((table) => table.id === "invoices");
+		const memberships = parsed.tables.find((table) => table.id === "memberships");
 		const membershipBadges = memberships ? getColumnConstraintBadges(memberships) : undefined;
 		const invoiceForOrder = parsed.refs.find((ref) => ref.name === "invoice_for_order");
-		const orderLinesToOrders = parsed.refs.find(
-			(ref) => ref.name === "order_lines_to_orders",
-		);
+		const orderLinesToOrders = parsed.refs.find((ref) => ref.name === "fk_order_lines_order");
 
 		expect(parsed.errors).toEqual([]);
+		expect(metadata).toEqual({
+			format: "sql",
+			dialect: "mysql",
+		});
 		expect(parsed.tables.length).toBeGreaterThanOrEqual(12);
 		expect(memberships?.indexes).toEqual(
 			expect.arrayContaining([
@@ -155,17 +159,38 @@ describe("parseDbmlSource", () => {
 				}),
 			]),
 		);
+		expect(invoices?.indexes).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					kind: "unique",
+					name: "uq_invoices_order",
+					columns: ["tenant_id", "order_number"],
+				}),
+			]),
+		);
 		expect(membershipBadges?.get("tenant_id")).toHaveLength(2);
-		expect(invoiceForOrder?.type).toBe("one_to_one");
+		expect(invoiceForOrder).toEqual(
+			expect.objectContaining({
+				onDelete: "restrict",
+				from: {
+					table: "invoices",
+					columns: ["tenant_id", "order_number"],
+				},
+				to: {
+					table: "orders",
+					columns: ["tenant_id", "order_number"],
+				},
+			}),
+		);
 		expect(orderLinesToOrders).toEqual(
 			expect.objectContaining({
 				onDelete: "cascade",
 				from: {
-					table: "sales.order_lines",
+					table: "order_lines",
 					columns: ["tenant_id", "order_number"],
 				},
 				to: {
-					table: "sales.orders",
+					table: "orders",
 					columns: ["tenant_id", "order_number"],
 				},
 			}),

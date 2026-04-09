@@ -1,7 +1,5 @@
 import type { Edge, Node, XYPosition } from "@xyflow/react";
 
-export const MAX_DBML_LENGTH = 500_000;
-
 export interface SharePosition {
 	readonly x: number;
 	readonly y: number;
@@ -21,10 +19,16 @@ export interface ParseDiagnostic {
 	};
 }
 
+export const MAX_SCHEMA_SOURCE_LENGTH = 500_000;
+
+export type SchemaSourceFormat = "dbml" | "sql";
+
+export type SqlDialect = "postgres" | "mysql" | "mssql" | "oracle" | "snowflake";
+
 export interface SchemaPayload {
-	readonly dbml: string;
+	readonly source: string;
 	readonly positions: Record<string, SharePosition>;
-	readonly version: 1;
+	readonly version: 2;
 }
 
 export interface ColumnData {

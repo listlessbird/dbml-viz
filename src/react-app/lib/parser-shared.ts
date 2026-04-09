@@ -6,36 +6,36 @@ export const EMPTY_SCHEMA: ParsedSchema = {
 	errors: [],
 };
 
-export class DbmlParseError extends Error {
+export class SchemaParseError extends Error {
 	readonly diagnostics: readonly ParseDiagnostic[];
 
 	constructor(diagnostics: readonly ParseDiagnostic[]) {
 		super("Error parsing statement(s).");
-		this.name = "DbmlParseError";
+		this.name = "SchemaParseError";
 		this.diagnostics = diagnostics;
 	}
 }
 
-export interface DbmlParserRequest {
+export interface SchemaParserRequest {
 	readonly id: number;
-	readonly dbml: string;
+	readonly source: string;
 }
 
-export interface DbmlParserSuccessResponse {
+export interface SchemaParserSuccessResponse {
 	readonly id: number;
 	readonly ok: true;
 	readonly parsed: ParsedSchema;
 }
 
-export interface DbmlParserErrorResponse {
+export interface SchemaParserErrorResponse {
 	readonly id: number;
 	readonly ok: false;
 	readonly diagnostics: readonly ParseDiagnostic[];
 }
 
-export type DbmlParserResponse =
-	| DbmlParserSuccessResponse
-	| DbmlParserErrorResponse;
+export type SchemaParserResponse =
+	| SchemaParserSuccessResponse
+	| SchemaParserErrorResponse;
 
 const hasDiagnosticsArray = (error: unknown): error is { diags: unknown[] } =>
 	typeof error === "object" &&

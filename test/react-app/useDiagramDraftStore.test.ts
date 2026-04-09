@@ -10,12 +10,12 @@ import type { SchemaPayload } from "@/types";
 const SAMPLE_DBML = "Table users {\n  id integer [pk]\n}";
 
 const createPayload = (
-	dbml: string,
+	source: string,
 	positions: Record<string, { x: number; y: number }> = {},
 ): SchemaPayload => ({
-	dbml,
+	source,
 	positions,
-	version: 1,
+	version: 2,
 });
 
 describe("useDiagramDraftStore", () => {
@@ -47,32 +47,32 @@ describe("useDiagramDraftStore", () => {
 
 		expect(
 			getInitialDraftState({
-				route: {
-					shareId: null,
-					isDirty: false,
-				},
-				draft: useDiagramDraftStore.getState().getDraft(null),
-				sampleDbml: SAMPLE_DBML,
-			}),
-		).toEqual({
-			dbml: rootDraft.dbml,
-			positions: rootDraft.positions,
-		});
+					route: {
+						shareId: null,
+						isDirty: false,
+					},
+					draft: useDiagramDraftStore.getState().getDraft(null),
+					sampleSource: SAMPLE_DBML,
+				}),
+			).toEqual({
+				source: rootDraft.source,
+				positions: rootDraft.positions,
+			});
 
 		expect(
 			getDraftHydrationResult({
-				route: {
-					shareId: "shared-123",
-					isDirty: true,
-				},
-				draft: useDiagramDraftStore.getState().getDraft("shared-123"),
-				sampleDbml: SAMPLE_DBML,
-			}),
-		).toMatchObject({
-			dbml: sharedDraft.dbml,
-			positions: sharedDraft.positions,
-			remoteLoadMode: "background",
-		});
+					route: {
+						shareId: "shared-123",
+						isDirty: true,
+					},
+					draft: useDiagramDraftStore.getState().getDraft("shared-123"),
+					sampleSource: SAMPLE_DBML,
+				}),
+			).toMatchObject({
+				source: sharedDraft.source,
+				positions: sharedDraft.positions,
+				remoteLoadMode: "background",
+			});
 	});
 
 	it("clears one route draft without touching others", () => {
@@ -85,6 +85,20 @@ describe("useDiagramDraftStore", () => {
 
 		expect(useDiagramDraftStore.getState().getDraft(null)).toBeNull();
 		expect(useDiagramDraftStore.getState().getDraft("shared-123")).toEqual(sharedDraft);
+	});
+
+	it("ignores invalid persisted draft payloads when reading state", () => {
+		useDiagramDraftStore.setState({
+			drafts: {
+				"dbml-viz:local-draft:root": {
+					dbml: "Table legacy_users {}",
+					positions: {},
+					version: 1,
+				},
+			},
+		});
+
+		expect(useDiagramDraftStore.getState().getDraft(null)).toBeNull();
 	});
 
 	it("persists drafts through Zustand persist storage", () => {

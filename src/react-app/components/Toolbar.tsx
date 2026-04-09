@@ -87,7 +87,7 @@ export function Toolbar({
 		<div className="dark flex min-h-12 items-stretch border-b border-border bg-sidebar text-sidebar-foreground">
 			<div className="flex min-w-0 flex-1 items-center gap-4 overflow-x-auto px-4 text-sm">
 				<span className="shrink-0 font-medium tracking-tight text-sidebar-foreground">
-					DBML Visualizer
+					Dbml Viz
 				</span>
 				<span className="shrink-0 text-xs text-muted-foreground">
 					{tableCount} {tableCount === 1 ? "table" : "tables"}

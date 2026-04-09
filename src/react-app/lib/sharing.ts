@@ -1,3 +1,4 @@
+import { parseSchemaPayload } from "@/lib/schema-payload";
 import type { SchemaPayload } from "@/types";
 
 interface ShareResponse {
@@ -20,7 +21,12 @@ export const loadSharedSchema = async (id: string): Promise<SchemaPayload> => {
 		throw new Error(await readErrorMessage(response));
 	}
 
-	return (await response.json()) as SchemaPayload;
+	const payload = parseSchemaPayload(await response.json());
+	if (payload === null) {
+		throw new Error("Shared schema payload is invalid.");
+	}
+
+	return payload;
 };
 
 export const saveSharedSchema = async (

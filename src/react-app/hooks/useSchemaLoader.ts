@@ -6,7 +6,7 @@ import {
 	isSameDiagramRoute,
 	type DiagramRouteState,
 } from "@/lib/draftPersistence";
-import { SAMPLE_DBML } from "@/lib/sample-dbml";
+import { SAMPLE_SCHEMA_SOURCE } from "@/lib/sample-dbml";
 import {
 	createInitialSchemaLoaderState,
 	schemaLoaderReducer,
@@ -21,7 +21,7 @@ import type {
 } from "@/types";
 
 interface SchemaLoaderOptions {
-	readonly initialDbml: string;
+	readonly initialSource: string;
 	readonly initialPositions: DiagramPositions;
 	readonly initialIsLoading: boolean;
 	readonly viewedRoute: DiagramRouteState;
@@ -38,7 +38,7 @@ interface SchemaLoaderOptions {
 }
 
 export function useSchemaLoader({
-	initialDbml,
+	initialSource,
 	initialPositions,
 	initialIsLoading,
 	viewedRoute,
@@ -54,7 +54,7 @@ export function useSchemaLoader({
 	const [state, dispatch] = useReducer(
 		schemaLoaderReducer,
 		{
-			initialDbml,
+			initialSource,
 			initialPositions,
 			initialIsLoading,
 		},
@@ -67,7 +67,7 @@ export function useSchemaLoader({
 		const hydration = getDraftHydrationResult({
 			route: viewedRoute,
 			draft: localDraft,
-			sampleDbml: SAMPLE_DBML,
+			sampleSource: SAMPLE_SCHEMA_SOURCE,
 		});
 
 		if (!isSameDiagramRoute(hydration.canonicalRoute, viewedRoute)) {
@@ -77,11 +77,11 @@ export function useSchemaLoader({
 			};
 		}
 
-		const replaceSchema = (dbml: string, positions: DiagramPositions) => {
+		const replaceSchema = (source: string, positions: DiagramPositions) => {
 			startTransition(() => {
 				dispatch({
 					type: "replace-schema",
-					dbml,
+					source,
 					positions,
 					isLoadingShare: false,
 					shareLoadError: null,
@@ -90,14 +90,14 @@ export function useSchemaLoader({
 		};
 
 		if (hydration.remoteLoadMode === "none") {
-			replaceSchema(hydration.dbml, hydration.positions);
+			replaceSchema(hydration.source, hydration.positions);
 			return () => {
 				cancelled = true;
 			};
 		}
 
 		if (hydration.remoteLoadMode === "background") {
-			replaceSchema(hydration.dbml, hydration.positions);
+			replaceSchema(hydration.source, hydration.positions);
 
 			if (viewedRoute.shareId !== null && currentShareBaseline === null) {
 				const sharedId = viewedRoute.shareId;
@@ -121,7 +121,7 @@ export function useSchemaLoader({
 				clearDraft(viewedRoute.shareId);
 			}
 
-			replaceSchema(currentShareBaseline.dbml, currentShareBaseline.positions);
+			replaceSchema(currentShareBaseline.source, currentShareBaseline.positions);
 			return () => {
 				cancelled = true;
 			};
@@ -150,7 +150,7 @@ export function useSchemaLoader({
 				if (hydration.clearLocalDraftOnRemoteLoad) {
 					clearDraft(sharedId);
 				}
-				replaceSchema(payload.dbml, payload.positions);
+				replaceSchema(payload.source, payload.positions);
 				requestFitView();
 			})
 			.catch((error) => {
@@ -185,8 +185,8 @@ export function useSchemaLoader({
 		viewedRoute,
 	]);
 
-	const setDbml = useCallback((dbml: string) => {
-		dispatch({ type: "set-dbml", dbml });
+	const setSource = useCallback((source: string) => {
+		dispatch({ type: "set-source", source });
 	}, []);
 
 	const setShareSeedPositions = useCallback((positions: DiagramPositions) => {
@@ -205,8 +205,8 @@ export function useSchemaLoader({
 	);
 
 	return {
-		dbml: state.dbml,
-		setDbml,
+		source: state.source,
+		setSource,
 		shareSeedPositions: state.shareSeedPositions,
 		setShareSeedPositions,
 		isLoadingShare: state.isLoadingShare,

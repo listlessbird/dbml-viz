@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { DbmlParseError, parseDbml } from "@/lib/parser";
+import { parseSchema, SchemaParseError } from "@/lib/parser";
 import type { ParseDiagnostic, ParsedSchema } from "@/types";
 
 const EMPTY_SCHEMA: ParsedSchema = {
@@ -9,7 +9,7 @@ const EMPTY_SCHEMA: ParsedSchema = {
 	errors: [],
 };
 
-export const useDbmlParser = (dbml: string, delay = 300) => {
+export const useSchemaParser = (source: string, delay = 300) => {
 	const [parsed, setParsed] = useState<ParsedSchema>(EMPTY_SCHEMA);
 	const [diagnostics, setDiagnostics] = useState<ParseDiagnostic[]>([]);
 	const [isParsing, setIsParsing] = useState(false);
@@ -19,7 +19,7 @@ export const useDbmlParser = (dbml: string, delay = 300) => {
 
 		const timeoutId = window.setTimeout(() => {
 			setIsParsing(true);
-			void parseDbml(dbml)
+			void parseSchema(source)
 				.then((nextParsed) => {
 					if (cancelled) {
 						return;
@@ -34,14 +34,14 @@ export const useDbmlParser = (dbml: string, delay = 300) => {
 					}
 
 					setDiagnostics(
-						error instanceof DbmlParseError
+						error instanceof SchemaParseError
 							? [...error.diagnostics]
 							: [
 									{
 										message:
 											error instanceof Error
 												? error.message
-												: "Unable to parse DBML.",
+												: "Unable to parse schema source.",
 									},
 								],
 					);
@@ -57,7 +57,7 @@ export const useDbmlParser = (dbml: string, delay = 300) => {
 			cancelled = true;
 			window.clearTimeout(timeoutId);
 		};
-	}, [dbml, delay]);
+	}, [source, delay]);
 
 	return {
 		parsed,

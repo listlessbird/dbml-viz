@@ -8,10 +8,10 @@ import { Toolbar } from "@/components/Toolbar";
 import { useCanvasViewport } from "@/hooks/useCanvasViewport";
 import { useDiagramSearch } from "@/hooks/useDiagramSearch";
 import { useDiagramSync } from "@/hooks/useDiagramSync";
-import { useDbmlParser } from "@/hooks/useDbmlParser";
 import { useDraftPersistence } from "@/hooks/useDraftPersistence";
 import { useRouting } from "@/hooks/useRouting";
 import { useSchemaLoader } from "@/hooks/useSchemaLoader";
+import { useSchemaParser } from "@/hooks/useSchemaParser";
 import { useShareSchema } from "@/hooks/useShareSchema";
 import {
 	getDraftHydrationResult,
@@ -19,7 +19,7 @@ import {
 	getInitialDraftState,
 	type DiagramRouteState,
 } from "@/lib/draftPersistence";
-import { SAMPLE_DBML } from "@/lib/sample-dbml";
+import { SAMPLE_SCHEMA_SOURCE } from "@/lib/sample-dbml";
 import { getDiagramDraft, useDiagramDraftStore } from "@/store/useDiagramDraftStore";
 import { useDiagramUiStore } from "@/store/useDiagramUiStore";
 import type { DiagramEdge, DiagramNode, DiagramNodeSize } from "@/types";
@@ -36,12 +36,12 @@ const getInitialAppState = (): InitialAppState => {
 	const draftState = getInitialDraftState({
 		route,
 		draft,
-		sampleDbml: SAMPLE_DBML,
+		sampleSource: SAMPLE_SCHEMA_SOURCE,
 	});
 	const hydration = getDraftHydrationResult({
 		route,
 		draft,
-		sampleDbml: SAMPLE_DBML,
+		sampleSource: SAMPLE_SCHEMA_SOURCE,
 	});
 
 	return {
@@ -79,8 +79,8 @@ function App() {
 	const setDraft = useDiagramDraftStore((state) => state.setDraft);
 	const clearDraft = useDiagramDraftStore((state) => state.clearDraft);
 	const {
-		dbml,
-		setDbml,
+		source,
+		setSource,
 		shareSeedPositions,
 		setShareSeedPositions,
 		isLoadingShare,
@@ -89,7 +89,7 @@ function App() {
 		nodeMeasurements,
 		recordNodeMeasurement,
 	} = useSchemaLoader({
-		initialDbml: initialState.draftState.dbml,
+		initialSource: initialState.draftState.source,
 		initialPositions: initialState.draftState.positions,
 		initialIsLoading: initialState.isBlockingShareLoad,
 		viewedRoute,
@@ -102,7 +102,7 @@ function App() {
 		setNodes,
 		setEdges,
 	});
-	const { parsed, diagnostics, isParsing } = useDbmlParser(dbml);
+	const { parsed, diagnostics, isParsing } = useSchemaParser(source);
 	const { searchState, matchedTableNames, searchFocusIds } = useDiagramSearch(
 		parsed,
 		searchQuery,
@@ -145,7 +145,7 @@ function App() {
 	}, [requestFitView, searchFocusIds]);
 
 	useDraftPersistence({
-		dbml,
+		source,
 		nodes,
 		shareSeedPositions,
 		isLoadingShare,
@@ -157,7 +157,7 @@ function App() {
 	});
 
 	const { isSharing, handleShare } = useShareSchema({
-		dbml,
+		source,
 		nodesRef,
 		shareSeedPositions,
 		viewedRoute,
@@ -205,10 +205,10 @@ function App() {
 				<PanelGroup orientation="horizontal" className="min-h-0 flex-1">
 					<Panel defaultSize={30} minSize={18} className="min-w-0">
 						<Editor
-							value={dbml}
+							value={source}
 							diagnostics={diagnostics}
 							isParsing={isParsing}
-							onChange={setDbml}
+							onChange={setSource}
 						/>
 					</Panel>
 					<Panel defaultSize={70} minSize={24} className="min-w-0">

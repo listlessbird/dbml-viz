@@ -1,7 +1,7 @@
 import type { DiagramNodeSize, DiagramPositions } from "@/types";
 
 export interface SchemaLoaderState {
-	readonly dbml: string;
+	readonly source: string;
 	readonly shareSeedPositions: DiagramPositions;
 	readonly isLoadingShare: boolean;
 	readonly shareLoadError: string | null;
@@ -10,29 +10,29 @@ export interface SchemaLoaderState {
 
 export type SchemaLoaderAction =
 	| {
-			type: "replace-schema";
-			dbml: string;
-			positions: DiagramPositions;
-			isLoadingShare: boolean;
-			shareLoadError: string | null;
-	  }
+				type: "replace-schema";
+				source: string;
+				positions: DiagramPositions;
+				isLoadingShare: boolean;
+				shareLoadError: string | null;
+		  }
 	| { type: "start-blocking-load" }
 	| { type: "finish-blocking-load-error"; message: string }
-	| { type: "set-dbml"; dbml: string }
+	| { type: "set-source"; source: string }
 	| { type: "set-share-seed-positions"; positions: DiagramPositions }
 	| { type: "set-share-load-error"; message: string | null }
 	| { type: "record-node-measurement"; nodeId: string; size: DiagramNodeSize };
 
 export const createInitialSchemaLoaderState = ({
-	initialDbml,
+	initialSource,
 	initialPositions,
 	initialIsLoading,
 }: {
-	readonly initialDbml: string;
+	readonly initialSource: string;
 	readonly initialPositions: DiagramPositions;
 	readonly initialIsLoading: boolean;
 }): SchemaLoaderState => ({
-	dbml: initialDbml,
+	source: initialSource,
 	shareSeedPositions: initialPositions,
 	isLoadingShare: initialIsLoading,
 	shareLoadError: null,
@@ -46,7 +46,7 @@ export const schemaLoaderReducer = (
 	switch (action.type) {
 		case "replace-schema":
 			return {
-				dbml: action.dbml,
+				source: action.source,
 				shareSeedPositions: action.positions,
 				isLoadingShare: action.isLoadingShare,
 				shareLoadError: action.shareLoadError,
@@ -61,19 +61,19 @@ export const schemaLoaderReducer = (
 			};
 		case "finish-blocking-load-error":
 			return {
-				dbml: "",
+				source: "",
 				shareSeedPositions: {},
 				isLoadingShare: false,
 				shareLoadError: action.message,
 				nodeMeasurements: {},
 			};
-		case "set-dbml":
-			return state.dbml === action.dbml
+		case "set-source":
+			return state.source === action.source
 				? state
 				: {
-						...state,
-						dbml: action.dbml,
-					};
+							...state,
+							source: action.source,
+						};
 		case "set-share-seed-positions":
 			return {
 				...state,

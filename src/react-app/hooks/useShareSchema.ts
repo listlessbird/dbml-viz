@@ -10,7 +10,7 @@ import { saveSharedSchema } from "@/lib/sharing";
 import type { DiagramNode, DiagramPositions, SchemaPayload } from "@/types";
 
 interface ShareSchemaOptions {
-	readonly dbml: string;
+	readonly source: string;
 	readonly nodesRef: MutableRefObject<DiagramNode[]>;
 	readonly shareSeedPositions: DiagramPositions;
 	readonly viewedRoute: DiagramRouteState;
@@ -24,7 +24,7 @@ interface ShareSchemaOptions {
 }
 
 export function useShareSchema({
-	dbml,
+	source,
 	nodesRef,
 	shareSeedPositions,
 	viewedRoute,
@@ -41,7 +41,7 @@ export function useShareSchema({
 
 		try {
 			const payload = buildDraftPayload({
-				dbml,
+				source,
 				nodes: nodesRef.current,
 				fallbackPositions: shareSeedPositions,
 			});
@@ -88,7 +88,7 @@ export function useShareSchema({
 		}
 	}, [
 		clearDraft,
-		dbml,
+		source,
 		nodesRef,
 		pushViewedRoute,
 		setShareBaseline,

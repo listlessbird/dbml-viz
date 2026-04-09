@@ -13,12 +13,12 @@ import type { DiagramNode, SchemaPayload } from "@/types";
 const SAMPLE_DBML = "Table users {\n  id integer [pk]\n}";
 
 const createPayload = (
-	dbml: string,
+	source: string,
 	positions: Record<string, { x: number; y: number }> = {},
 ): SchemaPayload => ({
-	dbml,
+	source,
 	positions,
-	version: 1,
+	version: 2,
 });
 
 describe("draftPersistence", () => {
@@ -39,47 +39,47 @@ describe("draftPersistence", () => {
 	it("hydrates the root route from the local draft or the sample", () => {
 		expect(
 			getInitialDraftState({
-				route: {
-					shareId: null,
-					isDirty: false,
-				},
-				draft: createPayload("Table drafts {}"),
-				sampleDbml: SAMPLE_DBML,
-			}),
-		).toEqual({
-			dbml: "Table drafts {}",
-			positions: {},
-		});
+					route: {
+						shareId: null,
+						isDirty: false,
+					},
+					draft: createPayload("Table drafts {}"),
+					sampleSource: SAMPLE_DBML,
+				}),
+			).toEqual({
+				source: "Table drafts {}",
+				positions: {},
+			});
 
 		expect(
 			getInitialDraftState({
-				route: {
-					shareId: null,
-					isDirty: false,
-				},
-				draft: null,
-				sampleDbml: SAMPLE_DBML,
-			}),
-		).toEqual({
-			dbml: SAMPLE_DBML,
-			positions: {},
-		});
+					route: {
+						shareId: null,
+						isDirty: false,
+					},
+					draft: null,
+					sampleSource: SAMPLE_DBML,
+				}),
+			).toEqual({
+				source: SAMPLE_DBML,
+				positions: {},
+			});
 	});
 
 	it("ignores a local shared draft for a clean shared URL on initial load", () => {
 		expect(
 			getInitialDraftState({
-				route: {
-					shareId: "shared-123",
-					isDirty: false,
-				},
-				draft: createPayload("Table stale_local_copy {}"),
-				sampleDbml: SAMPLE_DBML,
-			}),
-		).toEqual({
-			dbml: "",
-			positions: {},
-		});
+					route: {
+						shareId: "shared-123",
+						isDirty: false,
+					},
+					draft: createPayload("Table stale_local_copy {}"),
+					sampleSource: SAMPLE_DBML,
+				}),
+			).toEqual({
+				source: "",
+				positions: {},
+			});
 	});
 
 	it("uses a local draft for a dirty shared route while revalidating remotely", () => {
@@ -89,17 +89,17 @@ describe("draftPersistence", () => {
 
 		expect(
 			getDraftHydrationResult({
-				route: {
-					shareId: "shared-123",
-					isDirty: true,
-				},
-				draft: localDraft,
-				sampleDbml: SAMPLE_DBML,
-			}),
-		).toEqual({
-			dbml: localDraft.dbml,
-			positions: localDraft.positions,
-			currentShareId: "shared-123",
+					route: {
+						shareId: "shared-123",
+						isDirty: true,
+					},
+					draft: localDraft,
+					sampleSource: SAMPLE_DBML,
+				}),
+			).toEqual({
+				source: localDraft.source,
+				positions: localDraft.positions,
+				currentShareId: "shared-123",
 			remoteLoadMode: "background",
 			canonicalRoute: {
 				shareId: "shared-123",
@@ -112,17 +112,17 @@ describe("draftPersistence", () => {
 	it("normalizes a dirty shared route without a draft back to the clean shared URL", () => {
 		expect(
 			getDraftHydrationResult({
-				route: {
-					shareId: "shared-123",
-					isDirty: true,
-				},
-				draft: null,
-				sampleDbml: SAMPLE_DBML,
-			}),
-		).toEqual({
-			dbml: "",
-			positions: {},
-			currentShareId: "shared-123",
+					route: {
+						shareId: "shared-123",
+						isDirty: true,
+					},
+					draft: null,
+					sampleSource: SAMPLE_DBML,
+				}),
+			).toEqual({
+				source: "",
+				positions: {},
+				currentShareId: "shared-123",
 			remoteLoadMode: "blocking",
 			canonicalRoute: {
 				shareId: "shared-123",
@@ -135,17 +135,17 @@ describe("draftPersistence", () => {
 	it("loads the remote shared snapshot for a clean shared URL and marks stale local drafts as disposable", () => {
 		expect(
 			getDraftHydrationResult({
-				route: {
-					shareId: "shared-123",
-					isDirty: false,
-				},
-				draft: createPayload("Table stale_local_copy {}"),
-				sampleDbml: SAMPLE_DBML,
-			}),
-		).toEqual({
-			dbml: "",
-			positions: {},
-			currentShareId: "shared-123",
+					route: {
+						shareId: "shared-123",
+						isDirty: false,
+					},
+					draft: createPayload("Table stale_local_copy {}"),
+					sampleSource: SAMPLE_DBML,
+				}),
+			).toEqual({
+				source: "",
+				positions: {},
+				currentShareId: "shared-123",
 			remoteLoadMode: "blocking",
 			canonicalRoute: {
 				shareId: "shared-123",
@@ -167,12 +167,12 @@ describe("draftPersistence", () => {
 			},
 		] as DiagramNode[];
 
-		expect(
-			buildDraftPayload({
-				dbml: "Table users {}",
-				nodes,
-				fallbackPositions: { ignored: { x: 1, y: 2 } },
-			}),
+			expect(
+				buildDraftPayload({
+					source: "Table users {}",
+					nodes,
+					fallbackPositions: { ignored: { x: 1, y: 2 } },
+				}),
 		).toEqual(
 			createPayload("Table users {}", {
 				users: { x: 80, y: 120 },
@@ -182,12 +182,12 @@ describe("draftPersistence", () => {
 	});
 
 	it("falls back to seeded positions when there are no visible nodes yet", () => {
-		expect(
-			buildDraftPayload({
-				dbml: "Table users {}",
-				nodes: [],
-				fallbackPositions: { users: { x: 12, y: 24 } },
-			}),
+			expect(
+				buildDraftPayload({
+					source: "Table users {}",
+					nodes: [],
+					fallbackPositions: { users: { x: 12, y: 24 } },
+				}),
 		).toEqual(
 			createPayload("Table users {}", {
 				users: { x: 12, y: 24 },
@@ -198,14 +198,14 @@ describe("draftPersistence", () => {
 	it("keeps the root route clean only when it is still the untouched sample", () => {
 		expect(
 			resolveDraftPersistence({
-				route: {
-					shareId: null,
-					isDirty: false,
-				},
-				payload: createPayload(SAMPLE_DBML, {}),
-				sampleDbml: SAMPLE_DBML,
-				baseline: null,
-			}),
+					route: {
+						shareId: null,
+						isDirty: false,
+					},
+					payload: createPayload(SAMPLE_DBML, {}),
+					sampleSource: SAMPLE_DBML,
+					baseline: null,
+				}),
 		).toEqual({
 			shouldStoreDraft: false,
 			shouldClearDraft: true,
@@ -221,12 +221,12 @@ describe("draftPersistence", () => {
 					shareId: null,
 					isDirty: false,
 				},
-				payload: createPayload("Table edited_root_copy {}", {
-					users: { x: 12, y: 24 },
+					payload: createPayload("Table edited_root_copy {}", {
+						users: { x: 12, y: 24 },
+					}),
+					sampleSource: SAMPLE_DBML,
+					baseline: null,
 				}),
-				sampleDbml: SAMPLE_DBML,
-				baseline: null,
-			}),
 		).toEqual({
 			shouldStoreDraft: true,
 			shouldClearDraft: false,
@@ -240,14 +240,14 @@ describe("draftPersistence", () => {
 	it("marks a clean shared route as dirty once it diverges from the remote baseline", () => {
 		expect(
 			resolveDraftPersistence({
-				route: {
-					shareId: "shared-123",
-					isDirty: false,
-				},
-				payload: createPayload("Table edited_shared_copy {}"),
-				sampleDbml: SAMPLE_DBML,
-				baseline: createPayload("Table original_shared_copy {}"),
-			}),
+					route: {
+						shareId: "shared-123",
+						isDirty: false,
+					},
+					payload: createPayload("Table edited_shared_copy {}"),
+					sampleSource: SAMPLE_DBML,
+					baseline: createPayload("Table original_shared_copy {}"),
+				}),
 		).toEqual({
 			shouldStoreDraft: true,
 			shouldClearDraft: false,
@@ -265,14 +265,14 @@ describe("draftPersistence", () => {
 
 		expect(
 			resolveDraftPersistence({
-				route: {
-					shareId: "shared-123",
-					isDirty: true,
-				},
-				payload: baseline,
-				sampleDbml: SAMPLE_DBML,
-				baseline,
-			}),
+					route: {
+						shareId: "shared-123",
+						isDirty: true,
+					},
+					payload: baseline,
+					sampleSource: SAMPLE_DBML,
+					baseline,
+				}),
 		).toEqual({
 			shouldStoreDraft: false,
 			shouldClearDraft: true,
@@ -286,14 +286,14 @@ describe("draftPersistence", () => {
 	it("keeps a dirty shared draft untouched until the remote baseline is available", () => {
 		expect(
 			resolveDraftPersistence({
-				route: {
-					shareId: "shared-123",
-					isDirty: true,
-				},
-				payload: createPayload("Table edited_shared_copy {}"),
-				sampleDbml: SAMPLE_DBML,
-				baseline: null,
-			}),
+					route: {
+						shareId: "shared-123",
+						isDirty: true,
+					},
+					payload: createPayload("Table edited_shared_copy {}"),
+					sampleSource: SAMPLE_DBML,
+					baseline: null,
+				}),
 		).toEqual({
 			shouldStoreDraft: true,
 			shouldClearDraft: false,

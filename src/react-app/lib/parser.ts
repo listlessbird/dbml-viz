@@ -1,12 +1,12 @@
 import {
-	DbmlParseError,
+	SchemaParseError,
 	EMPTY_SCHEMA,
-	type DbmlParserRequest,
-	type DbmlParserResponse,
+	type SchemaParserRequest,
+	type SchemaParserResponse,
 } from "@/lib/parser-shared";
 import type { ParsedSchema } from "@/types";
 
-export { DbmlParseError } from "@/lib/parser-shared";
+export { SchemaParseError } from "@/lib/parser-shared";
 
 const PARSER_WORKER_IDLE_TIMEOUT_MS = 20_000;
 
@@ -63,7 +63,7 @@ const scheduleIdleTermination = () => {
 	}, PARSER_WORKER_IDLE_TIMEOUT_MS);
 };
 
-const handleParserWorkerMessage = (event: MessageEvent<DbmlParserResponse>) => {
+const handleParserWorkerMessage = (event: MessageEvent<SchemaParserResponse>) => {
 	const pending = pendingParses.get(event.data.id);
 	if (!pending) {
 		return;
@@ -74,7 +74,7 @@ const handleParserWorkerMessage = (event: MessageEvent<DbmlParserResponse>) => {
 	if (event.data.ok) {
 		pending.resolve(event.data.parsed);
 	} else {
-		pending.reject(new DbmlParseError(event.data.diagnostics));
+		pending.reject(new SchemaParseError(event.data.diagnostics));
 	}
 
 	scheduleIdleTermination();
@@ -87,24 +87,24 @@ const ensureParserWorker = () => {
 		return parserWorker;
 	}
 
-	const worker = new Worker(new URL("../workers/dbml-parser.worker.ts", import.meta.url), {
+	const worker = new Worker(new URL("../workers/schema-parser.worker.ts", import.meta.url), {
 		type: "module",
 	});
 
 	worker.addEventListener("message", handleParserWorkerMessage);
 	worker.addEventListener("error", () => {
-		terminateParserWorker(new Error("DBML parser worker crashed."));
+		terminateParserWorker(new Error("Schema parser worker crashed."));
 	});
 	worker.addEventListener("messageerror", () => {
-		terminateParserWorker(new Error("DBML parser worker returned an invalid message."));
+		terminateParserWorker(new Error("Schema parser worker returned an invalid message."));
 	});
 
 	parserWorker = worker;
 	return worker;
 };
 
-export const parseDbml = (dbml: string): Promise<ParsedSchema> => {
-	if (dbml.trim().length === 0) {
+export const parseSchema = (source: string): Promise<ParsedSchema> => {
+	if (source.trim().length === 0) {
 		return Promise.resolve(EMPTY_SCHEMA);
 	}
 
@@ -114,9 +114,9 @@ export const parseDbml = (dbml: string): Promise<ParsedSchema> => {
 	return new Promise<ParsedSchema>((resolve, reject) => {
 		pendingParses.set(requestId, { resolve, reject });
 
-		const request: DbmlParserRequest = {
+		const request: SchemaParserRequest = {
 			id: requestId,
-			dbml,
+			source,
 		};
 
 		worker.postMessage(request);
