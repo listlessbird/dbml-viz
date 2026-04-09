@@ -14,7 +14,6 @@ import { useRouting } from "@/hooks/useRouting";
 import { useSchemaLoader } from "@/hooks/useSchemaLoader";
 import { useShareSchema } from "@/hooks/useShareSchema";
 import {
-	createDiagramRouteHref,
 	getDraftHydrationResult,
 	getDiagramRouteState,
 	getInitialDraftState,
@@ -75,6 +74,7 @@ function App() {
 	const gridMode = useDiagramUiStore((state) => state.gridMode);
 	const layoutAlgorithm = useDiagramUiStore((state) => state.layoutAlgorithm);
 	const searchQuery = useDiagramUiStore((state) => state.searchQuery);
+	const focusedTableIds = useDiagramUiStore((state) => state.focusedTableIds);
 	const getDraft = useDiagramDraftStore((state) => state.getDraft);
 	const setDraft = useDiagramDraftStore((state) => state.setDraft);
 	const clearDraft = useDiagramDraftStore((state) => state.clearDraft);
@@ -107,6 +107,8 @@ function App() {
 		parsed,
 		searchQuery,
 	);
+	const fitViewTargetIds =
+		focusedTableIds.length > 0 ? focusedTableIds : searchFocusIds;
 	const nodesRef = useRef<DiagramNode[]>([]);
 
 	useEffect(() => {
@@ -126,7 +128,7 @@ function App() {
 		shareSeedPositions,
 		nodeMeasurements,
 		layoutAlgorithm,
-		searchFocusIds,
+		focusIds: fitViewTargetIds,
 		nodesRef,
 		handleMeasure,
 		requestFitView,
@@ -171,11 +173,8 @@ function App() {
 	}, [applyAutoLayout]);
 
 	const handleFitViewClick = useCallback(() => {
-		requestFitView(searchFocusIds.length > 0 ? searchFocusIds : undefined);
-	}, [requestFitView, searchFocusIds]);
-
-	const routeLabel =
-		viewedRoute.shareId === null ? "draft" : createDiagramRouteHref(viewedRoute);
+		requestFitView(fitViewTargetIds.length > 0 ? fitViewTargetIds : undefined);
+	}, [fitViewTargetIds, requestFitView]);
 
 	return (
 		<div className="h-screen bg-background text-foreground">
@@ -184,13 +183,22 @@ function App() {
 					tableCount={parsed.tables.length}
 					relationCount={parsed.refs.length}
 					isSharing={isSharing}
-					routeLabel={routeLabel}
+					shareId={viewedRoute.shareId}
+					isDirty={viewedRoute.isDirty}
 					onShare={handleShare}
 				/>
 
 				{shareLoadError ? (
-					<div className="border-b border-destructive/30 bg-destructive/10 px-4 py-2 text-sm text-destructive">
-						Shared schema unavailable. {shareLoadError}
+					<div className="flex items-center gap-3 border-b border-destructive/30 bg-destructive/10 px-4 py-2 text-sm text-destructive">
+						<span className="flex-1">Shared schema unavailable. {shareLoadError}</span>
+						<button
+							type="button"
+							className="shrink-0 opacity-60 transition-opacity hover:opacity-100"
+							aria-label="Dismiss error"
+							onClick={() => setShareLoadError(null)}
+						>
+							&times;
+						</button>
 					</div>
 				) : null}
 

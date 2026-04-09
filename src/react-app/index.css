@@ -7,7 +7,7 @@
 
 @theme inline {
     --font-heading: var(--font-sans);
-    --font-sans: 'Noto Sans Variable', sans-serif;
+    --font-sans: "Noto Sans Variable", sans-serif;
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -69,7 +69,7 @@
     --ring: oklch(0.723 0.014 214.4);
     --chart-1: oklch(0.65 0.15 250);
     --chart-2: oklch(0.63 0.16 160);
-    --chart-3: oklch(0.60 0.14 310);
+    --chart-3: oklch(0.6 0.14 310);
     --chart-4: oklch(0.66 0.14 45);
     --chart-5: oklch(0.58 0.15 15);
     --radius: 0;
@@ -104,7 +104,7 @@
     --ring: oklch(0.56 0.021 213.5);
     --chart-1: oklch(0.65 0.15 250);
     --chart-2: oklch(0.63 0.16 160);
-    --chart-3: oklch(0.60 0.14 310);
+    --chart-3: oklch(0.6 0.14 310);
     --chart-4: oklch(0.66 0.14 45);
     --chart-5: oklch(0.58 0.15 15);
     --sidebar: oklch(0.218 0.008 223.9);
@@ -118,153 +118,182 @@
 }
 
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
-  html,
-  body,
-  #root {
-    height: 100%;
-    min-height: 100%;
-  }
-  body {
-    @apply bg-background text-foreground;
-    margin: 0;
-    overflow: hidden;
-  }
-  html {
-    @apply font-sans;
-  }
+    * {
+        @apply border-border outline-ring/50;
+    }
+    html,
+    body,
+    #root {
+        height: 100%;
+        min-height: 100%;
+    }
+    body {
+        @apply bg-background text-foreground;
+        margin: 0;
+        overflow: hidden;
+    }
+    html {
+        @apply font-sans;
+    }
 }
 
 @layer base {
-  body {
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
-  }
+    body {
+        font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    }
 }
 
 @layer components {
-  .react-flow__attribution {
-    display: none;
-  }
+    .react-flow__attribution {
+        display: none;
+    }
 
-  .react-flow__panel {
-    margin: 0.75rem;
-  }
+    .react-flow__panel {
+        margin: 0.75rem;
+    }
 
-  .react-flow__controls {
-    overflow: hidden;
-    border-radius: 0;
-    border: 1px solid var(--border);
-    background: var(--background);
-    box-shadow: 0 10px 24px color-mix(in oklab, var(--foreground) 10%, transparent);
-  }
+    .react-flow__controls {
+        overflow: hidden;
+        border-radius: 0;
+        border: 1px solid var(--border);
+        background: var(--background);
+        box-shadow: 0 10px 24px
+            color-mix(in oklab, var(--foreground) 10%, transparent);
+    }
 
-  .react-flow__minimap {
-    overflow: hidden;
-    border-radius: 0;
-    border: 1px solid var(--border);
-    background: var(--background);
-    box-shadow: 0 18px 40px color-mix(in oklab, var(--foreground) 14%, transparent);
-  }
+    .react-flow__minimap {
+        overflow: hidden;
+        border-radius: 0;
+        border: 1px solid var(--border);
+        background: var(--background);
+        box-shadow: 0 18px 40px
+            color-mix(in oklab, var(--foreground) 14%, transparent);
+    }
 
-  .react-flow__minimap svg {
-    filter: drop-shadow(0 10px 20px color-mix(in oklab, var(--foreground) 12%, transparent));
-  }
+    .react-flow__minimap svg {
+        filter: drop-shadow(
+            0 10px 20px color-mix(in oklab, var(--foreground) 12%, transparent)
+        );
+    }
 
-  .react-flow__controls-button {
-    border: 0;
-    border-bottom: 1px solid var(--border);
-    background: var(--background);
-    color: var(--foreground);
-  }
+    .react-flow__controls-button {
+        border: 0;
+        border-bottom: 1px solid var(--border);
+        background: var(--background);
+        color: var(--foreground);
+    }
 
-  .react-flow__controls-button:last-child {
-    border-bottom: 0;
-  }
+    .react-flow__controls-button:last-child {
+        border-bottom: 0;
+    }
 
-  .canvas-pan-mode .react-flow__pane {
-    cursor: grab;
-  }
+    .react-flow__pane.selection {
+        cursor: unset !important;
+    }
 
-  .canvas-pan-mode .react-flow__pane.dragging {
-    cursor: grabbing;
-  }
+    .canvas-pan-mode .react-flow__pane {
+        cursor: grab;
+    }
 
-  .react-flow__edge-textbg {
-    rx: 0;
-    ry: 0;
-  }
+    .canvas-pan-mode .react-flow__pane.dragging {
+        cursor: grabbing;
+    }
 
-  .relation-edge-highlight {
-    pointer-events: none;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
+    .react-flow__edge-textbg {
+        rx: 0;
+        ry: 0;
+    }
 
-  .relation-edge-particle {
-    pointer-events: none;
-  }
+    .relation-edge-highlight {
+        pointer-events: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+    }
 
-  .cm-editor {
-    height: 100%;
-  }
+    .relation-edge-particle {
+        pointer-events: none;
+    }
 
-  .cm-scroller {
-    scrollbar-color: color-mix(in oklab, var(--sidebar-foreground) 24%, transparent) transparent;
-    scrollbar-width: thin;
-  }
+    .cm-editor {
+        height: 100%;
+    }
 
-  .cm-scroller::-webkit-scrollbar {
-    width: 12px;
-    height: 12px;
-  }
+    .cm-scroller {
+        scrollbar-color: color-mix(
+                in oklab,
+                var(--sidebar-foreground) 24%,
+                transparent
+            )
+            transparent;
+        scrollbar-width: thin;
+    }
 
-  .cm-scroller::-webkit-scrollbar-track {
-    background: transparent;
-  }
+    .cm-scroller::-webkit-scrollbar {
+        width: 12px;
+        height: 12px;
+    }
 
-  .cm-scroller::-webkit-scrollbar-thumb {
-    min-height: 36px;
-    border: 3px solid transparent;
-    border-radius: 999px;
-    background: color-mix(in oklab, var(--sidebar-foreground) 24%, transparent);
-    background-clip: padding-box;
-  }
+    .cm-scroller::-webkit-scrollbar-track {
+        background: transparent;
+    }
 
-  .cm-scroller::-webkit-scrollbar-thumb:hover {
-    background: color-mix(in oklab, var(--sidebar-foreground) 34%, transparent);
-    background-clip: padding-box;
-  }
+    .cm-scroller::-webkit-scrollbar-thumb {
+        min-height: 36px;
+        border: 3px solid transparent;
+        border-radius: 999px;
+        background: color-mix(
+            in oklab,
+            var(--sidebar-foreground) 24%,
+            transparent
+        );
+        background-clip: padding-box;
+    }
 
-  .cm-scroller::-webkit-scrollbar-corner {
-    background: transparent;
-  }
+    .cm-scroller::-webkit-scrollbar-thumb:hover {
+        background: color-mix(
+            in oklab,
+            var(--sidebar-foreground) 34%,
+            transparent
+        );
+        background-clip: padding-box;
+    }
 
-  .cm-focused {
-    outline: none;
-  }
+    .cm-scroller::-webkit-scrollbar-corner {
+        background: transparent;
+    }
 
-  .cm-parse-error-line {
-    background-color: color-mix(in oklab, var(--destructive) 8%, transparent);
-  }
+    .cm-focused {
+        outline: none;
+    }
 
-  .cm-parse-error-range {
-    background-color: color-mix(in oklab, var(--destructive) 14%, transparent);
-    text-decoration-line: underline;
-    text-decoration-style: wavy;
-    text-decoration-color: var(--destructive);
-    text-decoration-thickness: 1.5px;
-    text-underline-offset: 0.16em;
-  }
+    .cm-parse-error-line {
+        background-color: color-mix(
+            in oklab,
+            var(--destructive) 8%,
+            transparent
+        );
+    }
+
+    .cm-parse-error-range {
+        background-color: color-mix(
+            in oklab,
+            var(--destructive) 14%,
+            transparent
+        );
+        text-decoration-line: underline;
+        text-decoration-style: wavy;
+        text-decoration-color: var(--destructive);
+        text-decoration-thickness: 1.5px;
+        text-underline-offset: 0.16em;
+    }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .relation-edge-highlight {
-    transition-duration: 0ms !important;
-  }
+    .relation-edge-highlight {
+        transition-duration: 0ms !important;
+    }
 
-  .relation-edge-particle {
-    display: none;
-  }
+    .relation-edge-particle {
+        display: none;
+    }
 }

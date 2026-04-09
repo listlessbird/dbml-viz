@@ -3,14 +3,17 @@
 	"name": "dbml-viz",
 	"main": "./src/worker/index.ts",
 	"compatibility_date": "2026-04-02",
-	"compatibility_flags": ["nodejs_compat"],
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
 	"observability": {
 		"enabled": true
 	},
 	"upload_source_maps": true,
 	"kv_namespaces": [
 		{
-			"binding": "SCHEMAS"
+			"binding": "SCHEMAS",
+			"id": "e15c9a5148d14010a38d5761729f3725"
 		}
 	],
 	"assets": {

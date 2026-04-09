@@ -48,12 +48,20 @@ export function useShareSchema({
 			const result = await saveSharedSchema(payload);
 			const nextUrl = new URL(`/s/${result.id}`, window.location.origin).toString();
 
+			const copyAction = {
+				label: "Copy again",
+				onClick: () => void navigator.clipboard.writeText(nextUrl),
+			};
+
 			try {
 				await navigator.clipboard.writeText(nextUrl);
-				toast.success("Share link copied to clipboard.");
+				toast.success("Share link copied to clipboard.", {
+					action: copyAction,
+				});
 			} catch {
 				toast.success("Share created.", {
 					description: nextUrl,
+					action: copyAction,
 				});
 			}
 

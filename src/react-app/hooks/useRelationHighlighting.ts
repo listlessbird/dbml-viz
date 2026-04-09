@@ -1,6 +1,7 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FocusEvent, MouseEvent } from "react";
 
+import { useDiagramUiStore } from "@/store/useDiagramUiStore";
 import type { DiagramEdge, DiagramNode } from "@/types";
 
 const EDGE_TRANSITION_EASING = "cubic-bezier(0.215, 0.61, 0.355, 1)";
@@ -39,16 +40,48 @@ export function useRelationHighlighting(
 ) {
 	const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
 	const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
-	const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
+	const panModeEnabled = useDiagramUiStore((state) => state.panModeEnabled);
+	const focusedTableIds = useDiagramUiStore((state) => state.focusedTableIds);
+	const selectedTableIds = useDiagramUiStore((state) => state.selectedTableIds);
+	const setFocusedTableIds = useDiagramUiStore((state) => state.setFocusedTableIds);
+	const setSelectedTableIds = useDiagramUiStore((state) => state.setSelectedTableIds);
 
 	const availableNodeIds = useMemo(
 		() => new Set(nodes.map((node) => node.id)),
 		[nodes],
 	);
 
+	useEffect(() => {
+		const nextFocusedTableIds = focusedTableIds.filter((id) => availableNodeIds.has(id));
+		if (
+			nextFocusedTableIds.length === focusedTableIds.length &&
+			nextFocusedTableIds.every((id, index) => id === focusedTableIds[index])
+		) {
+			return;
+		}
+
+		setFocusedTableIds(nextFocusedTableIds);
+	}, [availableNodeIds, focusedTableIds, setFocusedTableIds]);
+
+	useEffect(() => {
+		const nextSelectedTableIds = selectedTableIds.filter((id) =>
+			availableNodeIds.has(id),
+		);
+		if (
+			nextSelectedTableIds.length === selectedTableIds.length &&
+			nextSelectedTableIds.every((id, index) => id === selectedTableIds[index])
+		) {
+			return;
+		}
+
+		setSelectedTableIds(nextSelectedTableIds);
+	}, [availableNodeIds, selectedTableIds, setSelectedTableIds]);
+
 	const activeTableIds = useMemo(() => {
 		const ids = new Set(
-			selectedNodeIds.filter((id) => availableNodeIds.has(id)),
+			(panModeEnabled ? selectedTableIds : []).filter((id) =>
+				availableNodeIds.has(id),
+			),
 		);
 		if (hoveredNodeId !== null && availableNodeIds.has(hoveredNodeId)) {
 			ids.add(hoveredNodeId);
@@ -57,7 +90,7 @@ export function useRelationHighlighting(
 			ids.add(focusedNodeId);
 		}
 		return ids;
-	}, [availableNodeIds, focusedNodeId, hoveredNodeId, selectedNodeIds]);
+	}, [availableNodeIds, focusedNodeId, hoveredNodeId, panModeEnabled, selectedTableIds]);
 
 	const activeRelationColumnsByTable = useMemo(() => {
 		if (activeTableIds.size === 0) {
@@ -178,14 +211,10 @@ export function useRelationHighlighting(
 	const onSelectionChange = useCallback(
 		({ nodes: selectedNodes }: { nodes: DiagramNode[] }) => {
 			const nextIds = selectedNodes.map((node) => node.id).sort();
-			setSelectedNodeIds((current) =>
-				current.length === nextIds.length &&
-				current.every((id, i) => id === nextIds[i])
-					? current
-					: nextIds,
-			);
+			setSelectedTableIds(nextIds);
+			setFocusedTableIds(nextIds);
 		},
-		[],
+		[setFocusedTableIds, setSelectedTableIds],
 	);
 
 	const handlers = useMemo(

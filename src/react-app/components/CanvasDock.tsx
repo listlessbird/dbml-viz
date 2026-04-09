@@ -1,273 +1,218 @@
-import {
-	IconBinaryTree2,
-	IconBorderNone,
-	IconGridDots,
-	IconLayoutGrid,
-	IconSearch,
-} from "@tabler/icons-react";
-import { useState } from "react";
+import { useHotkeys } from "@tanstack/react-hotkeys";
+import { useEffect, useId, useRef, useState } from "react";
 
 import {
-	Popover,
-	PopoverContent,
-	PopoverHeader,
-	PopoverTitle,
-	PopoverTrigger,
-} from "@/components/ui/popover";
-import { LAYOUT_ALGORITHM_OPTIONS } from "@/lib/layout-options";
-import { cn } from "@/lib/utils";
+	GridDockPopover,
+	LayoutDockPopover,
+	SearchDockPopover,
+} from "@/components/canvas-dock/DockPopovers";
+import { DOCK_SURFACE_CLASS, LAYOUT_ALGORITHM_OPTIONS } from "@/components/canvas-dock/constants";
 import { useDiagramUiStore } from "@/store/useDiagramUiStore";
-import type { DiagramGridMode } from "@/types";
-
-const GRID_MODE_ICONS = {
-	none: IconBorderNone,
-	dots: IconGridDots,
-	lines: IconLayoutGrid,
-} as const;
 
 interface CanvasDockProps {
 	readonly isLayouting: boolean;
 	readonly matchedTableNames: readonly string[];
 	readonly onAutoLayout: () => void;
+	readonly onFitView: () => void;
+	readonly onZoomIn: () => void;
+	readonly onZoomOut: () => void;
 }
-
-const GRID_OPTIONS: ReadonlyArray<{
-	value: DiagramGridMode;
-	label: string;
-	description: string;
-}> = [
-	{
-		value: "none",
-		label: "Grid off",
-		description: "Keep the canvas completely clean.",
-	},
-	{
-		value: "dots",
-		label: "Dot grid",
-		description: "A tighter dot field for easier freeform alignment.",
-	},
-	{
-		value: "lines",
-		label: "Line grid",
-		description: "A tighter guide grid for structured layouts.",
-	},
-];
-
-const dockButtonClass =
-	"inline-flex h-11 w-11 items-center justify-center border-r border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground data-[active=true]:bg-muted data-[active=true]:text-foreground";
-
-const optionCardClass =
-	"flex w-full items-start gap-3 border-b border-border bg-background px-4 py-3 text-left transition-colors hover:bg-muted/55 last:border-b-0";
 
 export function CanvasDock({
 	isLayouting,
 	matchedTableNames,
 	onAutoLayout,
+	onFitView,
+	onZoomIn,
+	onZoomOut,
 }: CanvasDockProps) {
+	const dockId = useId();
 	const [isGridOpen, setGridOpen] = useState(false);
 	const [isLayoutOpen, setLayoutOpen] = useState(false);
 	const [isSearchOpen, setSearchOpen] = useState(false);
+	const searchInputRef = useRef<HTMLInputElement | null>(null);
+
 	const gridMode = useDiagramUiStore((state) => state.gridMode);
 	const layoutAlgorithm = useDiagramUiStore((state) => state.layoutAlgorithm);
 	const searchQuery = useDiagramUiStore((state) => state.searchQuery);
 	const setGridMode = useDiagramUiStore((state) => state.setGridMode);
 	const setLayoutAlgorithm = useDiagramUiStore((state) => state.setLayoutAlgorithm);
 	const setSearchQuery = useDiagramUiStore((state) => state.setSearchQuery);
-	const CurrentGridIcon = GRID_MODE_ICONS[gridMode];
+	const togglePanMode = useDiagramUiStore((state) => state.togglePanMode);
+
+	const panelsAreOpen = isGridOpen || isLayoutOpen || isSearchOpen;
+	const gridTriggerId = `${dockId}-grid-trigger`;
+	const layoutTriggerId = `${dockId}-layout-trigger`;
+	const searchTriggerId = `${dockId}-search-trigger`;
+
+	const closePanels = () => {
+		setGridOpen(false);
+		setLayoutOpen(false);
+		setSearchOpen(false);
+	};
+
+	const openGrid = () => {
+		setGridOpen(true);
+		setLayoutOpen(false);
+		setSearchOpen(false);
+	};
+
+	const openLayout = () => {
+		setGridOpen(false);
+		setLayoutOpen(true);
+		setSearchOpen(false);
+	};
+
+	const openSearch = () => {
+		setGridOpen(false);
+		setLayoutOpen(false);
+		setSearchOpen(true);
+	};
+
+	const applyLayout = (id: (typeof LAYOUT_ALGORITHM_OPTIONS)[number]["id"]) => {
+		setLayoutAlgorithm(id);
+		setLayoutOpen(false);
+		onAutoLayout();
+	};
+
+	useEffect(() => {
+		if (!isSearchOpen) {
+			return;
+		}
+
+		searchInputRef.current?.focus();
+		searchInputRef.current?.select();
+	}, [isSearchOpen]);
+
+	useHotkeys([
+		{
+			hotkey: "G",
+			callback: openGrid,
+			options: { meta: { name: "Toggle grid dock" } },
+		},
+		{
+			hotkey: "L",
+			callback: openLayout,
+			options: { meta: { name: "Toggle arrange dock" } },
+		},
+		{
+			hotkey: "/",
+			callback: openSearch,
+			options: {
+				enabled: !isSearchOpen,
+				ignoreInputs: false,
+				meta: { name: "Open table search" },
+			},
+		},
+		{
+			hotkey: "Escape",
+			callback: closePanels,
+			options: {
+				enabled: panelsAreOpen,
+				ignoreInputs: true,
+				meta: { name: "Close open dock panels" },
+			},
+		},
+		{
+			hotkey: "1",
+			callback: () => applyLayout("left-right"),
+			options: {
+				enabled: isLayoutOpen,
+				meta: { name: "Arrange layout: left-right" },
+			},
+		},
+		{
+			hotkey: "2",
+			callback: () => applyLayout("snowflake"),
+			options: {
+				enabled: isLayoutOpen,
+				meta: { name: "Arrange layout: snowflake" },
+			},
+		},
+		{
+			hotkey: "3",
+			callback: () => applyLayout("compact"),
+			options: {
+				enabled: isLayoutOpen,
+				meta: { name: "Arrange layout: compact" },
+			},
+		},
+		{
+			hotkey: "-",
+			callback: onZoomOut,
+			options: { meta: { name: "Zoom out" } },
+		},
+		{
+			hotkey: "=",
+			callback: onZoomIn,
+			options: { meta: { name: "Zoom in" } },
+		},
+		{
+			hotkey: "0",
+			callback: onFitView,
+			options: { meta: { name: "Fit view" } },
+		},
+		{
+			hotkey: "P",
+			callback: togglePanMode,
+			options: { meta: { name: "Toggle pan mode" } },
+		},
+	]);
 
 	return (
 		<div className="pointer-events-none absolute bottom-4 left-1/2 z-10 -translate-x-1/2">
-			<div className="pointer-events-auto inline-flex items-stretch overflow-hidden border border-border bg-background/96 text-foreground shadow-[0_18px_42px_color-mix(in_oklab,var(--foreground)_12%,transparent)] backdrop-blur-sm">
-				<Popover open={isGridOpen} onOpenChange={setGridOpen}>
-					<PopoverTrigger
-						render={
-							<button
-								type="button"
-								className={dockButtonClass}
-								data-active={isGridOpen || gridMode !== "none"}
-								title="Grid controls"
-							>
-								<CurrentGridIcon className="size-4" />
-							</button>
+			<div className={DOCK_SURFACE_CLASS}>
+				<GridDockPopover
+					open={isGridOpen}
+					triggerId={gridTriggerId}
+					gridMode={gridMode}
+					onOpenChange={(open) => {
+						setGridOpen(open);
+						if (open) {
+							setLayoutOpen(false);
+							setSearchOpen(false);
 						}
-					/>
-					<PopoverContent
-						side="top"
-						align="center"
-						sideOffset={10}
-						className="w-72 border border-border bg-background p-0 gap-0 shadow-[0_18px_42px_color-mix(in_oklab,var(--foreground)_14%,transparent)] ring-0"
-					>
-						<PopoverHeader className="border-b border-border px-4 py-3">
-							<PopoverTitle className="text-sm">Canvas grid</PopoverTitle>
-						</PopoverHeader>
-						<div className="flex flex-col">
-							{GRID_OPTIONS.map((option) => {
-								const OptionIcon = GRID_MODE_ICONS[option.value];
+					}}
+					onSelectGridMode={(nextGridMode) => {
+						setGridMode(nextGridMode);
+						setGridOpen(false);
+					}}
+				/>
 
-								return (
-									<button
-										key={option.value}
-										type="button"
-										className={cn(
-											optionCardClass,
-											gridMode === option.value && "bg-muted",
-										)}
-										onClick={() => {
-											setGridMode(option.value);
-											setGridOpen(false);
-										}}
-									>
-										<div className="pt-0.5 text-foreground">
-											<OptionIcon className="size-4" />
-										</div>
-										<div className="min-w-0">
-											<div className="text-sm font-medium text-foreground">
-												{option.label}
-											</div>
-											<p className="mt-1 text-xs leading-5 text-muted-foreground">
-												{option.description}
-											</p>
-										</div>
-									</button>
-								);
-							})}
-						</div>
-					</PopoverContent>
-				</Popover>
-
-				<Popover open={isLayoutOpen} onOpenChange={setLayoutOpen}>
-					<PopoverTrigger
-						render={
-							<button
-								type="button"
-								className={dockButtonClass}
-								data-active={isLayoutOpen}
-								title="Arrange diagram"
-							>
-								<IconBinaryTree2 className="size-4" />
-							</button>
+				<LayoutDockPopover
+					open={isLayoutOpen}
+					triggerId={layoutTriggerId}
+					layoutAlgorithm={layoutAlgorithm}
+					isLayouting={isLayouting}
+					onOpenChange={(open) => {
+						setLayoutOpen(open);
+						if (open) {
+							setGridOpen(false);
+							setSearchOpen(false);
 						}
-					/>
-					<PopoverContent
-						side="top"
-						align="center"
-						sideOffset={10}
-						className="w-80 border border-border bg-background p-0 gap-0 shadow-[0_18px_42px_color-mix(in_oklab,var(--foreground)_14%,transparent)] ring-0"
-					>
-						<PopoverHeader className="border-b border-border px-4 py-3">
-							<PopoverTitle className="text-sm">
-								Choose auto arrange algorithm
-							</PopoverTitle>
-						</PopoverHeader>
-						<div className="flex flex-col">
-							{LAYOUT_ALGORITHM_OPTIONS.map((option, index) => (
-								<button
-									key={option.id}
-									type="button"
-									className={cn(
-										optionCardClass,
-										layoutAlgorithm === option.id && "bg-muted",
-									)}
-									onClick={() => {
-										setLayoutAlgorithm(option.id);
-										setLayoutOpen(false);
-										onAutoLayout();
-									}}
-								>
-									<div className="pt-0.5 text-foreground">
-										{option.id === "snowflake" ? (
-											<IconLayoutGrid className="size-4" />
-										) : option.id === "compact" ? (
-											<IconGridDots className="size-4" />
-										) : (
-											<IconBinaryTree2 className="size-4" />
-										)}
-									</div>
-									<div className="min-w-0 flex-1">
-										<div className="flex items-start justify-between gap-3">
-											<div className="text-sm font-medium text-foreground">
-												{option.label}
-											</div>
-											<span className="border border-border bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-												{index + 1}
-											</span>
-										</div>
-										<p className="mt-1 text-xs leading-5 text-muted-foreground">
-											{option.description}
-										</p>
-									</div>
-								</button>
-							))}
-						</div>
-						{isLayouting ? (
-							<div className="border-t border-border px-4 py-2 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-								Arranging diagram
-							</div>
-						) : null}
-					</PopoverContent>
-				</Popover>
+					}}
+					onApplyLayout={applyLayout}
+				/>
 
-				<Popover open={isSearchOpen} onOpenChange={setSearchOpen}>
-					<PopoverTrigger
-						render={
-							<button
-								type="button"
-								className="inline-flex h-11 w-11 items-center justify-center text-muted-foreground transition-colors hover:bg-muted hover:text-foreground data-[active=true]:bg-muted data-[active=true]:text-foreground"
-								data-active={isSearchOpen || searchQuery.trim().length > 0}
-								title="Search tables"
-							>
-								<IconSearch className="size-4" />
-							</button>
+				<SearchDockPopover
+					open={isSearchOpen}
+					triggerId={searchTriggerId}
+					searchQuery={searchQuery}
+					matchedTableNames={matchedTableNames}
+					searchInputRef={searchInputRef}
+					onOpenChange={(open) => {
+						setSearchOpen(open);
+						if (open) {
+							setGridOpen(false);
+							setLayoutOpen(false);
 						}
-					/>
-					<PopoverContent
-						side="top"
-						align="end"
-						sideOffset={10}
-						className="w-80 border border-border bg-background p-0 gap-0 shadow-[0_18px_42px_color-mix(in_oklab,var(--foreground)_14%,transparent)] ring-0"
-					>
-						<PopoverHeader className="border-b border-border px-4 py-3">
-							<PopoverTitle className="text-sm">Search tables</PopoverTitle>
-						</PopoverHeader>
-						<div className="border-b border-border py-2">
-							<div className="flex items-center gap-2 px-4">
-								<IconSearch className="size-4 text-muted-foreground" />
-								<input
-									autoFocus
-									type="search"
-									value={searchQuery}
-									onChange={(event) => {
-										setSearchQuery(event.target.value);
-									}}
-									placeholder="Type a table name"
-									className="h-10 min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
-								/>
-							</div>
-						</div>
-						<div className="max-h-56 overflow-y-auto">
-							{matchedTableNames.length === 0 ? (
-								<div className="px-4 py-3 text-xs text-muted-foreground">
-									No matching tables.
-								</div>
-							) : (
-								matchedTableNames.map((tableName) => (
-									<button
-										key={tableName}
-										type="button"
-										className="flex w-full items-center justify-between border-b border-border px-4 py-2.5 text-left text-sm text-foreground transition-colors hover:bg-muted last:border-b-0"
-										onClick={() => {
-											setSearchQuery(tableName);
-											setSearchOpen(false);
-										}}
-									>
-										<span className="truncate">{tableName}</span>
-										<IconSearch className="size-3.5 text-muted-foreground" />
-									</button>
-								))
-							)}
-						</div>
-					</PopoverContent>
-				</Popover>
+					}}
+					onSearchQueryChange={setSearchQuery}
+					onSelectTable={(tableName) => {
+						setSearchQuery(tableName);
+						setSearchOpen(false);
+					}}
+				/>
 			</div>
 		</div>
 	);

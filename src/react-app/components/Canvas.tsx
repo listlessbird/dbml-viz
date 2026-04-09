@@ -9,6 +9,7 @@ import {
   BackgroundVariant,
   MiniMap,
   PanOnScrollMode,
+  SelectionMode,
   type BackgroundProps,
   type EdgeChange,
   type EdgeTypes,
@@ -18,7 +19,6 @@ import {
   type Viewport,
   ReactFlow,
 } from "@xyflow/react";
-import { useState } from "react";
 
 import { CanvasDock } from "@/components/CanvasDock";
 import { RelationshipEdge } from "@/components/RelationshipEdge";
@@ -26,6 +26,7 @@ import { TableNode } from "@/components/TableNode";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup, ButtonGroupText } from "@/components/ui/button-group";
 import { useRelationHighlighting } from "@/hooks/useRelationHighlighting";
+import { useDiagramUiStore } from "@/store/useDiagramUiStore";
 import type { DiagramEdge, DiagramGridMode, DiagramNode } from "@/types";
 
 const nodeTypes: NodeTypes = { table: TableNode };
@@ -91,7 +92,8 @@ export function Canvas({
     nodes,
     edges,
   );
-  const [isPanModeEnabled, setPanModeEnabled] = useState(false);
+  const isPanModeEnabled = useDiagramUiStore((state) => state.panModeEnabled);
+  const togglePanMode = useDiagramUiStore((state) => state.togglePanMode);
 
   return (
     <div
@@ -113,9 +115,11 @@ export function Canvas({
         onNodeMouseLeave={handlers.onNodeMouseLeave}
         onSelectionChange={handlers.onSelectionChange}
         nodesConnectable={false}
-        panOnDrag={isPanModeEnabled ? true : [1]}
+        panOnDrag={isPanModeEnabled}
         panOnScroll
         panOnScrollMode={PanOnScrollMode.Free}
+        selectionOnDrag={!isPanModeEnabled}
+        selectionMode={SelectionMode.Partial}
         minZoom={0.25}
         maxZoom={1.8}
         zoomOnScroll={false}
@@ -176,14 +180,16 @@ export function Canvas({
             </Button>
             <Button
               type="button"
-              title={isPanModeEnabled ? "Pan mode is on." : "Pan mode is off."}
+              title={
+                isPanModeEnabled
+                  ? "Pan mode is on. Left-drag pans until you turn it off."
+                  : "Pan mode is off. Drag on the canvas to select tables."
+              }
               aria-label="Toggle pan mode"
               aria-pressed={isPanModeEnabled}
               variant={isPanModeEnabled ? "default" : "outline"}
               size="icon-lg"
-              onClick={() => {
-                setPanModeEnabled((current) => !current);
-              }}
+              onClick={togglePanMode}
             >
               <IconHandMove className="size-4" />
             </Button>
@@ -195,6 +201,9 @@ export function Canvas({
         isLayouting={isLayouting}
         matchedTableNames={matchedTableNames}
         onAutoLayout={onAutoLayout}
+        onFitView={onFitView}
+        onZoomIn={onZoomIn}
+        onZoomOut={onZoomOut}
       />
 
       {nodes.length === 0 ? (

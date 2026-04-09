@@ -23,7 +23,7 @@ interface DiagramSyncOptions {
 	readonly shareSeedPositions: DiagramPositions;
 	readonly nodeMeasurements: Record<string, DiagramNodeSize>;
 	readonly layoutAlgorithm: DiagramLayoutAlgorithm;
-	readonly searchFocusIds: readonly string[];
+	readonly focusIds: readonly string[];
 	readonly nodesRef: MutableRefObject<DiagramNode[]>;
 	readonly handleMeasure: (nodeId: string, size: DiagramNodeSize) => void;
 	readonly requestFitView: (nodeIds?: readonly string[]) => void;
@@ -49,7 +49,7 @@ export function useDiagramSync({
 	shareSeedPositions,
 	nodeMeasurements,
 	layoutAlgorithm,
-	searchFocusIds,
+	focusIds,
 	nodesRef,
 	handleMeasure,
 	requestFitView,
@@ -93,7 +93,7 @@ export function useDiagramSync({
 				setNeedsMeasuredLayout(enableMeasuredFollowUp);
 
 				if (fitView) {
-					requestFitView(searchFocusIds.length > 0 ? searchFocusIds : undefined);
+					requestFitView(focusIds.length > 0 ? focusIds : undefined);
 				}
 			} catch (error) {
 				toast.error(
@@ -108,9 +108,9 @@ export function useDiagramSync({
 			layoutAlgorithm,
 			nodeMeasurements,
 			parsed,
+			focusIds,
 			requestFitView,
 			searchState,
-			searchFocusIds,
 			setEdges,
 			setNodes,
 		],
