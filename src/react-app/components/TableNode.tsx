@@ -13,7 +13,79 @@ import { CompositeRelationHandles } from "@/components/table-node/CompositeRelat
 import { getSourceHandleId, getTargetHandleId } from "@/lib/relation-handles";
 import { getColumnConstraintBadges } from "@/lib/table-constraints";
 import { cn } from "@/lib/utils";
-import type { ColumnData, DiagramNode, TableNodeData } from "@/types";
+import type {
+	ColumnData,
+	DiagramNode,
+	RelationAnchorData,
+	TableNodeData,
+} from "@/types";
+
+const areStringArraysEqual = (
+	a: readonly string[] | undefined,
+	b: readonly string[] | undefined,
+) => {
+	if (a === b) return true;
+	if (!a || !b) return false;
+	if (a.length !== b.length) return false;
+	for (let i = 0; i < a.length; i++) {
+		if (a[i] !== b[i]) return false;
+	}
+	return true;
+};
+
+const areRelationAnchorsEqual = (
+	a: readonly RelationAnchorData[],
+	b: readonly RelationAnchorData[],
+) => {
+	if (a === b) return true;
+	if (a.length !== b.length) return false;
+	for (let i = 0; i < a.length; i++) {
+		const prev = a[i];
+		const next = b[i];
+		if (prev.id !== next.id || prev.side !== next.side) return false;
+		if (!areStringArraysEqual(prev.columns, next.columns)) return false;
+	}
+	return true;
+};
+
+const areNumberRecordsEqual = (
+	a: Readonly<Record<string, number>>,
+	b: Readonly<Record<string, number>>,
+) => {
+	if (a === b) return true;
+	const keys = Object.keys(a);
+	if (keys.length !== Object.keys(b).length) return false;
+	for (const key of keys) {
+		if (a[key] !== b[key]) return false;
+	}
+	return true;
+};
+
+const areTableNodePropsEqual = (
+	prev: NodeProps<DiagramNode>,
+	next: NodeProps<DiagramNode>,
+) => {
+	if (prev.id !== next.id || prev.selected !== next.selected) {
+		return false;
+	}
+
+	const a = prev.data;
+	const b = next.data;
+
+	return (
+		a.table === b.table &&
+		a.accent === b.accent &&
+		a.isSearchMatch === b.isSearchMatch &&
+		a.isSearchRelated === b.isSearchRelated &&
+		a.isSearchDimmed === b.isSearchDimmed &&
+		a.isRelationContextActive === b.isRelationContextActive &&
+		a.onMeasure === b.onMeasure &&
+		areStringArraysEqual(a.connectedColumns, b.connectedColumns) &&
+		areStringArraysEqual(a.activeRelationColumns, b.activeRelationColumns) &&
+		areRelationAnchorsEqual(a.relationAnchors, b.relationAnchors) &&
+		areNumberRecordsEqual(a.compositeHandleOffsets, b.compositeHandleOffsets)
+	);
+};
 
 const COLUMN_HANDLE_CLASS_NAME =
 	"!size-2.5 !border-0 !bg-primary !shadow-none transition-opacity";
@@ -49,11 +121,8 @@ const getColumnMetaLabel = (column: ColumnData) =>
 		.filter(Boolean)
 		.join(" · ");
 
-export const TableNode = memo(function TableNode({
-	id,
-	data,
-	selected,
-}: NodeProps<DiagramNode>) {
+export const TableNode = memo(
+	function TableNode({ id, data, selected }: NodeProps<DiagramNode>) {
 	const containerRef = useRef<HTMLDivElement | null>(null);
 
 	const connectedColumns = new Set(data.connectedColumns);
@@ -82,23 +151,15 @@ export const TableNode = memo(function TableNode({
 			return;
 		}
 
-		const initialFrameId = window.requestAnimationFrame(() => {
-			const { width, height } = element.getBoundingClientRect();
-			reportMeasurement(width, height);
-		});
 		const observer = new ResizeObserver((entries) => {
 			const entry = entries[entries.length - 1];
-			if (!entry) {
-				return;
+			if (entry) {
+				reportMeasurement(entry.contentRect.width, entry.contentRect.height);
 			}
-
-			reportMeasurement(entry.contentRect.width, entry.contentRect.height);
 		});
-
 		observer.observe(element);
 
 		return () => {
-			window.cancelAnimationFrame(initialFrameId);
 			observer.disconnect();
 		};
 	}, [data.onMeasure, id]);
@@ -242,4 +303,6 @@ export const TableNode = memo(function TableNode({
 			</div>
 		</div>
 	);
-});
+	},
+	areTableNodePropsEqual,
+);
