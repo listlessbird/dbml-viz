@@ -4,10 +4,18 @@ import {
 	Panel,
 	type PanelImperativeHandle,
 } from "react-resizable-panels";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+	Suspense,
+	lazy,
+	startTransition,
+	useCallback,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 
 import { Canvas } from "@/components/Canvas";
-import { Editor } from "@/components/Editor";
 import { Toolbar } from "@/components/Toolbar";
 import { useCanvasViewport } from "@/hooks/useCanvasViewport";
 import { useDiagramSearch } from "@/hooks/useDiagramSearch";
@@ -34,6 +42,92 @@ interface InitialAppState {
 	readonly draftState: ReturnType<typeof getInitialDraftState>;
 	readonly isBlockingShareLoad: boolean;
 }
+
+type IdleWindow = Window &
+	typeof globalThis & {
+		requestIdleCallback?: (
+			callback: (deadline: IdleDeadline) => void,
+			options?: IdleRequestOptions,
+		) => number;
+		cancelIdleCallback?: (handle: number) => void;
+	};
+
+let editorModulePromise: Promise<typeof import("@/components/Editor")> | null = null;
+
+const loadEditorModule = () => {
+	if (editorModulePromise === null) {
+		editorModulePromise = import("@/components/Editor");
+	}
+
+	return editorModulePromise;
+};
+
+const LazyEditor = lazy(async () => {
+	const module = await loadEditorModule();
+	return {
+		default: module.Editor,
+	};
+});
+
+const scheduleWindowIdleCallback = (callback: () => void) => {
+	const idleWindow = window as IdleWindow;
+
+	if (typeof idleWindow.requestIdleCallback === "function") {
+		return idleWindow.requestIdleCallback(() => callback(), { timeout: 2000 });
+	}
+
+	return window.setTimeout(callback, 1200);
+};
+
+const cancelWindowIdleCallback = (handle: number) => {
+	const idleWindow = window as IdleWindow;
+
+	if (typeof idleWindow.cancelIdleCallback === "function") {
+		idleWindow.cancelIdleCallback(handle);
+		return;
+	}
+
+	window.clearTimeout(handle);
+};
+
+const EditorBootstrapShell = ({
+	value,
+	onChange,
+	onHide,
+	onActivate,
+	isParsing,
+}: {
+	readonly value: string;
+	readonly onChange: (value: string) => void;
+	readonly onHide: () => void;
+	readonly onActivate: () => void;
+	readonly isParsing: boolean;
+}) => (
+	<div className="dark flex h-full min-h-0 flex-col overflow-hidden bg-sidebar text-sidebar-foreground">
+		<div className="flex min-h-12 items-center justify-between border-b border-sidebar-border/80 px-3 text-xs text-muted-foreground">
+			<span>{isParsing ? "Parsing schema…" : "Loading rich editor…"}</span>
+			<button
+				type="button"
+				className="inline-flex min-h-8 items-center border border-sidebar-border/70 px-2.5 text-[11px] font-medium text-sidebar-foreground transition-[background-color,border-color,color] duration-200 ease-out hover:border-sidebar-border hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-sidebar-ring motion-reduce:transition-none"
+				onClick={onHide}
+			>
+				Hide
+			</button>
+		</div>
+		<div className="border-b border-sidebar-border/70 px-3 py-2 text-[11px] text-muted-foreground">
+			Basic editing is available immediately. The full CodeMirror editor upgrades in the
+			background.
+		</div>
+		<textarea
+			value={value}
+			spellCheck={false}
+			className="min-h-0 flex-1 resize-none border-0 bg-sidebar px-4 py-3 font-mono text-[13px] leading-7 text-sidebar-foreground outline-none"
+			onChange={(event) => onChange(event.target.value)}
+			onPointerDown={onActivate}
+			onFocus={onActivate}
+		/>
+	</div>
+);
 
 const getInitialAppState = (): InitialAppState => {
 	const route = getDiagramRouteState(window.location.pathname, window.location.search);
@@ -63,6 +157,7 @@ function App() {
 		return state;
 	});
 	const [isEditorHidden, setIsEditorHidden] = useState(false);
+	const [isEditorReady, setIsEditorReady] = useState(false);
 
 	const [nodes, setNodes, onNodesChange] = useNodesState<DiagramNode>([]);
 	const [edges, setEdges, onEdgesChange] = useEdgesState<DiagramEdge>([]);
@@ -98,6 +193,7 @@ function App() {
 		shareLoadError,
 		setShareLoadError,
 		nodeMeasurements,
+		pruneNodeMeasurements,
 		recordNodeMeasurement,
 	} = useSchemaLoader({
 		initialSource: initialState.draftState.source,
@@ -143,6 +239,38 @@ function App() {
 		editorPanel.expand();
 	}, [isEditorHidden]);
 
+	const bootstrapEditor = useCallback(() => {
+		if (isEditorReady) {
+			return;
+		}
+
+		void loadEditorModule().then(() => {
+			startTransition(() => {
+				setIsEditorReady(true);
+			});
+		});
+	}, [isEditorReady]);
+
+	useEffect(() => {
+		let cancelled = false;
+		const idleHandle = scheduleWindowIdleCallback(() => {
+			void loadEditorModule().then(() => {
+				if (cancelled) {
+					return;
+				}
+
+				startTransition(() => {
+					setIsEditorReady(true);
+				});
+			});
+		});
+
+		return () => {
+			cancelled = true;
+			cancelWindowIdleCallback(idleHandle);
+		};
+	}, []);
+
 	const handleMeasure = useCallback(
 		(nodeId: string, size: DiagramNodeSize) => {
 			recordNodeMeasurement(nodeId, size);
@@ -155,6 +283,7 @@ function App() {
 		searchState,
 		shareSeedPositions,
 		nodeMeasurements,
+		pruneNodeMeasurements,
 		layoutAlgorithm,
 		focusIds: fitViewTargetIds,
 		nodes,
@@ -210,7 +339,8 @@ function App() {
 
 	const handleShowEditor = useCallback(() => {
 		setIsEditorHidden(false);
-	}, []);
+		bootstrapEditor();
+	}, [bootstrapEditor]);
 
 	return (
 		<div className="h-screen bg-background text-foreground">
@@ -247,14 +377,36 @@ function App() {
 						collapsedSize={0}
 						className="min-w-0"
 					>
-						<Editor
-							value={source}
-							diagnostics={diagnostics}
-							isParsing={isParsing}
-							sourceMetadata={metadata}
-							onChange={setSource}
-							onHide={handleToggleEditor}
-						/>
+						{isEditorReady ? (
+							<Suspense
+								fallback={
+									<EditorBootstrapShell
+										value={source}
+										onChange={setSource}
+										onHide={handleToggleEditor}
+										onActivate={bootstrapEditor}
+										isParsing={isParsing}
+									/>
+								}
+							>
+								<LazyEditor
+									value={source}
+									diagnostics={diagnostics}
+									isParsing={isParsing}
+									sourceMetadata={metadata}
+									onChange={setSource}
+									onHide={handleToggleEditor}
+								/>
+							</Suspense>
+						) : (
+							<EditorBootstrapShell
+								value={source}
+								onChange={setSource}
+								onHide={handleToggleEditor}
+								onActivate={bootstrapEditor}
+								isParsing={isParsing}
+							/>
+						)}
 					</Panel>
 					<Panel defaultSize={70} minSize={24} className="min-w-0">
 						<div className="h-full min-h-0 bg-background">
