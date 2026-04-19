@@ -30,10 +30,21 @@ export interface SchemaSourceMetadata {
 	readonly dialect?: SqlDialect;
 }
 
+export interface SharedStickyNote {
+	readonly id: string;
+	readonly x: number;
+	readonly y: number;
+	readonly width: number;
+	readonly height: number;
+	readonly color: StickyNoteColor;
+	readonly text: string;
+}
+
 export interface SchemaPayload {
 	readonly source: string;
 	readonly positions: Record<string, SharePosition>;
-	readonly version: 2;
+	readonly notes: readonly SharedStickyNote[];
+	readonly version: 3;
 }
 
 export interface ColumnData {
@@ -136,3 +147,12 @@ export interface RelationshipEdgeData extends Record<string, unknown> {
 
 export type DiagramNode = Node<TableNodeData, "table">;
 export type DiagramEdge = Edge<RelationshipEdgeData, "relationship">;
+
+export const STICKY_NOTE_COLORS = ["yellow", "pink", "blue", "green"] as const;
+export type StickyNoteColor = (typeof STICKY_NOTE_COLORS)[number];
+
+export type StickyNoteData = Record<string, never>;
+
+export type StickyNoteNode = Node<StickyNoteData, "sticky">;
+
+export type CanvasNode = DiagramNode | StickyNoteNode;

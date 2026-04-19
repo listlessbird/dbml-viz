@@ -1,4 +1,9 @@
-import type { DiagramNode, DiagramPositions, SchemaPayload } from "@/types";
+import type {
+	DiagramNode,
+	DiagramPositions,
+	SchemaPayload,
+	SharedStickyNote,
+} from "@/types";
 
 const SHARE_PATH_PATTERN = /^\/s\/([A-Za-z0-9_-]+)$/;
 
@@ -19,6 +24,7 @@ interface DraftPayloadOptions {
 	readonly source: string;
 	readonly nodes: readonly DiagramNode[];
 	readonly fallbackPositions: DiagramPositions;
+	readonly notes: readonly SharedStickyNote[];
 }
 
 interface DraftPersistenceOptions {
@@ -31,6 +37,7 @@ interface DraftPersistenceOptions {
 export interface DraftHydrationResult {
 	readonly source: string;
 	readonly positions: DiagramPositions;
+	readonly notes: readonly SharedStickyNote[];
 	readonly currentShareId: string | null;
 	readonly remoteLoadMode: "none" | "blocking" | "background";
 	readonly canonicalRoute: DiagramRouteState;
@@ -102,13 +109,41 @@ const arePositionsEqual = (
 	return true;
 };
 
+const areStickyNotesEqual = (
+	left: readonly SharedStickyNote[],
+	right: readonly SharedStickyNote[],
+) => {
+	if (left.length !== right.length) {
+		return false;
+	}
+
+	for (let index = 0; index < left.length; index += 1) {
+		const l = left[index];
+		const r = right[index];
+		if (
+			l.id !== r.id ||
+			l.x !== r.x ||
+			l.y !== r.y ||
+			l.width !== r.width ||
+			l.height !== r.height ||
+			l.color !== r.color ||
+			l.text !== r.text
+		) {
+			return false;
+		}
+	}
+
+	return true;
+};
+
 export const areSchemaPayloadsEqual = (
 	left: SchemaPayload,
 	right: SchemaPayload,
 ) =>
 	left.version === right.version &&
 	left.source === right.source &&
-	arePositionsEqual(left.positions, right.positions);
+	arePositionsEqual(left.positions, right.positions) &&
+	areStickyNotesEqual(left.notes, right.notes);
 
 export const getInitialDraftState = ({
 	route,
@@ -119,6 +154,7 @@ export const getInitialDraftState = ({
 		return {
 			source: draft?.source ?? sampleSource,
 			positions: draft?.positions ?? {},
+			notes: draft?.notes ?? [],
 		};
 	}
 
@@ -126,12 +162,14 @@ export const getInitialDraftState = ({
 		return {
 			source: draft.source,
 			positions: draft.positions,
+			notes: draft.notes,
 		};
 	}
 
 	return {
 		source: "",
 		positions: {},
+		notes: [] as readonly SharedStickyNote[],
 	};
 };
 
@@ -144,6 +182,7 @@ export const getDraftHydrationResult = ({
 		return {
 			source: draft?.source ?? sampleSource,
 			positions: draft?.positions ?? {},
+			notes: draft?.notes ?? [],
 			currentShareId: null,
 			remoteLoadMode: "none",
 			canonicalRoute: route,
@@ -155,6 +194,7 @@ export const getDraftHydrationResult = ({
 		return {
 			source: draft.source,
 			positions: draft.positions,
+			notes: draft.notes,
 			currentShareId: route.shareId,
 			remoteLoadMode: "background",
 			canonicalRoute: route,
@@ -165,6 +205,7 @@ export const getDraftHydrationResult = ({
 	return {
 		source: "",
 		positions: {},
+		notes: [],
 		currentShareId: route.shareId,
 		remoteLoadMode: "blocking",
 		canonicalRoute: {
@@ -179,10 +220,12 @@ export const buildDraftPayload = ({
 	source,
 	nodes,
 	fallbackPositions,
+	notes,
 }: DraftPayloadOptions): SchemaPayload => ({
 	source,
 	positions: nodes.length > 0 ? getPositionsFromNodes(nodes) : fallbackPositions,
-	version: 2,
+	notes,
+	version: 3,
 });
 
 export const resolveDraftPersistence = ({
@@ -193,7 +236,9 @@ export const resolveDraftPersistence = ({
 }: DraftPersistenceOptions): DraftPersistenceDecision => {
 	if (route.shareId === null) {
 		const shouldClearRootDraft =
-			payload.source === sampleSource && Object.keys(payload.positions).length === 0;
+			payload.source === sampleSource &&
+			Object.keys(payload.positions).length === 0 &&
+			payload.notes.length === 0;
 
 		return {
 			shouldStoreDraft: !shouldClearRootDraft,

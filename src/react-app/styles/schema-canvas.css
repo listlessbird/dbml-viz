@@ -91,6 +91,27 @@
 	}
 }
 
+@keyframes sticky-note-in {
+	from {
+		opacity: 0;
+		transform: scale(0.95);
+	}
+	to {
+		opacity: 1;
+		transform: scale(1);
+	}
+}
+
+.sticky-note-textarea::-webkit-scrollbar {
+	display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	[style*="sticky-note-in"] {
+		animation: none !important;
+	}
+}
+
 @media (prefers-reduced-motion: reduce) {
 	.schema-table-node,
 	.schema-column-row,

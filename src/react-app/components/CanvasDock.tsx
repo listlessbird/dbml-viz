@@ -1,6 +1,8 @@
+import { IconNote } from "@tabler/icons-react";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { useEffect, useId, useRef, useState } from "react";
 
+import { DockButton } from "@/components/canvas-dock/DockButton";
 import {
 	GridDockPopover,
 	LayoutDockPopover,
@@ -16,6 +18,7 @@ interface CanvasDockProps {
 	readonly onFitView: () => void;
 	readonly onZoomIn: () => void;
 	readonly onZoomOut: () => void;
+	readonly onAddStickyNote: () => void;
 }
 
 export function CanvasDock({
@@ -25,6 +28,7 @@ export function CanvasDock({
 	onFitView,
 	onZoomIn,
 	onZoomOut,
+	onAddStickyNote,
 }: CanvasDockProps) {
 	const dockId = useId();
 	const [isGridOpen, setGridOpen] = useState(false);
@@ -157,6 +161,11 @@ export function CanvasDock({
 			callback: togglePanMode,
 			options: { meta: { name: "Toggle pan mode" } },
 		},
+		{
+			hotkey: "N",
+			callback: onAddStickyNote,
+			options: { meta: { name: "Add sticky note" } },
+		},
 	]);
 
 	return (
@@ -192,6 +201,15 @@ export function CanvasDock({
 						}
 					}}
 					onApplyLayout={applyLayout}
+				/>
+
+				<DockButton
+					icon={IconNote}
+					label="Note"
+					shortcut="N"
+					title="Add sticky note (N)"
+					aria-label="Add sticky note"
+					onClick={onAddStickyNote}
 				/>
 
 				<SearchDockPopover

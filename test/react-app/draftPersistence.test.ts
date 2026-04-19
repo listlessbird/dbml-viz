@@ -18,7 +18,8 @@ const createPayload = (
 ): SchemaPayload => ({
 	source,
 	positions,
-	version: 2,
+	notes: [],
+	version: 3,
 });
 
 describe("draftPersistence", () => {
@@ -49,6 +50,7 @@ describe("draftPersistence", () => {
 			).toEqual({
 				source: "Table drafts {}",
 				positions: {},
+				notes: [],
 			});
 
 		expect(
@@ -63,6 +65,7 @@ describe("draftPersistence", () => {
 			).toEqual({
 				source: SAMPLE_DBML,
 				positions: {},
+				notes: [],
 			});
 	});
 
@@ -79,6 +82,7 @@ describe("draftPersistence", () => {
 			).toEqual({
 				source: "",
 				positions: {},
+				notes: [],
 			});
 	});
 
@@ -99,6 +103,7 @@ describe("draftPersistence", () => {
 			).toEqual({
 				source: localDraft.source,
 				positions: localDraft.positions,
+				notes: [],
 				currentShareId: "shared-123",
 			remoteLoadMode: "background",
 			canonicalRoute: {
@@ -122,6 +127,7 @@ describe("draftPersistence", () => {
 			).toEqual({
 				source: "",
 				positions: {},
+				notes: [],
 				currentShareId: "shared-123",
 			remoteLoadMode: "blocking",
 			canonicalRoute: {
@@ -145,6 +151,7 @@ describe("draftPersistence", () => {
 			).toEqual({
 				source: "",
 				positions: {},
+				notes: [],
 				currentShareId: "shared-123",
 			remoteLoadMode: "blocking",
 			canonicalRoute: {
@@ -172,6 +179,7 @@ describe("draftPersistence", () => {
 					source: "Table users {}",
 					nodes,
 					fallbackPositions: { ignored: { x: 1, y: 2 } },
+					notes: [],
 				}),
 		).toEqual(
 			createPayload("Table users {}", {
@@ -187,6 +195,7 @@ describe("draftPersistence", () => {
 					source: "Table users {}",
 					nodes: [],
 					fallbackPositions: { users: { x: 12, y: 24 } },
+					notes: [],
 				}),
 		).toEqual(
 			createPayload("Table users {}", {

@@ -12,12 +12,14 @@ import {
 	schemaLoaderReducer,
 } from "@/lib/schemaLoaderState";
 import { loadSharedSchema } from "@/lib/sharing";
+import { useStickyNotesStore } from "@/store/useStickyNotesStore";
 import type {
 	DiagramEdge,
 	DiagramNode,
 	DiagramNodeSize,
 	DiagramPositions,
 	SchemaPayload,
+	SharedStickyNote,
 } from "@/types";
 
 interface SchemaLoaderOptions {
@@ -77,7 +79,12 @@ export function useSchemaLoader({
 			};
 		}
 
-		const replaceSchema = (source: string, positions: DiagramPositions) => {
+		const replaceSchema = (
+			source: string,
+			positions: DiagramPositions,
+			notes: readonly SharedStickyNote[],
+		) => {
+			useStickyNotesStore.getState().hydrate(notes);
 			startTransition(() => {
 				dispatch({
 					type: "replace-schema",
@@ -90,14 +97,14 @@ export function useSchemaLoader({
 		};
 
 		if (hydration.remoteLoadMode === "none") {
-			replaceSchema(hydration.source, hydration.positions);
+			replaceSchema(hydration.source, hydration.positions, hydration.notes);
 			return () => {
 				cancelled = true;
 			};
 		}
 
 		if (hydration.remoteLoadMode === "background") {
-			replaceSchema(hydration.source, hydration.positions);
+			replaceSchema(hydration.source, hydration.positions, hydration.notes);
 
 			if (viewedRoute.shareId !== null && currentShareBaseline === null) {
 				const sharedId = viewedRoute.shareId;
@@ -125,7 +132,11 @@ export function useSchemaLoader({
 				clearDraft(viewedRoute.shareId);
 			}
 
-			replaceSchema(currentShareBaseline.source, currentShareBaseline.positions);
+			replaceSchema(
+				currentShareBaseline.source,
+				currentShareBaseline.positions,
+				currentShareBaseline.notes,
+			);
 			return () => {
 				cancelled = true;
 			};
@@ -134,6 +145,7 @@ export function useSchemaLoader({
 		startTransition(() => {
 			setNodes([]);
 			setEdges([]);
+			useStickyNotesStore.getState().clear();
 			dispatch({ type: "start-blocking-load" });
 		});
 
@@ -154,7 +166,7 @@ export function useSchemaLoader({
 				if (hydration.clearLocalDraftOnRemoteLoad) {
 					clearDraft(sharedId);
 				}
-				replaceSchema(payload.source, payload.positions);
+				replaceSchema(payload.source, payload.positions, payload.notes);
 				requestFitView();
 			})
 			.catch((error) => {

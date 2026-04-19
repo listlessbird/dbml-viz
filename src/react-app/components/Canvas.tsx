@@ -20,10 +20,14 @@ import {
   type Viewport,
   ReactFlow,
 } from "@xyflow/react";
+import { useCallback, useMemo, useRef } from "react";
 
 import { CanvasDock } from "@/components/CanvasDock";
 import { RelationshipEdge } from "@/components/RelationshipEdge";
+import { StickyNoteNode, STICKY_NOTE_DRAG_HANDLE } from "@/components/StickyNoteNode";
 import { TableNode } from "@/components/TableNode";
+import { useStickyNotesStore } from "@/store/useStickyNotesStore";
+import type { CanvasNode, StickyNoteNode as StickyNoteNodeType } from "@/types";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup, ButtonGroupText } from "@/components/ui/button-group";
 import { useRelationHighlighting } from "@/hooks/useRelationHighlighting";
@@ -31,7 +35,30 @@ import { cn } from "@/lib/utils";
 import { useDiagramUiStore } from "@/store/useDiagramUiStore";
 import type { DiagramEdge, DiagramGridMode, DiagramNode } from "@/types";
 
-const nodeTypes: NodeTypes = { table: TableNode };
+const nodeTypes: NodeTypes = { table: TableNode, sticky: StickyNoteNode };
+const EMPTY_STICKY_DATA = Object.freeze({}) as Record<string, never>;
+const STICKY_DRAG_HANDLE_SELECTOR = `.${STICKY_NOTE_DRAG_HANDLE}`;
+
+const stickyNodeCache = new WeakMap<object, StickyNoteNodeType>();
+
+const recordToNode = (
+	record: import("@/store/useStickyNotesStore").StickyNoteRecord,
+): StickyNoteNodeType => {
+	const cached = stickyNodeCache.get(record);
+	if (cached) return cached;
+	const node: StickyNoteNodeType = {
+		id: record.id,
+		type: "sticky",
+		position: record.position,
+		selected: record.selected,
+		dragHandle: STICKY_DRAG_HANDLE_SELECTOR,
+		width: record.width,
+		height: record.height,
+		data: EMPTY_STICKY_DATA,
+	};
+	stickyNodeCache.set(record, node);
+	return node;
+};
 const edgeTypes: EdgeTypes = { relationship: RelationshipEdge };
 type GridPattern = Pick<
   BackgroundProps,
@@ -102,25 +129,99 @@ export function Canvas({
   const isPanModeEnabled = useDiagramUiStore((state) => state.panModeEnabled);
   const togglePanMode = useDiagramUiStore((state) => state.togglePanMode);
 
+  const stickyNotes = useStickyNotesStore((state) => state.notes);
+  const instanceRef = useRef<ReactFlowInstance<CanvasNode, DiagramEdge> | null>(
+    null,
+  );
+
+  const stickyNoteNodes = useMemo<StickyNoteNodeType[]>(
+    () => stickyNotes.map(recordToNode),
+    [stickyNotes],
+  );
+
+  const mergedNodes = useMemo<CanvasNode[]>(
+    () => [...stickyNoteNodes, ...displayNodes],
+    [displayNodes, stickyNoteNodes],
+  );
+
+  const handleInit = useCallback(
+    (instance: ReactFlowInstance<CanvasNode, DiagramEdge>) => {
+      instanceRef.current = instance;
+      onInit(instance as unknown as ReactFlowInstance<DiagramNode, DiagramEdge>);
+    },
+    [onInit],
+  );
+
+  const handleNodesChange = useCallback(
+    (changes: NodeChange<CanvasNode>[]) => {
+      const stickyIds = new Set(
+        useStickyNotesStore.getState().notes.map((note) => note.id),
+      );
+      const stickyChanges: NodeChange[] = [];
+      const tableChanges: NodeChange<DiagramNode>[] = [];
+
+      for (const change of changes) {
+        const changeId = "id" in change ? change.id : undefined;
+        if (changeId && stickyIds.has(changeId)) {
+          stickyChanges.push(change as NodeChange);
+        } else {
+          tableChanges.push(change as NodeChange<DiagramNode>);
+        }
+      }
+
+      if (stickyChanges.length > 0) {
+        useStickyNotesStore.getState().applyChanges(stickyChanges);
+      }
+      if (tableChanges.length > 0) {
+        onNodesChange(tableChanges);
+      }
+    },
+    [onNodesChange],
+  );
+
+  const handleAddStickyNote = useCallback(() => {
+    const instance = instanceRef.current;
+    if (!instance) return;
+    const center = instance.screenToFlowPosition({
+      x: window.innerWidth / 2,
+      y: window.innerHeight / 2,
+    });
+    useStickyNotesStore.getState().addNote(center);
+  }, []);
+
   return (
     <div
       className="relative h-full min-h-0 overflow-hidden bg-background"
       onFocusCapture={handlers.onFocusCapture}
       onBlurCapture={handlers.onBlurCapture}
     >
-      <ReactFlow<DiagramNode, DiagramEdge>
+      <ReactFlow<CanvasNode, DiagramEdge>
         className={isPanModeEnabled ? "canvas-pan-mode" : undefined}
-        nodes={displayNodes}
+        nodes={mergedNodes}
         edges={displayEdges}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
-        onNodesChange={onNodesChange}
+        onNodesChange={handleNodesChange}
         onEdgesChange={onEdgesChange}
-        onInit={onInit}
+        onInit={handleInit}
         onViewportChange={onViewportChange}
-        onNodeMouseEnter={handlers.onNodeMouseEnter}
-        onNodeMouseLeave={handlers.onNodeMouseLeave}
-        onSelectionChange={handlers.onSelectionChange}
+        onNodeMouseEnter={(event, node) => {
+          if (node.type === "table") {
+            handlers.onNodeMouseEnter(event, node as DiagramNode);
+          }
+        }}
+        onNodeMouseLeave={(event, node) => {
+          if (node.type === "table") {
+            handlers.onNodeMouseLeave(event, node as DiagramNode);
+          }
+        }}
+        onSelectionChange={({ nodes: selectedNodes }) => {
+          handlers.onSelectionChange({
+            nodes: selectedNodes.filter(
+              (node): node is DiagramNode => node.type === "table",
+            ),
+          });
+        }}
         nodesConnectable={false}
         panOnDrag={isPanModeEnabled}
         panOnScroll
@@ -234,6 +335,7 @@ export function Canvas({
         onFitView={onFitView}
         onZoomIn={onZoomIn}
         onZoomOut={onZoomOut}
+        onAddStickyNote={handleAddStickyNote}
       />
 
       {!hasDiagram ? (

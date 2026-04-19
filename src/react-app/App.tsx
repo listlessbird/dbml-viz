@@ -26,6 +26,7 @@ import {
 import { SAMPLE_SCHEMA_SOURCE } from "@/lib/sample-dbml";
 import { getDiagramDraft, useDiagramDraftStore } from "@/store/useDiagramDraftStore";
 import { useDiagramUiStore } from "@/store/useDiagramUiStore";
+import { useStickyNotesStore } from "@/store/useStickyNotesStore";
 import type { DiagramEdge, DiagramNode, DiagramNodeSize } from "@/types";
 
 interface InitialAppState {
@@ -56,7 +57,11 @@ const getInitialAppState = (): InitialAppState => {
 };
 
 function App() {
-	const [initialState] = useState(getInitialAppState);
+	const [initialState] = useState(() => {
+		const state = getInitialAppState();
+		useStickyNotesStore.getState().hydrate(state.draftState.notes);
+		return state;
+	});
 	const [isEditorHidden, setIsEditorHidden] = useState(false);
 
 	const [nodes, setNodes, onNodesChange] = useNodesState<DiagramNode>([]);

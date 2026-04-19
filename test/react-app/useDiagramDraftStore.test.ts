@@ -15,7 +15,8 @@ const createPayload = (
 ): SchemaPayload => ({
 	source,
 	positions,
-	version: 2,
+	notes: [],
+	version: 3,
 });
 
 describe("useDiagramDraftStore", () => {
@@ -57,6 +58,7 @@ describe("useDiagramDraftStore", () => {
 			).toEqual({
 				source: rootDraft.source,
 				positions: rootDraft.positions,
+				notes: [],
 			});
 
 		expect(

@@ -8,10 +8,23 @@ export class SharePosition extends Schema.Class<SharePosition>("SharePosition")(
 	y: Schema.Number,
 }) {}
 
+export const StickyNoteColorSchema = Schema.Literal("yellow", "pink", "blue", "green");
+
+export class SharedStickyNote extends Schema.Class<SharedStickyNote>("SharedStickyNote")({
+	id: Schema.String,
+	x: Schema.Number,
+	y: Schema.Number,
+	width: Schema.Number,
+	height: Schema.Number,
+	color: StickyNoteColorSchema,
+	text: Schema.String,
+}) {}
+
 export class SharedSchemaPayload extends Schema.Class<SharedSchemaPayload>("SharedSchemaPayload")({
 	source: Schema.String.pipe(Schema.maxLength(MAX_SCHEMA_SOURCE_LENGTH)),
 	positions: Schema.Record({ key: Schema.String, value: SharePosition }),
-	version: Schema.Literal(2),
+	notes: Schema.Array(SharedStickyNote),
+	version: Schema.Literal(3),
 }) {}
 
 export interface SharedSchemaReference {
