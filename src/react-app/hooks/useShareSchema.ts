@@ -7,6 +7,7 @@ import {
 	type DiagramRouteState,
 } from "@/lib/draftPersistence";
 import { saveSharedSchema } from "@/lib/sharing";
+import { getSharedStickyNotes } from "@/store/useStickyNotesStore";
 import type { DiagramNode, DiagramPositions, SchemaPayload } from "@/types";
 
 interface ShareSchemaOptions {
@@ -44,6 +45,9 @@ export function useShareSchema({
 				source,
 				nodes,
 				fallbackPositions: shareSeedPositions,
+				notes: getSharedStickyNotes().filter(
+					(note) => note.text.trim().length > 0,
+				),
 			});
 			const result = await saveSharedSchema(payload);
 			const nextUrl = new URL(`/s/${result.id}`, window.location.origin).toString();

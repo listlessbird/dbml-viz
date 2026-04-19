@@ -26,6 +26,7 @@ const renderDock = (): RenderDockResult => {
 					onFitView={vi.fn()}
 					onZoomIn={vi.fn()}
 					onZoomOut={vi.fn()}
+						onAddStickyNote={vi.fn()}
 				/>
 			</HotkeysProvider>,
 		);
@@ -86,6 +87,7 @@ describe("CanvasDock hotkeys", () => {
 						onFitView={vi.fn()}
 						onZoomIn={vi.fn()}
 						onZoomOut={vi.fn()}
+						onAddStickyNote={vi.fn()}
 					/>
 				</HotkeysProvider>,
 			);
@@ -154,6 +156,7 @@ describe("CanvasDock hotkeys", () => {
 						onFitView={onFitView}
 						onZoomIn={onZoomIn}
 						onZoomOut={onZoomOut}
+						onAddStickyNote={vi.fn()}
 					/>
 				</HotkeysProvider>,
 			);

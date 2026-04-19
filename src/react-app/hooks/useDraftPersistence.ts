@@ -7,7 +7,13 @@ import {
 	type DiagramRouteState,
 } from "@/lib/draftPersistence";
 import { SAMPLE_SCHEMA_SOURCE } from "@/lib/sample-dbml";
+import {
+	getSharedStickyNotes,
+	useStickyNotesStore,
+} from "@/store/useStickyNotesStore";
 import type { DiagramNode, DiagramPositions, SchemaPayload } from "@/types";
+
+const DRAFT_DEBOUNCE_MS = 180;
 
 interface DraftPersistenceOptions {
 	readonly source: string;
@@ -37,12 +43,15 @@ export function useDraftPersistence({
 			return;
 		}
 
-		const payload = buildDraftPayload({
-			source,
-			nodes,
-			fallbackPositions: shareSeedPositions,
-		});
-		const timeoutId = window.setTimeout(() => {
+		let timeoutId: number | undefined;
+
+		const flush = () => {
+			const payload = buildDraftPayload({
+				source,
+				nodes,
+				fallbackPositions: shareSeedPositions,
+				notes: getSharedStickyNotes(),
+			});
 			const decision = resolveDraftPersistence({
 				route: viewedRoute,
 				payload,
@@ -61,10 +70,23 @@ export function useDraftPersistence({
 			if (decision.shouldStoreDraft) {
 				setDraft(viewedRoute.shareId, payload);
 			}
-		}, 180);
+		};
+
+		const schedule = () => {
+			if (timeoutId !== undefined) {
+				window.clearTimeout(timeoutId);
+			}
+			timeoutId = window.setTimeout(flush, DRAFT_DEBOUNCE_MS);
+		};
+
+		schedule();
+		const unsubscribe = useStickyNotesStore.subscribe(schedule);
 
 		return () => {
-			window.clearTimeout(timeoutId);
+			if (timeoutId !== undefined) {
+				window.clearTimeout(timeoutId);
+			}
+			unsubscribe();
 		};
 	}, [
 		clearDraft,

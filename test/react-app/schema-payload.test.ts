@@ -10,14 +10,16 @@ describe("schema-payload", () => {
 				positions: {
 					users: { x: 80, y: 120 },
 				},
-				version: 2,
+				notes: [],
+				version: 3,
 			}),
 		).toEqual({
 			source: "Table users {}",
 			positions: {
 				users: { x: 80, y: 120 },
 			},
-			version: 2,
+			notes: [],
+			version: 3,
 		});
 	});
 
@@ -36,7 +38,8 @@ describe("schema-payload", () => {
 				positions: {
 					users: { x: "80", y: 120 },
 				},
-				version: 2,
+				notes: [],
+				version: 3,
 			}),
 		).toBeNull();
 	});
