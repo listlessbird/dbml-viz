@@ -215,6 +215,10 @@ export function useSchemaLoader({
 		dispatch({ type: "set-share-load-error", message });
 	}, []);
 
+	const pruneNodeMeasurements = useCallback((nodeIds: readonly string[]) => {
+		dispatch({ type: "prune-node-measurements", nodeIds });
+	}, []);
+
 	const recordNodeMeasurement = useCallback(
 		(nodeId: string, size: DiagramNodeSize) => {
 			dispatch({ type: "record-node-measurement", nodeId, size });
@@ -231,6 +235,7 @@ export function useSchemaLoader({
 		shareLoadError: state.shareLoadError,
 		setShareLoadError,
 		nodeMeasurements: state.nodeMeasurements,
+		pruneNodeMeasurements,
 		recordNodeMeasurement,
 	};
 }

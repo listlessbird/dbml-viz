@@ -21,6 +21,7 @@ export type SchemaLoaderAction =
 	| { type: "set-source"; source: string }
 	| { type: "set-share-seed-positions"; positions: DiagramPositions }
 	| { type: "set-share-load-error"; message: string | null }
+	| { type: "prune-node-measurements"; nodeIds: readonly string[] }
 	| { type: "record-node-measurement"; nodeId: string; size: DiagramNodeSize };
 
 export const createInitialSchemaLoaderState = ({
@@ -86,6 +87,41 @@ export const schemaLoaderReducer = (
 						...state,
 						shareLoadError: action.message,
 					};
+		case "prune-node-measurements": {
+			const allowedNodeIds = new Set(action.nodeIds);
+			let nextMeasurements: Record<string, DiagramNodeSize> | null = null;
+
+			for (const [nodeId, size] of Object.entries(state.nodeMeasurements)) {
+				if (allowedNodeIds.has(nodeId)) {
+					if (nextMeasurements !== null) {
+						nextMeasurements[nodeId] = size;
+					}
+					continue;
+				}
+
+				if (nextMeasurements === null) {
+					nextMeasurements = {};
+					for (const [existingNodeId, existingSize] of Object.entries(
+						state.nodeMeasurements,
+					)) {
+						if (existingNodeId === nodeId) {
+							continue;
+						}
+						if (!allowedNodeIds.has(existingNodeId)) {
+							continue;
+						}
+						nextMeasurements[existingNodeId] = existingSize;
+					}
+				}
+			}
+
+			return nextMeasurements === null
+				? state
+				: {
+						...state,
+						nodeMeasurements: nextMeasurements,
+					};
+		}
 		case "record-node-measurement": {
 			const previous = state.nodeMeasurements[action.nodeId];
 			if (

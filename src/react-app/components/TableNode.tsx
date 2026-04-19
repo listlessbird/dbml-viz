@@ -2,9 +2,8 @@ import {
 	type CSSProperties,
 	memo,
 	useEffectEvent,
-	useLayoutEffect,
+	useEffect,
 	useRef,
-	useState,
 } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 
@@ -15,19 +14,6 @@ import { getSourceHandleId, getTargetHandleId } from "@/lib/relation-handles";
 import { getColumnConstraintBadges } from "@/lib/table-constraints";
 import { cn } from "@/lib/utils";
 import type { ColumnData, DiagramNode, TableNodeData } from "@/types";
-
-const areHandleOffsetsEqual = (
-	left: Readonly<Record<string, number>>,
-	right: Readonly<Record<string, number>>,
-) => {
-	const leftKeys = Object.keys(left);
-	const rightKeys = Object.keys(right);
-
-	return (
-		leftKeys.length === rightKeys.length &&
-		leftKeys.every((key) => left[key] === right[key])
-	);
-};
 
 const COLUMN_HANDLE_CLASS_NAME =
 	"!size-2.5 !border-0 !bg-primary !shadow-none transition-opacity";
@@ -69,10 +55,6 @@ export const TableNode = memo(function TableNode({
 	selected,
 }: NodeProps<DiagramNode>) {
 	const containerRef = useRef<HTMLDivElement | null>(null);
-	const columnRowRefs = useRef(new Map<string, HTMLDivElement>());
-	const [compositeHandleOffsets, setCompositeHandleOffsets] = useState<
-		Record<string, number>
-	>({});
 
 	const connectedColumns = new Set(data.connectedColumns);
 	const activeRelationColumns = new Set(data.activeRelationColumns ?? []);
@@ -83,70 +65,43 @@ export const TableNode = memo(function TableNode({
 		"--schema-surface-shadow": getSurfaceShadow(data, selected),
 	};
 
-	const reportMeasurement = useEffectEvent(() => {
+	const reportMeasurement = useEffectEvent((width: number, height: number) => {
+		if (!data.onMeasure) {
+			return;
+		}
+
+		data.onMeasure(id, {
+			width: Math.round(width),
+			height: Math.round(height),
+		});
+	});
+
+	useEffect(() => {
 		const element = containerRef.current;
 		if (!element || !data.onMeasure) {
 			return;
 		}
 
-		data.onMeasure(id, {
-			width: Math.round(element.getBoundingClientRect().width),
-			height: Math.round(element.getBoundingClientRect().height),
+		const initialFrameId = window.requestAnimationFrame(() => {
+			const { width, height } = element.getBoundingClientRect();
+			reportMeasurement(width, height);
 		});
-	});
-
-	const updateCompositeHandleOffsets = useEffectEvent(() => {
-		const container = containerRef.current;
-		if (!container) {
-			return;
-		}
-
-		const containerRect = container.getBoundingClientRect();
-		const nextOffsets: Record<string, number> = {};
-
-		for (const anchor of data.relationAnchors) {
-			if (anchor.columns.length <= 1) {
-				continue;
+		const observer = new ResizeObserver((entries) => {
+			const entry = entries[entries.length - 1];
+			if (!entry) {
+				return;
 			}
 
-			const rowRects = anchor.columns
-				.map((column) => columnRowRefs.current.get(column)?.getBoundingClientRect())
-				.filter((rect): rect is DOMRect => rect !== undefined);
-
-			if (rowRects.length === 0) {
-				continue;
-			}
-
-			const top = Math.min(...rowRects.map((rect) => rect.top));
-			const bottom = Math.max(...rowRects.map((rect) => rect.bottom));
-			nextOffsets[anchor.id] = (top + bottom) / 2 - containerRect.top;
-		}
-
-		setCompositeHandleOffsets((currentOffsets) =>
-			areHandleOffsetsEqual(currentOffsets, nextOffsets) ? currentOffsets : nextOffsets,
-		);
-	});
-
-	useLayoutEffect(() => {
-		reportMeasurement();
-		updateCompositeHandleOffsets();
-
-		const element = containerRef.current;
-		if (!element) {
-			return;
-		}
-
-		const observer = new ResizeObserver(() => {
-			reportMeasurement();
-			updateCompositeHandleOffsets();
+			reportMeasurement(entry.contentRect.width, entry.contentRect.height);
 		});
 
 		observer.observe(element);
 
 		return () => {
+			window.cancelAnimationFrame(initialFrameId);
 			observer.disconnect();
 		};
-	}, [data.relationAnchors, data.table.columns]);
+	}, [data.onMeasure, id]);
 
 	return (
 		<div
@@ -159,7 +114,7 @@ export const TableNode = memo(function TableNode({
 				activeColumns={activeRelationColumns}
 				connectedColumns={connectedColumns}
 				relationAnchors={data.relationAnchors}
-				topOffsets={compositeHandleOffsets}
+				topOffsets={data.compositeHandleOffsets}
 			/>
 
 			<div className="schema-table-header border-b px-3 py-2">
@@ -187,13 +142,6 @@ export const TableNode = memo(function TableNode({
 					return (
 						<div
 							key={column.name}
-							ref={(element) => {
-								if (element) {
-									columnRowRefs.current.set(column.name, element);
-								} else {
-									columnRowRefs.current.delete(column.name);
-								}
-							}}
 							className={cn(
 								"schema-column-row group/row relative flex min-h-8 items-center gap-2 px-3 py-1.5",
 								isRelationActiveColumn && "schema-column-row--active",

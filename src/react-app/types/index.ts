@@ -128,6 +128,7 @@ export interface TableNodeData extends Record<string, unknown> {
 	readonly isSearchRelated: boolean;
 	readonly isSearchDimmed: boolean;
 	readonly relationAnchors: readonly RelationAnchorData[];
+	readonly compositeHandleOffsets: Readonly<Record<string, number>>;
 	readonly onMeasure?: (nodeId: string, size: DiagramNodeSize) => void;
 }
 

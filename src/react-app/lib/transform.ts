@@ -4,7 +4,10 @@ import {
 	getRefSourceHandleId,
 	getRefTargetHandleId,
 } from "@/lib/relation-handles";
-import { countColumnsWithConstraintBadges } from "@/lib/table-constraints";
+import {
+	countColumnsWithConstraintBadges,
+	getColumnConstraintBadges,
+} from "@/lib/table-constraints";
 import type {
 	DiagramEdge,
 	DiagramNode,
@@ -60,6 +63,11 @@ const MIN_TABLE_WIDTH = 260;
 const MAX_TABLE_WIDTH = 420;
 const ESTIMATED_CHAR_WIDTH = 6.1;
 const TABLE_WIDTH_PADDING = 168;
+const ESTIMATED_TABLE_HEADER_HEIGHT = 60;
+const ESTIMATED_TABLE_NOTE_HEIGHT = 18;
+const ESTIMATED_COLUMN_ROW_HEIGHT = 28;
+const ESTIMATED_BADGE_ROW_HEIGHT = 18;
+const ESTIMATED_COLUMN_NOTE_HEIGHT = 18;
 
 const estimateTableWidth = (table: TableData) => {
 	const longestContentLength = Math.max(
@@ -91,8 +99,66 @@ export const estimateTableSize = (
 
 	return {
 		width: estimateTableWidth(table),
-		height: 60 + table.columns.length * 28 + countColumnsWithConstraintBadges(table) * 18,
+		height:
+			ESTIMATED_TABLE_HEADER_HEIGHT +
+			(table.note ? ESTIMATED_TABLE_NOTE_HEIGHT : 0) +
+			table.columns.length * ESTIMATED_COLUMN_ROW_HEIGHT +
+			countColumnsWithConstraintBadges(table) * ESTIMATED_BADGE_ROW_HEIGHT +
+			table.columns.filter((column) => column.note).length * ESTIMATED_COLUMN_NOTE_HEIGHT,
 	};
+};
+
+const estimateCompositeHandleOffsets = (
+	table: TableData,
+	relationAnchors: readonly RelationAnchorData[],
+) => {
+	if (relationAnchors.length === 0) {
+		return {};
+	}
+
+	const badgeCountsByColumn = new Map(
+		Array.from(getColumnConstraintBadges(table), ([columnName, badges]) => [
+			columnName,
+			badges.length,
+		]),
+	);
+	const columnOffsets = new Map<string, { top: number; bottom: number }>();
+	let nextRowTop =
+		ESTIMATED_TABLE_HEADER_HEIGHT + (table.note ? ESTIMATED_TABLE_NOTE_HEIGHT : 0);
+
+	for (const column of table.columns) {
+		const badgeCount = badgeCountsByColumn.get(column.name) ?? 0;
+		const rowHeight =
+			ESTIMATED_COLUMN_ROW_HEIGHT +
+			badgeCount * ESTIMATED_BADGE_ROW_HEIGHT +
+			(column.note ? ESTIMATED_COLUMN_NOTE_HEIGHT : 0);
+
+		columnOffsets.set(column.name, {
+			top: nextRowTop,
+			bottom: nextRowTop + rowHeight,
+		});
+		nextRowTop += rowHeight;
+	}
+
+	return Object.fromEntries(
+		relationAnchors.flatMap((anchor) => {
+			if (anchor.columns.length <= 1) {
+				return [];
+			}
+
+			const offsets = anchor.columns
+				.map((columnName) => columnOffsets.get(columnName))
+				.filter((offset): offset is { top: number; bottom: number } => offset !== undefined);
+
+			if (offsets.length === 0) {
+				return [];
+			}
+
+			const top = Math.min(...offsets.map((offset) => offset.top));
+			const bottom = Math.max(...offsets.map((offset) => offset.bottom));
+			return [[anchor.id, (top + bottom) / 2] as const];
+		}),
+	);
 };
 
 const getFallbackAnchor = (positions: DiagramPositions) => {
@@ -187,6 +253,7 @@ export const buildDiagram = (
 
 	const nodes = parsed.tables.map((table) => {
 		const size = estimateTableSize(table, measurements[table.id]);
+		const relationAnchors = relationAnchorsByTable.get(table.id) ?? [];
 		const fallbackPosition = {
 			x: fallbackAnchor.x + (fallbackIndex % 2) * 48,
 			y: fallbackAnchor.y + fallbackIndex * 140,
@@ -211,7 +278,8 @@ export const buildDiagram = (
 					hasSearchHighlights &&
 					!matchedTableIds.has(table.id) &&
 					!relatedTableIds.has(table.id),
-				relationAnchors: relationAnchorsByTable.get(table.id) ?? [],
+				relationAnchors,
+				compositeHandleOffsets: estimateCompositeHandleOffsets(table, relationAnchors),
 				onMeasure: options.onMeasure,
 			},
 			sourcePosition: Position.Right,

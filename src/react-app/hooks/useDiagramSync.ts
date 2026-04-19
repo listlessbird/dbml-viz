@@ -28,6 +28,7 @@ interface DiagramSyncOptions {
 	readonly searchState: DiagramSearchState;
 	readonly shareSeedPositions: DiagramPositions;
 	readonly nodeMeasurements: Record<string, DiagramNodeSize>;
+	readonly pruneNodeMeasurements: (nodeIds: readonly string[]) => void;
 	readonly layoutAlgorithm: DiagramLayoutAlgorithm;
 	readonly focusIds: readonly string[];
 	readonly nodes: readonly DiagramNode[];
@@ -36,6 +37,15 @@ interface DiagramSyncOptions {
 	readonly setNodes: Dispatch<SetStateAction<DiagramNode[]>>;
 	readonly setEdges: Dispatch<SetStateAction<DiagramEdge[]>>;
 }
+
+type IdleWindow = Window &
+	typeof globalThis & {
+		requestIdleCallback?: (
+			callback: (deadline: IdleDeadline) => void,
+			options?: IdleRequestOptions,
+		) => number;
+		cancelIdleCallback?: (handle: number) => void;
+	};
 
 const getPreferredNodePositions = (
 	nodeIds: readonly string[],
@@ -49,11 +59,33 @@ const getPreferredNodePositions = (
 		}),
 	);
 
+const scheduleWindowIdleCallback = (callback: () => void) => {
+	const idleWindow = window as IdleWindow;
+
+	if (typeof idleWindow.requestIdleCallback === "function") {
+		return idleWindow.requestIdleCallback(() => callback(), { timeout: 1500 });
+	}
+
+	return window.setTimeout(callback, 250);
+};
+
+const cancelWindowIdleCallback = (handle: number) => {
+	const idleWindow = window as IdleWindow;
+
+	if (typeof idleWindow.cancelIdleCallback === "function") {
+		idleWindow.cancelIdleCallback(handle);
+		return;
+	}
+
+	window.clearTimeout(handle);
+};
+
 export function useDiagramSync({
 	parsed,
 	searchState,
 	shareSeedPositions,
 	nodeMeasurements,
+	pruneNodeMeasurements,
 	layoutAlgorithm,
 	focusIds,
 	nodes,
@@ -65,6 +97,11 @@ export function useDiagramSync({
 	const [isLayouting, setIsLayouting] = useState(false);
 	const [needsMeasuredLayout, setNeedsMeasuredLayout] = useState(false);
 	const getCurrentNodePositions = useEffectEvent(() => getPositionsFromNodes(nodes));
+	const hasUnmeasuredNodes = parsed.tables.some((table) => !nodeMeasurements[table.id]);
+
+	useEffect(() => {
+		pruneNodeMeasurements(parsed.tables.map((table) => table.id));
+	}, [parsed.tables, pruneNodeMeasurements]);
 
 	const applyAutoLayout = useCallback(
 		async ({
@@ -141,22 +178,30 @@ export function useDiagramSync({
 		const needsInitialAutoLayout =
 			diagram.nodes.length > 0 && Object.keys(preferredPositions).length === 0;
 
-		if (needsInitialAutoLayout) {
-			void applyAutoLayout({
-				fitView: true,
-				enableMeasuredFollowUp:
-					Object.keys(nodeMeasurements).length < parsed.tables.length,
-			});
-			return;
-		}
-
 		startTransition(() => {
 			setNodes(diagram.nodes);
 			setEdges(diagram.edges);
 		});
+
+		if (needsInitialAutoLayout && !isLayouting) {
+			const frameId = window.requestAnimationFrame(() => {
+				void applyAutoLayout({
+					fitView: true,
+					enableMeasuredFollowUp: hasUnmeasuredNodes,
+				});
+			});
+
+			return () => {
+				window.cancelAnimationFrame(frameId);
+			};
+		}
+
+		return;
 	}, [
 		applyAutoLayout,
+		hasUnmeasuredNodes,
 		handleMeasure,
+		isLayouting,
 		nodeMeasurements,
 		parsed,
 		searchState,
@@ -177,7 +222,13 @@ export function useDiagramSync({
 		}
 
 		setNeedsMeasuredLayout(false);
-		void applyAutoLayout({ fitView: true });
+		const idleHandle = scheduleWindowIdleCallback(() => {
+			void applyAutoLayout({ fitView: true });
+		});
+
+		return () => {
+			cancelWindowIdleCallback(idleHandle);
+		};
 	}, [applyAutoLayout, isLayouting, needsMeasuredLayout, nodeMeasurements, parsed.tables]);
 
 	return { isLayouting, applyAutoLayout };
