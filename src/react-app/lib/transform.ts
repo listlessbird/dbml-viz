@@ -108,6 +108,19 @@ export const estimateTableSize = (
 	};
 };
 
+const estimateColumnRowHeight = (
+	column: TableData["columns"][number],
+	badgeCount: number,
+) =>
+	ESTIMATED_COLUMN_ROW_HEIGHT +
+	badgeCount * ESTIMATED_BADGE_ROW_HEIGHT +
+	(column.note ? ESTIMATED_COLUMN_NOTE_HEIGHT : 0);
+
+interface ColumnRowBounds {
+	readonly top: number;
+	readonly bottom: number;
+}
+
 const estimateCompositeHandleOffsets = (
 	table: TableData,
 	relationAnchors: readonly RelationAnchorData[],
@@ -116,28 +129,18 @@ const estimateCompositeHandleOffsets = (
 		return {};
 	}
 
-	const badgeCountsByColumn = new Map(
-		Array.from(getColumnConstraintBadges(table), ([columnName, badges]) => [
-			columnName,
-			badges.length,
-		]),
-	);
-	const columnOffsets = new Map<string, { top: number; bottom: number }>();
-	let nextRowTop =
+	const badgesByColumn = getColumnConstraintBadges(table);
+	const rowBoundsByColumn = new Map<string, ColumnRowBounds>();
+	let rowTop =
 		ESTIMATED_TABLE_HEADER_HEIGHT + (table.note ? ESTIMATED_TABLE_NOTE_HEIGHT : 0);
 
 	for (const column of table.columns) {
-		const badgeCount = badgeCountsByColumn.get(column.name) ?? 0;
-		const rowHeight =
-			ESTIMATED_COLUMN_ROW_HEIGHT +
-			badgeCount * ESTIMATED_BADGE_ROW_HEIGHT +
-			(column.note ? ESTIMATED_COLUMN_NOTE_HEIGHT : 0);
-
-		columnOffsets.set(column.name, {
-			top: nextRowTop,
-			bottom: nextRowTop + rowHeight,
-		});
-		nextRowTop += rowHeight;
+		const rowHeight = estimateColumnRowHeight(
+			column,
+			badgesByColumn.get(column.name)?.length ?? 0,
+		);
+		rowBoundsByColumn.set(column.name, { top: rowTop, bottom: rowTop + rowHeight });
+		rowTop += rowHeight;
 	}
 
 	return Object.fromEntries(
@@ -146,17 +149,20 @@ const estimateCompositeHandleOffsets = (
 				return [];
 			}
 
-			const offsets = anchor.columns
-				.map((columnName) => columnOffsets.get(columnName))
-				.filter((offset): offset is { top: number; bottom: number } => offset !== undefined);
+			let minTop = Number.POSITIVE_INFINITY;
+			let maxBottom = Number.NEGATIVE_INFINITY;
+			for (const columnName of anchor.columns) {
+				const bounds = rowBoundsByColumn.get(columnName);
+				if (!bounds) continue;
+				if (bounds.top < minTop) minTop = bounds.top;
+				if (bounds.bottom > maxBottom) maxBottom = bounds.bottom;
+			}
 
-			if (offsets.length === 0) {
+			if (minTop === Number.POSITIVE_INFINITY) {
 				return [];
 			}
 
-			const top = Math.min(...offsets.map((offset) => offset.top));
-			const bottom = Math.max(...offsets.map((offset) => offset.bottom));
-			return [[anchor.id, (top + bottom) / 2] as const];
+			return [[anchor.id, (minTop + maxBottom) / 2] as const];
 		}),
 	);
 };

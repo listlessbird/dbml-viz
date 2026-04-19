@@ -89,38 +89,17 @@ export const schemaLoaderReducer = (
 					};
 		case "prune-node-measurements": {
 			const allowedNodeIds = new Set(action.nodeIds);
-			let nextMeasurements: Record<string, DiagramNodeSize> | null = null;
+			const entries = Object.entries(state.nodeMeasurements);
+			const survivors = entries.filter(([nodeId]) => allowedNodeIds.has(nodeId));
 
-			for (const [nodeId, size] of Object.entries(state.nodeMeasurements)) {
-				if (allowedNodeIds.has(nodeId)) {
-					if (nextMeasurements !== null) {
-						nextMeasurements[nodeId] = size;
-					}
-					continue;
-				}
-
-				if (nextMeasurements === null) {
-					nextMeasurements = {};
-					for (const [existingNodeId, existingSize] of Object.entries(
-						state.nodeMeasurements,
-					)) {
-						if (existingNodeId === nodeId) {
-							continue;
-						}
-						if (!allowedNodeIds.has(existingNodeId)) {
-							continue;
-						}
-						nextMeasurements[existingNodeId] = existingSize;
-					}
-				}
+			if (survivors.length === entries.length) {
+				return state;
 			}
 
-			return nextMeasurements === null
-				? state
-				: {
-						...state,
-						nodeMeasurements: nextMeasurements,
-					};
+			return {
+				...state,
+				nodeMeasurements: Object.fromEntries(survivors),
+			};
 		}
 		case "record-node-measurement": {
 			const previous = state.nodeMeasurements[action.nodeId];
