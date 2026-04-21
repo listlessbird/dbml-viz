@@ -2,11 +2,7 @@
 	.schema-table-node {
 		isolation: isolate;
 		opacity: var(--schema-node-opacity, 1);
-		background-image: linear-gradient(
-			180deg,
-			color-mix(in oklab, var(--schema-accent) 3%, var(--card)),
-			var(--card) 28%
-		);
+		background-color: var(--card);
 		box-shadow: var(--schema-surface-shadow);
 		transition:
 			box-shadow 180ms cubic-bezier(0.215, 0.61, 0.355, 1),
@@ -15,28 +11,37 @@
 			border-color 180ms ease;
 	}
 
-	.schema-table-accent-rail {
-		background: linear-gradient(
-			90deg,
-			color-mix(in oklab, var(--schema-accent) 56%, transparent),
-			transparent 82%
-		);
+	.schema-table-header {
+		background-color: var(--schema-header-bg);
+		color: var(--schema-header-fg);
+		border-bottom: 1px solid var(--schema-header-border);
 	}
 
-	.schema-table-header {
-		background-color: color-mix(in oklab, var(--schema-accent) 10%, var(--card));
-		border-bottom-color: color-mix(in oklab, var(--schema-accent) 18%, var(--border));
+	.schema-table-glyph {
+		color: var(--schema-header-muted);
 	}
 
 	.schema-table-heading {
-		color: color-mix(in oklab, var(--schema-accent) 62%, var(--foreground));
+		color: var(--schema-header-fg);
 	}
 
-	.schema-table-count {
-		border-color: color-mix(in oklab, var(--schema-accent) 18%, var(--border));
-		background-color: color-mix(in oklab, var(--schema-accent) 6%, var(--background));
-		color: color-mix(in oklab, var(--schema-accent) 36%, var(--muted-foreground));
-		font-variant-numeric: tabular-nums;
+	.schema-table-schema {
+		color: var(--schema-header-muted);
+	}
+
+	.schema-table-kind {
+		color: var(--schema-header-muted);
+	}
+
+	.schema-table-stats {
+		background-color: color-mix(in oklab, var(--foreground) 3%, var(--card));
+		letter-spacing: 0.02em;
+	}
+
+	.schema-table-stat-value {
+		color: var(--foreground);
+		font-weight: 600;
+		margin-right: 3px;
 	}
 
 	.schema-column-row {
@@ -48,7 +53,7 @@
 	}
 
 	.schema-column-row:hover {
-		background-color: color-mix(in oklab, var(--muted) 62%, transparent);
+		background-color: color-mix(in oklab, var(--foreground) 3%, var(--card));
 	}
 
 	.schema-column-row--active,
@@ -57,27 +62,16 @@
 		box-shadow: inset 3px 0 0 color-mix(in oklab, var(--primary) 56%, transparent);
 	}
 
-	.schema-column-type {
-		border-color: color-mix(in oklab, var(--foreground) 6%, var(--border));
-		background-color: color-mix(in oklab, var(--background) 92%, var(--card));
+	.schema-column-key--pk {
+		color: oklch(0.54 0.125 65);
 	}
 
-	.schema-column-type--active {
-		border-color: color-mix(in oklab, var(--primary) 32%, var(--border));
-		background-color: color-mix(in oklab, var(--primary) 10%, var(--background));
+	.schema-column-key--fk {
+		color: var(--primary);
 	}
 
-	.schema-column-meta {
-		letter-spacing: 0.12em;
-	}
-
-	.schema-table-chip {
-		border-color: color-mix(in oklab, var(--foreground) 7%, var(--border));
-		background-color: color-mix(in oklab, var(--background) 88%, var(--card));
-		transition:
-			background-color 150ms ease,
-			border-color 150ms ease,
-			color 150ms ease;
+	.schema-column-key--plain {
+		color: var(--muted-foreground);
 	}
 
 	.relation-edge-highlight {
@@ -115,8 +109,6 @@
 @media (prefers-reduced-motion: reduce) {
 	.schema-table-node,
 	.schema-column-row,
-	.schema-column-type,
-	.schema-table-chip,
 	.relation-edge-highlight {
 		transition-duration: 1ms !important;
 	}
