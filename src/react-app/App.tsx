@@ -21,6 +21,7 @@ import { Toolbar } from "@/components/Toolbar";
 import { useCanvasViewport } from "@/hooks/useCanvasViewport";
 import { useDiagramSearch } from "@/hooks/useDiagramSearch";
 import { useDiagramSync } from "@/hooks/useDiagramSync";
+import { usePretextLayoutRevision } from "@/hooks/usePretextLayoutRevision";
 import { useDraftPersistence } from "@/hooks/useDraftPersistence";
 import { useRouting } from "@/hooks/useRouting";
 import { useSchemaLoader } from "@/hooks/useSchemaLoader";
@@ -37,7 +38,7 @@ import { SAMPLE_SCHEMA_SOURCE } from "@/lib/sample-dbml";
 import { getDiagramDraft, useDiagramDraftStore } from "@/store/useDiagramDraftStore";
 import { useDiagramUiStore } from "@/store/useDiagramUiStore";
 import { useStickyNotesStore } from "@/store/useStickyNotesStore";
-import type { DiagramEdge, DiagramNode, DiagramNodeSize } from "@/types";
+import type { DiagramEdge, DiagramNode } from "@/types";
 
 interface InitialAppState {
 	readonly route: DiagramRouteState;
@@ -90,6 +91,7 @@ function App() {
 	const [nodes, setNodes, onNodesChange] = useNodesState<DiagramNode>([]);
 	const [edges, setEdges, onEdgesChange] = useEdgesState<DiagramEdge>([]);
 	const editorPanelRef = useRef<PanelImperativeHandle | null>(null);
+	const layoutRevision = usePretextLayoutRevision();
 	const {
 		viewedRoute,
 		setShareBaseline,
@@ -120,9 +122,6 @@ function App() {
 		isLoadingShare,
 		shareLoadError,
 		setShareLoadError,
-		nodeMeasurements,
-		pruneNodeMeasurements,
-		recordNodeMeasurement,
 	} = useSchemaLoader({
 		initialSource: initialState.draftState.source,
 		initialPositions: initialState.draftState.positions,
@@ -197,23 +196,14 @@ function App() {
 		};
 	}, []);
 
-	const handleMeasure = useCallback(
-		(nodeId: string, size: DiagramNodeSize) => {
-			recordNodeMeasurement(nodeId, size);
-		},
-		[recordNodeMeasurement],
-	);
-
 	const { isLayouting, applyAutoLayout } = useDiagramSync({
 		parsed,
 		searchState,
 		shareSeedPositions,
-		nodeMeasurements,
-		pruneNodeMeasurements,
 		layoutAlgorithm,
+		layoutRevision,
 		focusIds: fitViewTargetIds,
 		nodes,
-		handleMeasure,
 		requestFitView,
 		setNodes,
 		setEdges,

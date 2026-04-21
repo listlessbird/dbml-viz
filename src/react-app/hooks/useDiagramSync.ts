@@ -10,7 +10,6 @@ import type { Dispatch, SetStateAction } from "react";
 import { toast } from "sonner";
 
 import { getPositionsFromNodes } from "@/lib/draftPersistence";
-import { cancelIdleCallback, scheduleIdleCallback } from "@/lib/idle-callback";
 import {
 	createDiagramSearchContext,
 	type DiagramSearchState,
@@ -20,7 +19,6 @@ import type {
 	DiagramEdge,
 	DiagramLayoutAlgorithm,
 	DiagramNode,
-	DiagramNodeSize,
 	DiagramPositions,
 	ParsedSchema,
 } from "@/types";
@@ -28,19 +26,16 @@ import type {
 interface ApplyAutoLayoutArgs {
 	readonly positions?: DiagramPositions;
 	readonly fitView?: boolean;
-	readonly enableMeasuredFollowUp?: boolean;
 }
 
 interface DiagramSyncOptions {
 	readonly parsed: ParsedSchema;
 	readonly searchState: DiagramSearchState;
 	readonly shareSeedPositions: DiagramPositions;
-	readonly nodeMeasurements: Record<string, DiagramNodeSize>;
-	readonly pruneNodeMeasurements: (nodeIds: readonly string[]) => void;
 	readonly layoutAlgorithm: DiagramLayoutAlgorithm;
+	readonly layoutRevision: number;
 	readonly focusIds: readonly string[];
 	readonly nodes: readonly DiagramNode[];
-	readonly handleMeasure: (nodeId: string, size: DiagramNodeSize) => void;
 	readonly requestFitView: (nodeIds?: readonly string[]) => void;
 	readonly setNodes: Dispatch<SetStateAction<DiagramNode[]>>;
 	readonly setEdges: Dispatch<SetStateAction<DiagramEdge[]>>;
@@ -62,33 +57,24 @@ export function useDiagramSync({
 	parsed,
 	searchState,
 	shareSeedPositions,
-	nodeMeasurements,
-	pruneNodeMeasurements,
 	layoutAlgorithm,
+	layoutRevision,
 	focusIds,
 	nodes,
-	handleMeasure,
 	requestFitView,
 	setNodes,
 	setEdges,
 }: DiagramSyncOptions) {
 	const [isLayouting, setIsLayouting] = useState(false);
-	const [needsMeasuredLayout, setNeedsMeasuredLayout] = useState(false);
 	const getCurrentNodePositions = useEffectEvent(() => getPositionsFromNodes(nodes));
-
-	useEffect(() => {
-		pruneNodeMeasurements(parsed.tables.map((table) => table.id));
-	}, [parsed.tables, pruneNodeMeasurements]);
+	const autoLayoutRevisionRef = useRef<number | null>(null);
 
 	const applyAutoLayoutImpl = async ({
 		positions = {},
 		fitView = false,
-		enableMeasuredFollowUp = false,
 	}: ApplyAutoLayoutArgs) => {
 		const diagram = buildDiagram(parsed, {
 			positions,
-			measurements: nodeMeasurements,
-			onMeasure: handleMeasure,
 			search: createDiagramSearchContext(searchState),
 		});
 
@@ -101,18 +87,17 @@ export function useDiagramSync({
 				diagram.edges,
 				layoutAlgorithm,
 			);
+			autoLayoutRevisionRef.current = layoutRevision;
 			startTransition(() => {
 				setNodes(laidOutNodes);
 				setEdges(diagram.edges);
 			});
-			setNeedsMeasuredLayout(enableMeasuredFollowUp);
 
 			if (fitView) {
 				requestFitView(focusIds.length > 0 ? focusIds : undefined);
 			}
 		} catch (error) {
 			console.error(error);
-
 			toast.error(
 				error instanceof Error ? error.message : "Unable to auto-layout schema.",
 			);
@@ -129,39 +114,36 @@ export function useDiagramSync({
 		[],
 	);
 
-	// Sync diagram when parsed schema or search changes.
 	useEffect(() => {
+		const nodeIds = parsed.tables.map((table) => table.id);
 		const preferredPositions = getPreferredNodePositions(
-			parsed.tables.map((table) => table.id),
+			nodeIds,
 			getCurrentNodePositions(),
 			shareSeedPositions,
 		);
 		const diagram = buildDiagram(parsed, {
 			positions: preferredPositions,
-			measurements: nodeMeasurements,
-			onMeasure: handleMeasure,
 			search: createDiagramSearchContext(searchState),
 		});
+		const hasSavedPositions = Object.keys(shareSeedPositions).length > 0;
 		const needsInitialAutoLayout =
 			diagram.nodes.length > 0 && Object.keys(preferredPositions).length === 0;
+		const needsRevisionAutoLayout =
+			!hasSavedPositions &&
+			diagram.nodes.length > 0 &&
+			autoLayoutRevisionRef.current !== layoutRevision;
 
 		startTransition(() => {
 			setNodes(diagram.nodes);
 			setEdges(diagram.edges);
 		});
 
-		if (!needsInitialAutoLayout || isLayouting) {
+		if ((!needsInitialAutoLayout && !needsRevisionAutoLayout) || isLayouting) {
 			return;
 		}
 
 		const frameId = window.requestAnimationFrame(() => {
-			const hasUnmeasuredNodes = parsed.tables.some(
-				(table) => !nodeMeasurements[table.id],
-			);
-			void applyAutoLayout({
-				fitView: true,
-				enableMeasuredFollowUp: hasUnmeasuredNodes,
-			});
+			void applyAutoLayout({ fitView: true });
 		});
 
 		return () => {
@@ -169,44 +151,13 @@ export function useDiagramSync({
 		};
 	}, [
 		applyAutoLayout,
-		handleMeasure,
 		isLayouting,
-		nodeMeasurements,
+		layoutRevision,
 		parsed,
 		searchState,
 		setEdges,
 		setNodes,
 		shareSeedPositions,
-	]);
-
-	// Re-layout once all nodes are measured.
-	useEffect(() => {
-		if (!needsMeasuredLayout || isLayouting || parsed.tables.length === 0) {
-			return;
-		}
-
-		const allMeasured = parsed.tables.every((table) => nodeMeasurements[table.id]);
-		if (!allMeasured) {
-			return;
-		}
-
-		setNeedsMeasuredLayout(false);
-		const idleHandle = scheduleIdleCallback(
-			() => {
-				void applyAutoLayout({ fitView: true });
-			},
-			{ timeout: 1500, fallbackDelay: 250 },
-		);
-
-		return () => {
-			cancelIdleCallback(idleHandle);
-		};
-	}, [
-		applyAutoLayout,
-		isLayouting,
-		needsMeasuredLayout,
-		nodeMeasurements,
-		parsed.tables,
 	]);
 
 	return { isLayouting, applyAutoLayout };

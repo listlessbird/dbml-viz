@@ -1,11 +1,10 @@
-import type { DiagramNodeSize, DiagramPositions } from "@/types";
+import type { DiagramPositions } from "@/types";
 
 export interface SchemaLoaderState {
 	readonly source: string;
 	readonly shareSeedPositions: DiagramPositions;
 	readonly isLoadingShare: boolean;
 	readonly shareLoadError: string | null;
-	readonly nodeMeasurements: Record<string, DiagramNodeSize>;
 }
 
 export type SchemaLoaderAction =
@@ -20,9 +19,7 @@ export type SchemaLoaderAction =
 	| { type: "finish-blocking-load-error"; message: string }
 	| { type: "set-source"; source: string }
 	| { type: "set-share-seed-positions"; positions: DiagramPositions }
-	| { type: "set-share-load-error"; message: string | null }
-	| { type: "prune-node-measurements"; nodeIds: readonly string[] }
-	| { type: "record-node-measurement"; nodeId: string; size: DiagramNodeSize };
+	| { type: "set-share-load-error"; message: string | null };
 
 export const createInitialSchemaLoaderState = ({
 	initialSource,
@@ -37,7 +34,6 @@ export const createInitialSchemaLoaderState = ({
 	shareSeedPositions: initialPositions,
 	isLoadingShare: initialIsLoading,
 	shareLoadError: null,
-	nodeMeasurements: {},
 });
 
 export const schemaLoaderReducer = (
@@ -51,14 +47,12 @@ export const schemaLoaderReducer = (
 				shareSeedPositions: action.positions,
 				isLoadingShare: action.isLoadingShare,
 				shareLoadError: action.shareLoadError,
-				nodeMeasurements: {},
 			};
 		case "start-blocking-load":
 			return {
 				...state,
 				isLoadingShare: true,
 				shareLoadError: null,
-				nodeMeasurements: {},
 			};
 		case "finish-blocking-load-error":
 			return {
@@ -66,7 +60,6 @@ export const schemaLoaderReducer = (
 				shareSeedPositions: {},
 				isLoadingShare: false,
 				shareLoadError: action.message,
-				nodeMeasurements: {},
 			};
 		case "set-source":
 			return state.source === action.source
@@ -87,37 +80,5 @@ export const schemaLoaderReducer = (
 						...state,
 						shareLoadError: action.message,
 					};
-		case "prune-node-measurements": {
-			const allowedNodeIds = new Set(action.nodeIds);
-			const entries = Object.entries(state.nodeMeasurements);
-			const survivors = entries.filter(([nodeId]) => allowedNodeIds.has(nodeId));
-
-			if (survivors.length === entries.length) {
-				return state;
-			}
-
-			return {
-				...state,
-				nodeMeasurements: Object.fromEntries(survivors),
-			};
-		}
-		case "record-node-measurement": {
-			const previous = state.nodeMeasurements[action.nodeId];
-			if (
-				previous &&
-				previous.width === action.size.width &&
-				previous.height === action.size.height
-			) {
-				return state;
-			}
-
-			return {
-				...state,
-				nodeMeasurements: {
-					...state.nodeMeasurements,
-					[action.nodeId]: action.size,
-				},
-			};
-		}
 	}
 };

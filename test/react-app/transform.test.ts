@@ -39,27 +39,75 @@ describe("estimateTableSize", () => {
 		const compact = estimateTableSize(buildTable("varchar"));
 		const longType = estimateTableSize(buildTable("character_varying(255)"));
 
-		expect(compact.width).toBeGreaterThanOrEqual(260);
+		expect(compact.width).toBeGreaterThanOrEqual(300);
 		expect(longType.width).toBeGreaterThan(compact.width);
-		expect(longType.width).toBeGreaterThan(260);
-		expect(longType.width).toBeLessThanOrEqual(420);
+		expect(longType.width).toBeGreaterThan(300);
+		expect(longType.width).toBeLessThanOrEqual(480);
 	});
 
-	it("accounts for inline composite constraint badges", () => {
-		const withCompositeUnique = estimateTableSize({
+	it("grows taller when a long column name has to wrap", () => {
+		const compact = estimateTableSize(buildTable("varchar"));
+		const wrapped = estimateTableSize({
 			...buildTable("varchar"),
-			indexes: [
+			columns: [
+				buildTable("varchar").columns[0]!,
 				{
-					id: "events:index:delivery-channel",
-					kind: "unique",
-					columns: ["id", "delivery_channel_configuration"],
+					...buildTable("varchar").columns[1]!,
+					name: "this_is_a_deliberately_extremely_long_column_name_that_should_wrap_inside_the_node_instead_of_being_truncated",
 				},
 			],
 		});
 
-		expect(withCompositeUnique.height).toBeGreaterThan(
-			estimateTableSize(buildTable("varchar")).height,
-		);
+		expect(wrapped.width).toBeLessThanOrEqual(480);
+		expect(wrapped.height).toBeGreaterThan(compact.height);
+	});
+
+	it("widens before wrapping names when another row needs a wider type column", () => {
+		const base = estimateTableSize({
+			...buildTable("varchar"),
+			columns: [
+				buildTable("varchar").columns[0]!,
+				{
+					...buildTable("varchar").columns[1]!,
+					name: "option_signature",
+					type: "VARCHAR(191)",
+				},
+			],
+		});
+		const widenedTable = {
+			...buildTable("varchar"),
+			columns: [
+				buildTable("varchar").columns[0]!,
+				{
+					...buildTable("varchar").columns[1]!,
+					name: "option_signature",
+					type: "VARCHAR(191)",
+				},
+				{
+					name: "channel",
+					type: "character_varying(255)",
+					pk: false,
+					notNull: true,
+					unique: false,
+					isForeignKey: false,
+					isIndexed: false,
+				},
+			],
+		};
+		const widened = estimateTableSize(widenedTable);
+		const reference = estimateTableSize({
+			...widenedTable,
+			columns: widenedTable.columns.map((column) =>
+				column.name === "option_signature"
+					? { ...column, name: "option_sig" }
+					: column,
+			),
+		});
+
+		expect(widened.width).toBeGreaterThan(base.width);
+		expect(widened.width).toBe(359);
+		expect(widened.width).toBeGreaterThan(reference.width);
+		expect(widened.height).toBeLessThan(reference.height);
 	});
 });
 
@@ -103,5 +151,7 @@ describe("buildDiagram", () => {
 			columns: ["tenant_id", "id"],
 			side: "target",
 		});
+		expect(childNode?.data.layout.typeColumnWidth).toBeGreaterThan(0);
+		expect(childNode?.height).toBe(childNode?.data.layout.height);
 	});
 });

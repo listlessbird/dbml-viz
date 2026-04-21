@@ -1,17 +1,16 @@
 import { MarkerType, Position } from "@xyflow/react";
 
 import {
+	getCompositeHandleOffsets,
+	getTableNodeLayout,
+} from "@/components/table-node/layout";
+import {
 	getRefSourceHandleId,
 	getRefTargetHandleId,
 } from "@/lib/relation-handles";
-import {
-	countColumnsWithConstraintBadges,
-	getColumnConstraintBadges,
-} from "@/lib/table-constraints";
 import type {
 	DiagramEdge,
 	DiagramNode,
-	DiagramNodeSize,
 	DiagramPositions,
 	ParsedSchema,
 	RelationAnchorData,
@@ -59,113 +58,7 @@ const chartAccents = [
 const accentFromTable = (tableId: string) =>
 	chartAccents[hashString(tableId) % chartAccents.length];
 
-const MIN_TABLE_WIDTH = 260;
-const MAX_TABLE_WIDTH = 420;
-const ESTIMATED_CHAR_WIDTH = 6.1;
-const TABLE_WIDTH_PADDING = 168;
-const ESTIMATED_TABLE_HEADER_HEIGHT = 60;
-const ESTIMATED_TABLE_NOTE_HEIGHT = 18;
-const ESTIMATED_COLUMN_ROW_HEIGHT = 28;
-const ESTIMATED_BADGE_ROW_HEIGHT = 18;
-const ESTIMATED_COLUMN_NOTE_HEIGHT = 18;
-
-const estimateTableWidth = (table: TableData) => {
-	const longestContentLength = Math.max(
-		table.name.length,
-		...table.columns.map((column) =>
-			Math.max(
-				column.name.length + column.type.length,
-				column.type.length + (column.unique ? 9 : 0) + (column.notNull ? 10 : 8),
-			),
-		),
-	);
-
-	return Math.max(
-		MIN_TABLE_WIDTH,
-		Math.min(
-			MAX_TABLE_WIDTH,
-			Math.round(TABLE_WIDTH_PADDING + longestContentLength * ESTIMATED_CHAR_WIDTH),
-		),
-	);
-};
-
-export const estimateTableSize = (
-	table: TableData,
-	measurement?: DiagramNodeSize,
-): DiagramNodeSize => {
-	if (measurement) {
-		return measurement;
-	}
-
-	return {
-		width: estimateTableWidth(table),
-		height:
-			ESTIMATED_TABLE_HEADER_HEIGHT +
-			(table.note ? ESTIMATED_TABLE_NOTE_HEIGHT : 0) +
-			table.columns.length * ESTIMATED_COLUMN_ROW_HEIGHT +
-			countColumnsWithConstraintBadges(table) * ESTIMATED_BADGE_ROW_HEIGHT +
-			table.columns.filter((column) => column.note).length * ESTIMATED_COLUMN_NOTE_HEIGHT,
-	};
-};
-
-const estimateColumnRowHeight = (
-	column: TableData["columns"][number],
-	badgeCount: number,
-) =>
-	ESTIMATED_COLUMN_ROW_HEIGHT +
-	badgeCount * ESTIMATED_BADGE_ROW_HEIGHT +
-	(column.note ? ESTIMATED_COLUMN_NOTE_HEIGHT : 0);
-
-interface ColumnRowBounds {
-	readonly top: number;
-	readonly bottom: number;
-}
-
-const estimateCompositeHandleOffsets = (
-	table: TableData,
-	relationAnchors: readonly RelationAnchorData[],
-) => {
-	if (relationAnchors.length === 0) {
-		return {};
-	}
-
-	const badgesByColumn = getColumnConstraintBadges(table);
-	const rowBoundsByColumn = new Map<string, ColumnRowBounds>();
-	let rowTop =
-		ESTIMATED_TABLE_HEADER_HEIGHT + (table.note ? ESTIMATED_TABLE_NOTE_HEIGHT : 0);
-
-	for (const column of table.columns) {
-		const rowHeight = estimateColumnRowHeight(
-			column,
-			badgesByColumn.get(column.name)?.length ?? 0,
-		);
-		rowBoundsByColumn.set(column.name, { top: rowTop, bottom: rowTop + rowHeight });
-		rowTop += rowHeight;
-	}
-
-	return Object.fromEntries(
-		relationAnchors.flatMap((anchor) => {
-			if (anchor.columns.length <= 1) {
-				return [];
-			}
-
-			let minTop = Number.POSITIVE_INFINITY;
-			let maxBottom = Number.NEGATIVE_INFINITY;
-			for (const columnName of anchor.columns) {
-				const bounds = rowBoundsByColumn.get(columnName);
-				if (!bounds) continue;
-				if (bounds.top < minTop) minTop = bounds.top;
-				if (bounds.bottom > maxBottom) maxBottom = bounds.bottom;
-			}
-
-			if (minTop === Number.POSITIVE_INFINITY) {
-				return [];
-			}
-
-			return [[anchor.id, (minTop + maxBottom) / 2] as const];
-		}),
-	);
-};
+export const estimateTableSize = (table: TableData) => getTableNodeLayout(table);
 
 const getFallbackAnchor = (positions: DiagramPositions) => {
 	const entries = Object.values(positions);
@@ -185,8 +78,6 @@ const getFallbackAnchor = (positions: DiagramPositions) => {
 
 interface BuildDiagramOptions {
 	readonly positions?: DiagramPositions;
-	readonly measurements?: Record<string, DiagramNodeSize>;
-	readonly onMeasure?: (nodeId: string, size: DiagramNodeSize) => void;
 	readonly search?: {
 		readonly matchedTableIds: ReadonlySet<string>;
 		readonly relatedTableIds: ReadonlySet<string>;
@@ -241,7 +132,6 @@ export const buildDiagram = (
 	missingPositionIds: string[];
 } => {
 	const positions = options.positions ?? {};
-	const measurements = options.measurements ?? {};
 	const matchedTableIds = options.search?.matchedTableIds ?? new Set<string>();
 	const relatedTableIds = options.search?.relatedTableIds ?? new Set<string>();
 	const highlightedEdgeIds = options.search?.highlightedEdgeIds ?? new Set<string>();
@@ -258,8 +148,8 @@ export const buildDiagram = (
 	let fallbackIndex = 0;
 
 	const nodes = parsed.tables.map((table) => {
-		const size = estimateTableSize(table, measurements[table.id]);
 		const relationAnchors = relationAnchorsByTable.get(table.id) ?? [];
+		const layout = getTableNodeLayout(table);
 		const fallbackPosition = {
 			x: fallbackAnchor.x + (fallbackIndex % 2) * 48,
 			y: fallbackAnchor.y + fallbackIndex * 140,
@@ -276,6 +166,7 @@ export const buildDiagram = (
 			position,
 			data: {
 				table,
+				layout,
 				accent: accentFromTable(table.id),
 				connectedColumns: Array.from(connectedColumnsByTable.get(table.id) ?? []),
 				isSearchMatch: matchedTableIds.has(table.id),
@@ -285,13 +176,12 @@ export const buildDiagram = (
 					!matchedTableIds.has(table.id) &&
 					!relatedTableIds.has(table.id),
 				relationAnchors,
-				compositeHandleOffsets: estimateCompositeHandleOffsets(table, relationAnchors),
-				onMeasure: options.onMeasure,
+				compositeHandleOffsets: getCompositeHandleOffsets(table, relationAnchors),
 			},
 			sourcePosition: Position.Right,
 			targetPosition: Position.Left,
-			width: size.width,
-			height: size.height,
+			width: layout.width,
+			height: layout.height,
 		} satisfies DiagramNode;
 	});
 
