@@ -1,10 +1,4 @@
-import {
-  IconFocus2,
-  IconHandMove,
-  IconLayoutSidebarLeftExpand,
-  IconMinus,
-  IconPlus,
-} from "@tabler/icons-react";
+import { IconLayoutSidebarLeftExpand } from "@tabler/icons-react";
 import {
   Background,
   BackgroundVariant,
@@ -23,14 +17,25 @@ import {
 import { useCallback, useMemo, useRef } from "react";
 
 import { CanvasDock } from "@/components/CanvasDock";
+import { CanvasZoomToolbar } from "@/components/CanvasZoomToolbar";
 import { RelationshipEdge } from "@/components/RelationshipEdge";
-import { StickyNoteNode, STICKY_NOTE_DRAG_HANDLE } from "@/components/StickyNoteNode";
+import { StickyLinkEdge } from "@/components/StickyLinkEdge";
+import { StickyNoteNode } from "@/components/StickyNoteNode";
+import {
+  buildStickyLinkEdges,
+  buildTableLookupByName,
+  isStickyLinkEdgeId,
+} from "@/components/sticky-note/buildStickyLinkEdges";
+import { STICKY_NOTE_DRAG_HANDLE } from "@/components/sticky-note/StickyNoteChrome";
 import { TableNode } from "@/components/TableNode";
 import { useStickyNotesStore } from "@/store/useStickyNotesStore";
-import type { CanvasNode, StickyNoteNode as StickyNoteNodeType } from "@/types";
-import { Button } from "@/components/ui/button";
-import { ButtonGroup, ButtonGroupText } from "@/components/ui/button-group";
+import type {
+  CanvasEdge,
+  CanvasNode,
+  StickyNoteNode as StickyNoteNodeType,
+} from "@/types";
 import { useRelationHighlighting } from "@/hooks/useRelationHighlighting";
+import { useStickyNoteSpawner } from "@/hooks/useStickyNoteSpawner";
 import { cn } from "@/lib/utils";
 import { useDiagramUiStore } from "@/store/useDiagramUiStore";
 import type { DiagramEdge, DiagramGridMode, DiagramNode } from "@/types";
@@ -59,7 +64,10 @@ const recordToNode = (
 	stickyNodeCache.set(record, node);
 	return node;
 };
-const edgeTypes: EdgeTypes = { relationship: RelationshipEdge };
+const edgeTypes: EdgeTypes = {
+  relationship: RelationshipEdge,
+  stickyLink: StickyLinkEdge,
+};
 type GridPattern = Pick<
   BackgroundProps,
   "variant" | "gap" | "size" | "lineWidth" | "color"
@@ -132,9 +140,11 @@ export function Canvas({
   const togglePanMode = useDiagramUiStore((state) => state.togglePanMode);
 
   const stickyNotes = useStickyNotesStore((state) => state.notes);
-  const instanceRef = useRef<ReactFlowInstance<CanvasNode, DiagramEdge> | null>(
+  const stickyTexts = useStickyNotesStore((state) => state.texts);
+  const instanceRef = useRef<ReactFlowInstance<CanvasNode, CanvasEdge> | null>(
     null,
   );
+  const spawner = useStickyNoteSpawner(instanceRef);
 
   const stickyNoteNodes = useMemo<StickyNoteNodeType[]>(
     () => stickyNotes.map(recordToNode),
@@ -146,8 +156,20 @@ export function Canvas({
     [displayNodes, stickyNoteNodes],
   );
 
+  const tableLookupByName = useMemo(() => buildTableLookupByName(nodes), [nodes]);
+
+  const stickyLinkEdges = useMemo(
+    () => buildStickyLinkEdges(stickyNotes, stickyTexts, tableLookupByName),
+    [stickyNotes, stickyTexts, tableLookupByName],
+  );
+
+  const mergedEdges = useMemo<CanvasEdge[]>(
+    () => [...displayEdges, ...stickyLinkEdges],
+    [displayEdges, stickyLinkEdges],
+  );
+
   const handleInit = useCallback(
-    (instance: ReactFlowInstance<CanvasNode, DiagramEdge>) => {
+    (instance: ReactFlowInstance<CanvasNode, CanvasEdge>) => {
       instanceRef.current = instance;
       onInit(instance as unknown as ReactFlowInstance<DiagramNode, DiagramEdge>);
     },
@@ -181,15 +203,23 @@ export function Canvas({
     [onNodesChange],
   );
 
-  const handleAddStickyNote = useCallback(() => {
-    const instance = instanceRef.current;
-    if (!instance) return;
-    const center = instance.screenToFlowPosition({
-      x: window.innerWidth / 2,
-      y: window.innerHeight / 2,
-    });
-    useStickyNotesStore.getState().addNote(center);
-  }, []);
+  const handleEdgesChange = useCallback(
+    (changes: EdgeChange<CanvasEdge>[]) => {
+      const tableEdgeChanges: EdgeChange<DiagramEdge>[] = [];
+      for (const change of changes) {
+        if (change.type === "add") {
+          if (change.item.type === "stickyLink") continue;
+          tableEdgeChanges.push(change as EdgeChange<DiagramEdge>);
+          continue;
+        }
+        const changeId = "id" in change ? change.id : undefined;
+        if (typeof changeId === "string" && isStickyLinkEdgeId(changeId)) continue;
+        tableEdgeChanges.push(change as EdgeChange<DiagramEdge>);
+      }
+      if (tableEdgeChanges.length > 0) onEdgesChange(tableEdgeChanges);
+    },
+    [onEdgesChange],
+  );
 
   return (
     <div
@@ -197,15 +227,17 @@ export function Canvas({
       onFocusCapture={handlers.onFocusCapture}
       onBlurCapture={handlers.onBlurCapture}
     >
-      <ReactFlow<CanvasNode, DiagramEdge>
+      <ReactFlow<CanvasNode, CanvasEdge>
         className={isPanModeEnabled ? "canvas-pan-mode" : undefined}
         nodes={mergedNodes}
-        edges={displayEdges}
+        edges={mergedEdges}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         onNodesChange={handleNodesChange}
-        onEdgesChange={onEdgesChange}
+        onEdgesChange={handleEdgesChange}
         onInit={handleInit}
+        onPaneMouseMove={spawner.onPaneMouseMove}
+        onPaneMouseLeave={spawner.onPaneMouseLeave}
         onViewportChange={onViewportChange}
         onNodeMouseEnter={(event, node) => {
           if (node.type === "table") {
@@ -277,60 +309,14 @@ export function Canvas({
         </button>
       </div>
 
-      <div className="pointer-events-none absolute bottom-4 left-4 z-10">
-        <div className="pointer-events-auto overflow-hidden bg-background/96 text-foreground shadow-[0_18px_38px_color-mix(in_oklab,var(--foreground)_12%,transparent)] backdrop-blur-sm">
-          <ButtonGroup className="overflow-hidden">
-            <Button
-              type="button"
-              title="Zoom out"
-              aria-label="Zoom out"
-              variant="outline"
-              size="icon-lg"
-              onClick={onZoomOut}
-            >
-              <IconMinus className="size-4" />
-            </Button>
-            <ButtonGroupText className="min-w-16 justify-center border-border bg-background/96 px-3 text-sm text-muted-foreground">
-              {Math.round(zoom * 100)}%
-            </ButtonGroupText>
-            <Button
-              type="button"
-              title="Zoom in"
-              aria-label="Zoom in"
-              variant="outline"
-              size="icon-lg"
-              onClick={onZoomIn}
-            >
-              <IconPlus className="size-4" />
-            </Button>
-            <Button
-              type="button"
-              title="Fit view"
-              aria-label="Fit view"
-              variant="outline"
-              size="icon-lg"
-              onClick={onFitView}
-            >
-              <IconFocus2 className="size-4" />
-            </Button>
-            <Button
-              type="button"
-              title={
-                isPanModeEnabled
-                  ? "Pan mode is on. Left-drag pans until you turn it off."
-                  : "Pan mode is off. Drag on the canvas to select tables."
-              }
-              aria-label="Toggle pan mode"
-              aria-pressed={isPanModeEnabled}
-              variant={isPanModeEnabled ? "default" : "outline"}
-              size="icon-lg"
-              onClick={togglePanMode}
-            >
-              <IconHandMove className="size-4" />
-            </Button>
-          </ButtonGroup>
-        </div>
-      </div>
+      <CanvasZoomToolbar
+        zoom={zoom}
+        isPanModeEnabled={isPanModeEnabled}
+        onZoomIn={onZoomIn}
+        onZoomOut={onZoomOut}
+        onFitView={onFitView}
+        onTogglePanMode={togglePanMode}
+      />
 
       <CanvasDock
         isLayouting={isLayouting}
@@ -339,7 +325,7 @@ export function Canvas({
         onFitView={onFitView}
         onZoomIn={onZoomIn}
         onZoomOut={onZoomOut}
-        onAddStickyNote={handleAddStickyNote}
+        onAddStickyNote={spawner.spawn}
       />
 
       {!hasDiagram ? (

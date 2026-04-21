@@ -149,6 +149,14 @@ export interface RelationshipEdgeData extends Record<string, unknown> {
 export type DiagramNode = Node<TableNodeData, "table">;
 export type DiagramEdge = Edge<RelationshipEdgeData, "relationship">;
 
+export interface StickyLinkEdgeData extends Record<string, unknown> {
+	readonly color: StickyNoteColor;
+	readonly tableName: string;
+	readonly columnName?: string;
+}
+
+export type StickyLinkEdge = Edge<StickyLinkEdgeData, "stickyLink">;
+
 export const STICKY_NOTE_COLORS = ["yellow", "pink", "blue", "green"] as const;
 export type StickyNoteColor = (typeof STICKY_NOTE_COLORS)[number];
 
@@ -157,3 +165,4 @@ export type StickyNoteData = Record<string, never>;
 export type StickyNoteNode = Node<StickyNoteData, "sticky">;
 
 export type CanvasNode = DiagramNode | StickyNoteNode;
+export type CanvasEdge = DiagramEdge | StickyLinkEdge;

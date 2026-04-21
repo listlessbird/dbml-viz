@@ -1,0 +1,197 @@
+/* Sticky note design tokens. Per-color palettes live here so the
+ * component only needs to set data-color on the root; all surfaces,
+ * borders, inks and chip styles resolve via CSS variables. */
+
+:root {
+	--sticky-yellow-surface: #fef9c3;
+	--sticky-yellow-header: #fef3a6;
+	--sticky-yellow-border: #eab308;
+	--sticky-yellow-divider: #e5cb4a;
+	--sticky-yellow-ink: #422006;
+	--sticky-yellow-muted-ink: #854d0e;
+	--sticky-yellow-chip-border: #eab308;
+	--sticky-yellow-chip-ink: #713f12;
+	--sticky-yellow-dashed: #a16207;
+
+	--sticky-pink-surface: #fce7f3;
+	--sticky-pink-header: #fad1e5;
+	--sticky-pink-border: #ec4899;
+	--sticky-pink-divider: #e683b3;
+	--sticky-pink-ink: #500724;
+	--sticky-pink-muted-ink: #9d174d;
+	--sticky-pink-chip-border: #ec4899;
+	--sticky-pink-chip-ink: #831843;
+	--sticky-pink-dashed: #be185d;
+
+	--sticky-blue-surface: #dbeafe;
+	--sticky-blue-header: #c7ddfc;
+	--sticky-blue-border: #3b82f6;
+	--sticky-blue-divider: #93c5fd;
+	--sticky-blue-ink: #0b1f5a;
+	--sticky-blue-muted-ink: #1e40af;
+	--sticky-blue-chip-border: #3b82f6;
+	--sticky-blue-chip-ink: #1e3a8a;
+	--sticky-blue-dashed: #1d4ed8;
+
+	--sticky-green-surface: #dcfce7;
+	--sticky-green-header: #c3f3d3;
+	--sticky-green-border: #22c55e;
+	--sticky-green-divider: #86efac;
+	--sticky-green-ink: #052e16;
+	--sticky-green-muted-ink: #166534;
+	--sticky-green-chip-border: #22c55e;
+	--sticky-green-chip-ink: #14532d;
+	--sticky-green-dashed: #15803d;
+
+	--sticky-chip-surface: rgba(255, 255, 255, 0.6);
+	--sticky-focus-ring: #1e3a8a;
+	--sticky-focus-ring-glow: rgba(30, 58, 138, 0.12);
+	--sticky-shadow-resting: 0 1px 2px rgba(16, 24, 40, 0.06);
+	--sticky-shadow-focus:
+		0 0 0 3px var(--sticky-focus-ring-glow),
+		0 1px 2px rgba(16, 24, 40, 0.04);
+
+	--sticky-token-bg: #dbeafe;
+	--sticky-token-border: #93c5fd;
+	--sticky-token-ink: #1e3a8a;
+}
+
+.sticky-note {
+	--sn-surface: var(--sticky-yellow-surface);
+	--sn-header: var(--sticky-yellow-header);
+	--sn-border: var(--sticky-yellow-border);
+	--sn-divider: var(--sticky-yellow-divider);
+	--sn-ink: var(--sticky-yellow-ink);
+	--sn-muted-ink: var(--sticky-yellow-muted-ink);
+	--sn-chip-border: var(--sticky-yellow-chip-border);
+	--sn-chip-ink: var(--sticky-yellow-chip-ink);
+	--sn-dashed: var(--sticky-yellow-dashed);
+}
+
+.sticky-note[data-color="pink"] {
+	--sn-surface: var(--sticky-pink-surface);
+	--sn-header: var(--sticky-pink-header);
+	--sn-border: var(--sticky-pink-border);
+	--sn-divider: var(--sticky-pink-divider);
+	--sn-ink: var(--sticky-pink-ink);
+	--sn-muted-ink: var(--sticky-pink-muted-ink);
+	--sn-chip-border: var(--sticky-pink-chip-border);
+	--sn-chip-ink: var(--sticky-pink-chip-ink);
+	--sn-dashed: var(--sticky-pink-dashed);
+}
+
+.sticky-note[data-color="blue"] {
+	--sn-surface: var(--sticky-blue-surface);
+	--sn-header: var(--sticky-blue-header);
+	--sn-border: var(--sticky-blue-border);
+	--sn-divider: var(--sticky-blue-divider);
+	--sn-ink: var(--sticky-blue-ink);
+	--sn-muted-ink: var(--sticky-blue-muted-ink);
+	--sn-chip-border: var(--sticky-blue-chip-border);
+	--sn-chip-ink: var(--sticky-blue-chip-ink);
+	--sn-dashed: var(--sticky-blue-dashed);
+}
+
+.sticky-note[data-color="green"] {
+	--sn-surface: var(--sticky-green-surface);
+	--sn-header: var(--sticky-green-header);
+	--sn-border: var(--sticky-green-border);
+	--sn-divider: var(--sticky-green-divider);
+	--sn-ink: var(--sticky-green-ink);
+	--sn-muted-ink: var(--sticky-green-muted-ink);
+	--sn-chip-border: var(--sticky-green-chip-border);
+	--sn-chip-ink: var(--sticky-green-chip-ink);
+	--sn-dashed: var(--sticky-green-dashed);
+}
+
+/* Root surface. Colors resolve via --sn-* cascaded from [data-color]. */
+.sticky-note {
+	background-color: var(--sn-surface);
+	border-color: var(--sn-border);
+	color: var(--sn-ink);
+	box-shadow: var(--sticky-shadow-resting);
+}
+
+.sticky-note[data-selected="true"] {
+	border-color: var(--sticky-focus-ring);
+	box-shadow: var(--sticky-shadow-focus);
+}
+
+.sticky-note__header {
+	border-color: var(--sn-divider);
+	background-color: var(--sn-header);
+}
+
+.sticky-note__kind,
+.sticky-note__drag-dots {
+	color: var(--sn-muted-ink);
+}
+
+.sticky-note__icon {
+	border-color: var(--sn-muted-ink);
+	background-color: var(--sn-surface);
+}
+
+.sticky-note__icon-fold {
+	border-color: var(--sn-muted-ink);
+	background-color: var(--sn-header);
+}
+
+.sticky-note__drag-dot {
+	background-color: var(--sn-muted-ink);
+}
+
+.sticky-note__textarea {
+	border-color: var(--sn-dashed);
+	color: var(--sn-ink);
+}
+
+.sticky-note__body {
+	color: var(--sn-ink);
+}
+
+.sticky-note__token {
+	background-color: var(--sticky-token-bg);
+	border-color: var(--sticky-token-border);
+	color: var(--sticky-token-ink);
+}
+
+.sticky-note__chip {
+	background-color: var(--sticky-chip-surface);
+	border-color: var(--sn-chip-border);
+	color: var(--sn-chip-ink);
+}
+
+.sticky-note__chip-arrow {
+	color: var(--sn-muted-ink);
+}
+
+.sticky-note__editbar {
+	border-color: var(--sn-divider);
+	background-color: rgba(255, 255, 255, 0.4);
+	color: var(--sn-muted-ink);
+}
+
+.sticky-note__delete {
+	color: var(--sn-muted-ink);
+}
+
+.sticky-note__kbd {
+	border-color: var(--sn-dashed);
+}
+
+.sticky-note__palette {
+	border-color: var(--sn-divider);
+}
+
+.sticky-note__swatch[data-active="true"] {
+	outline: 1px solid var(--sticky-focus-ring);
+	outline-offset: 1px;
+}
+
+/* Swatch buttons sample the four surfaces directly so a note in any
+ * color can render the full palette strip. */
+.sticky-swatch[data-swatch="yellow"] { background-color: var(--sticky-yellow-surface); }
+.sticky-swatch[data-swatch="pink"] { background-color: var(--sticky-pink-surface); }
+.sticky-swatch[data-swatch="blue"] { background-color: var(--sticky-blue-surface); }
+.sticky-swatch[data-swatch="green"] { background-color: var(--sticky-green-surface); }
