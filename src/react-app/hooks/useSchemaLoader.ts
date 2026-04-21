@@ -16,7 +16,6 @@ import { useStickyNotesStore } from "@/store/useStickyNotesStore";
 import type {
 	DiagramEdge,
 	DiagramNode,
-	DiagramNodeSize,
 	DiagramPositions,
 	SchemaPayload,
 	SharedStickyNote,
@@ -215,17 +214,6 @@ export function useSchemaLoader({
 		dispatch({ type: "set-share-load-error", message });
 	}, []);
 
-	const pruneNodeMeasurements = useCallback((nodeIds: readonly string[]) => {
-		dispatch({ type: "prune-node-measurements", nodeIds });
-	}, []);
-
-	const recordNodeMeasurement = useCallback(
-		(nodeId: string, size: DiagramNodeSize) => {
-			dispatch({ type: "record-node-measurement", nodeId, size });
-		},
-		[],
-	);
-
 	return {
 		source: state.source,
 		setSource,
@@ -234,8 +222,5 @@ export function useSchemaLoader({
 		isLoadingShare: state.isLoadingShare,
 		shareLoadError: state.shareLoadError,
 		setShareLoadError,
-		nodeMeasurements: state.nodeMeasurements,
-		pruneNodeMeasurements,
-		recordNodeMeasurement,
 	};
 }

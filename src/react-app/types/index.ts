@@ -105,12 +105,13 @@ export type DiagramGridMode = "none" | "dots" | "lines";
 
 export type DiagramLayoutAlgorithm = "left-right" | "snowflake" | "compact";
 
-export interface DiagramNodeSize {
+export type DiagramPositions = Record<string, XYPosition>;
+
+export interface TableNodeLayout {
 	readonly width: number;
 	readonly height: number;
+	readonly typeColumnWidth: number;
 }
-
-export type DiagramPositions = Record<string, XYPosition>;
 
 export interface RelationAnchorData {
 	readonly id: string;
@@ -120,6 +121,7 @@ export interface RelationAnchorData {
 
 export interface TableNodeData extends Record<string, unknown> {
 	readonly table: TableData;
+	readonly layout: TableNodeLayout;
 	readonly accent: string;
 	readonly connectedColumns: readonly string[];
 	readonly activeRelationColumns?: readonly string[];
@@ -129,7 +131,6 @@ export interface TableNodeData extends Record<string, unknown> {
 	readonly isSearchDimmed: boolean;
 	readonly relationAnchors: readonly RelationAnchorData[];
 	readonly compositeHandleOffsets: Readonly<Record<string, number>>;
-	readonly onMeasure?: (nodeId: string, size: DiagramNodeSize) => void;
 }
 
 export interface RelationshipEdgeData extends Record<string, unknown> {

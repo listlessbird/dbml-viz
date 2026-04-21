@@ -1,14 +1,11 @@
-import {
-	type CSSProperties,
-	memo,
-	useEffectEvent,
-	useEffect,
-	useMemo,
-	useRef,
-} from "react";
+import { type CSSProperties, memo, useMemo } from "react";
 import { type NodeProps } from "@xyflow/react";
 
 import { CompositeRelationHandles } from "@/components/table-node/CompositeRelationHandles";
+import {
+	tableNodeMetrics,
+	tableNodeStyles,
+} from "@/components/table-node/metrics";
 import { TableKindGlyph } from "@/components/table-node/TableKindGlyph";
 import { SchemaColumnRow } from "@/components/table-node/SchemaColumnRow";
 import { formatIndexSummary } from "@/lib/schema-format";
@@ -61,6 +58,14 @@ const areNumberRecordsEqual = (
 	return true;
 };
 
+const areTableLayoutsEqual = (
+	a: TableNodeData["layout"],
+	b: TableNodeData["layout"],
+) =>
+	a.width === b.width &&
+	a.height === b.height &&
+	a.typeColumnWidth === b.typeColumnWidth;
+
 const areTableNodePropsEqual = (
 	prev: NodeProps<DiagramNode>,
 	next: NodeProps<DiagramNode>,
@@ -75,7 +80,7 @@ const areTableNodePropsEqual = (
 		a.isSearchRelated === b.isSearchRelated &&
 		a.isSearchDimmed === b.isSearchDimmed &&
 		a.isRelationContextActive === b.isRelationContextActive &&
-		a.onMeasure === b.onMeasure &&
+		areTableLayoutsEqual(a.layout, b.layout) &&
 		areStringArraysEqual(a.connectedColumns, b.connectedColumns) &&
 		areStringArraysEqual(a.activeRelationColumns, b.activeRelationColumns) &&
 		areRelationAnchorsEqual(a.relationAnchors, b.relationAnchors) &&
@@ -104,6 +109,17 @@ interface TableStats {
 	readonly pkNames: readonly string[];
 	readonly fkNames: readonly string[];
 	readonly idxSummaries: readonly string[];
+}
+
+interface TableNodeViewModel {
+	readonly activeRelationColumns: ReadonlySet<string>;
+	readonly connectedColumns: ReadonlySet<string>;
+	readonly constraintBadgesByColumn: ReturnType<typeof getColumnConstraintBadges>;
+	readonly stats: TableStats;
+	readonly statsTooltips: Record<
+		"columns" | "foreignKeys" | "indexes" | "primaryKeys",
+		string
+	>;
 }
 
 const getTableStats = (table: TableData): TableStats => {
@@ -138,132 +154,157 @@ const buildTooltip = (
 	return `${plural(count, one, many)}: ${items.join(separator)}`;
 };
 
+const getTableNodeViewModel = (
+	table: TableData,
+	connectedColumnNames: readonly string[],
+	activeRelationColumnNames: readonly string[] | undefined,
+): TableNodeViewModel => {
+	const stats = getTableStats(table);
+	return {
+		activeRelationColumns: new Set(activeRelationColumnNames ?? []),
+		connectedColumns: new Set(connectedColumnNames),
+		constraintBadgesByColumn: getColumnConstraintBadges(table),
+		stats,
+		statsTooltips: {
+			columns: buildTooltip(
+				stats.colNames.length,
+				"column",
+				"columns",
+				stats.colNames,
+			),
+			foreignKeys: buildTooltip(
+				stats.fkNames.length,
+				"foreign-key column",
+				"foreign-key columns",
+				stats.fkNames,
+			),
+			indexes: buildTooltip(
+				stats.idxSummaries.length,
+				"non-primary index",
+				"non-primary indexes",
+				stats.idxSummaries,
+				"\n",
+			),
+			primaryKeys: buildTooltip(
+				stats.pkNames.length,
+				"primary-key column",
+				"primary-key columns",
+				stats.pkNames,
+			),
+		},
+	};
+};
+
 export const TableNode = memo(function TableNode({
 	id,
 	data,
 	selected,
 }: NodeProps<DiagramNode>) {
-	const containerRef = useRef<HTMLDivElement | null>(null);
-
-	const connectedColumns = new Set(data.connectedColumns);
-	const activeRelationColumns = new Set(data.activeRelationColumns ?? []);
-	const constraintBadgesByColumn = getColumnConstraintBadges(data.table);
-	const stats = useMemo(() => getTableStats(data.table), [data.table]);
+	const viewModel = useMemo(() => getTableNodeViewModel(
+		data.table,
+		data.connectedColumns,
+		data.activeRelationColumns,
+	), [data.activeRelationColumns, data.connectedColumns, data.table]);
 
 	const nodeStyle: SchemaTableNodeStyle = {
 		"--schema-node-opacity": data.isSearchDimmed ? 0.32 : 1,
 		"--schema-surface-shadow": getSurfaceShadow(data, selected),
+		borderWidth: tableNodeMetrics.nodeBorder,
+		width: `${data.layout.width}px`,
 	};
-
-	const reportMeasurement = useEffectEvent((width: number, height: number) => {
-		if (!data.onMeasure) return;
-		data.onMeasure(id, {
-			width: Math.round(width),
-			height: Math.round(height),
-		});
-	});
-
-	useEffect(() => {
-		const element = containerRef.current;
-		if (!element || !data.onMeasure) return;
-
-		const observer = new ResizeObserver((entries) => {
-			const entry = entries[entries.length - 1];
-			if (entry) {
-				reportMeasurement(entry.contentRect.width, entry.contentRect.height);
-			}
-		});
-		observer.observe(element);
-		return () => observer.disconnect();
-	}, [data.onMeasure, id]);
 
 	return (
 		<div
-			ref={containerRef}
-			className="schema-table-node relative w-fit min-w-[260px] max-w-[420px] overflow-hidden border border-border bg-card text-card-foreground hover:cursor-move"
+			data-node-id={id}
+			className="schema-table-node relative overflow-hidden border border-border bg-card text-card-foreground hover:cursor-move"
 			style={nodeStyle}
 		>
 			<CompositeRelationHandles
-				activeColumns={activeRelationColumns}
-				connectedColumns={connectedColumns}
+				activeColumns={viewModel.activeRelationColumns}
+				connectedColumns={viewModel.connectedColumns}
 				relationAnchors={data.relationAnchors}
 				topOffsets={data.compositeHandleOffsets}
 			/>
 
-			<div className="schema-table-header flex items-center gap-2 px-2.5 py-2">
+			<div
+				className="schema-table-header flex items-start"
+				style={tableNodeStyles.header}
+			>
 				<TableKindGlyph />
-				<h3 className="schema-table-heading truncate text-[13px] font-semibold">
-					{data.table.name}
-				</h3>
-				{data.table.schema ? (
-					<span className="schema-table-schema ml-1 truncate text-[11px] font-normal">
-						{data.table.schema}
-					</span>
-				) : null}
-				<span className="schema-table-kind ml-auto shrink-0 text-[9px] font-semibold uppercase tracking-[0.14em]">
+				<div className="min-w-0 flex-1">
+					<h3
+						className="schema-table-heading [overflow-wrap:anywhere]"
+						style={tableNodeStyles.headerTitle}
+					>
+						{data.table.name}
+					</h3>
+					{data.table.schema ? (
+						<p
+							className="schema-table-schema [overflow-wrap:anywhere]"
+							style={tableNodeStyles.headerSchema}
+						>
+							{data.table.schema}
+						</p>
+					) : null}
+				</div>
+				<span
+					className="schema-table-kind shrink-0 uppercase"
+					style={tableNodeStyles.headerKind}
+				>
 					TABLE
 				</span>
 			</div>
 
-			<div className="schema-table-stats flex items-center gap-3.5 border-b px-2.5 py-[5px] font-mono text-[10px] tabular-nums text-muted-foreground">
-				<span
-					title={buildTooltip(
-						stats.colNames.length,
-						"column",
-						"columns",
-						stats.colNames,
-					)}
-				>
-					<b className="schema-table-stat-value">{stats.colNames.length}</b>cols
+			<div
+				className="schema-table-stats flex items-center border-b text-muted-foreground"
+				style={tableNodeStyles.stats}
+			>
+				<span title={viewModel.statsTooltips.columns}>
+					<b className="schema-table-stat-value">
+						{viewModel.stats.colNames.length}
+					</b>
+					cols
 				</span>
-				<span
-					title={buildTooltip(
-						stats.pkNames.length,
-						"primary-key column",
-						"primary-key columns",
-						stats.pkNames,
-					)}
-				>
-					<b className="schema-table-stat-value">{stats.pkNames.length}</b>pk
+				<span title={viewModel.statsTooltips.primaryKeys}>
+					<b className="schema-table-stat-value">
+						{viewModel.stats.pkNames.length}
+					</b>
+					pk
 				</span>
-				<span
-					title={buildTooltip(
-						stats.fkNames.length,
-						"foreign-key column",
-						"foreign-key columns",
-						stats.fkNames,
-					)}
-				>
-					<b className="schema-table-stat-value">{stats.fkNames.length}</b>fk
+				<span title={viewModel.statsTooltips.foreignKeys}>
+					<b className="schema-table-stat-value">
+						{viewModel.stats.fkNames.length}
+					</b>
+					fk
 				</span>
-				<span
-					title={buildTooltip(
-						stats.idxSummaries.length,
-						"non-primary index",
-						"non-primary indexes",
-						stats.idxSummaries,
-						"\n",
-					)}
-				>
-					<b className="schema-table-stat-value">{stats.idxSummaries.length}</b>idx
+				<span title={viewModel.statsTooltips.indexes}>
+					<b className="schema-table-stat-value">
+						{viewModel.stats.idxSummaries.length}
+					</b>
+					idx
 				</span>
 			</div>
 
 			{data.table.note ? (
-				<p className="truncate border-b px-3 py-1.5 text-[0.65rem] text-muted-foreground">
+				<p
+					className="border-b whitespace-pre-wrap text-muted-foreground [overflow-wrap:anywhere]"
+					style={tableNodeStyles.note}
+				>
 					{data.table.note}
 				</p>
 			) : null}
 
-			<div className="divide-y divide-border">
-				{data.table.columns.map((column) => (
+			<div>
+				{data.table.columns.map((column, index) => (
 					<SchemaColumnRow
 						key={column.name}
 						tableId={data.table.id}
+						typeColumnWidth={data.layout.typeColumnWidth}
 						column={column}
-						isConnected={connectedColumns.has(column.name)}
-						isActive={activeRelationColumns.has(column.name)}
-						badges={constraintBadgesByColumn.get(column.name) ?? []}
+						isConnected={viewModel.connectedColumns.has(column.name)}
+						isActive={viewModel.activeRelationColumns.has(column.name)}
+						showDivider={index > 0}
+						badges={viewModel.constraintBadgesByColumn.get(column.name) ?? []}
 					/>
 				))}
 			</div>

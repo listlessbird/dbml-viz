@@ -1,5 +1,9 @@
 import { Handle, Position } from "@xyflow/react";
 
+import {
+	getSchemaColumnRowStyle,
+	tableNodeStyles,
+} from "@/components/table-node/metrics";
 import { getSourceHandleId, getTargetHandleId } from "@/lib/relation-handles";
 import type { ColumnConstraintBadge } from "@/lib/table-constraints";
 import { cn } from "@/lib/utils";
@@ -38,17 +42,21 @@ const buildRowTooltip = (
 
 interface SchemaColumnRowProps {
 	readonly tableId: string;
+	readonly typeColumnWidth: number;
 	readonly column: ColumnData;
 	readonly isConnected: boolean;
 	readonly isActive: boolean;
+	readonly showDivider: boolean;
 	readonly badges: readonly ColumnConstraintBadge[];
 }
 
 export function SchemaColumnRow({
 	tableId,
+	typeColumnWidth,
 	column,
 	isConnected,
 	isActive,
+	showDivider,
 	badges,
 }: SchemaColumnRowProps) {
 	const glyph = statusGlyph(column);
@@ -60,9 +68,10 @@ export function SchemaColumnRow({
 	return (
 		<div
 			className={cn(
-				"schema-column-row group/row relative grid grid-cols-[16px_1fr_auto] items-center gap-2 px-2.5 py-1.5 min-h-[26px]",
+				"schema-column-row group/row relative grid items-start border-border",
 				isActive && "schema-column-row--active",
 			)}
+			style={getSchemaColumnRowStyle(typeColumnWidth, showDivider)}
 			title={buildRowTooltip(column, badges)}
 		>
 			<Handle
@@ -83,20 +92,24 @@ export function SchemaColumnRow({
 			/>
 
 			<span
-				className={cn(
-					"schema-column-key text-center text-[10px] leading-none",
-					glyph.cls,
-				)}
+				className={cn("schema-column-key", glyph.cls)}
+				style={tableNodeStyles.rowKey}
 				aria-hidden="true"
 			>
 				{glyph.char}
 			</span>
 
-			<span className="schema-column-name truncate font-mono text-[12px] text-foreground">
+			<span
+				className="schema-column-name text-foreground [overflow-wrap:anywhere]"
+				style={tableNodeStyles.rowName}
+			>
 				{column.name}
 			</span>
 
-			<span className="schema-column-type font-mono text-[11px] text-muted-foreground text-right">
+			<span
+				className="schema-column-type text-muted-foreground [overflow-wrap:anywhere]"
+				style={tableNodeStyles.rowType}
+			>
 				{column.type}
 			</span>
 		</div>

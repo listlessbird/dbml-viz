@@ -1,9 +1,12 @@
+import { tableNodeMetrics, tableNodeStyles } from "@/components/table-node/metrics";
+
 export function TableKindGlyph() {
 	return (
 		<svg
 			className="schema-table-glyph shrink-0"
-			width="12"
-			height="12"
+			style={tableNodeStyles.headerGlyph}
+			width={tableNodeMetrics.header.glyphSize}
+			height={tableNodeMetrics.header.glyphSize}
 			viewBox="0 0 12 12"
 			fill="none"
 			stroke="currentColor"
