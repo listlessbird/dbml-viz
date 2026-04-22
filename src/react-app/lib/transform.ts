@@ -60,19 +60,47 @@ const accentFromTable = (tableId: string) =>
 
 export const estimateTableSize = (table: TableData) => getTableNodeLayout(table);
 
-const getFallbackAnchor = (positions: DiagramPositions) => {
-	const entries = Object.values(positions);
+const FALLBACK_LAYOUT_GAP = 48;
+const FALLBACK_LAYOUT_START = {
+	x: 80,
+	y: 80,
+} as const;
 
-	if (entries.length === 0) {
-		return {
-			x: 80,
-			y: 80,
-		};
+const getFallbackAnchor = (
+	parsed: ParsedSchema,
+	positions: DiagramPositions,
+	tableLayoutById: ReadonlyMap<string, ReturnType<typeof getTableNodeLayout>>,
+) => {
+	let rightmostEdge = 0;
+	let topmostY = 0;
+	let hasPositionedNodes = false;
+
+	for (const table of parsed.tables) {
+		const position = positions[table.id];
+		const layout = tableLayoutById.get(table.id);
+
+		if (!position || !layout) {
+			continue;
+		}
+
+		if (!hasPositionedNodes) {
+			rightmostEdge = position.x + layout.width;
+			topmostY = position.y;
+			hasPositionedNodes = true;
+			continue;
+		}
+
+		rightmostEdge = Math.max(rightmostEdge, position.x + layout.width);
+		topmostY = Math.min(topmostY, position.y);
+	}
+
+	if (!hasPositionedNodes) {
+		return FALLBACK_LAYOUT_START;
 	}
 
 	return {
-		x: Math.max(...entries.map((position) => position.x)) + 420,
-		y: Math.min(...entries.map((position) => position.y)),
+		x: rightmostEdge + FALLBACK_LAYOUT_GAP,
+		y: topmostY,
 	};
 };
 
@@ -138,26 +166,33 @@ export const buildDiagram = (
 	const hasSearchHighlights = matchedTableIds.size > 0;
 	const connectedColumnsByTable = new Map<string, Set<string>>();
 	const relationAnchorsByTable = buildRelationAnchors(parsed);
+	const tableLayoutById = new Map(
+		parsed.tables.map((table) => [table.id, getTableNodeLayout(table)] as const),
+	);
 
 	for (const ref of parsed.refs) {
 		addColumnsToMap(connectedColumnsByTable, ref.from.table, ref.from.columns);
 		addColumnsToMap(connectedColumnsByTable, ref.to.table, ref.to.columns);
 	}
 
-	const fallbackAnchor = getFallbackAnchor(positions);
-	let fallbackIndex = 0;
+	const fallbackAnchor = getFallbackAnchor(parsed, positions, tableLayoutById);
+	let nextFallbackY = fallbackAnchor.y;
+	const missingPositionIds: string[] = [];
 
 	const nodes = parsed.tables.map((table) => {
 		const relationAnchors = relationAnchorsByTable.get(table.id) ?? [];
-		const layout = getTableNodeLayout(table);
-		const fallbackPosition = {
-			x: fallbackAnchor.x + (fallbackIndex % 2) * 48,
-			y: fallbackAnchor.y + fallbackIndex * 140,
-		};
-		const position = positions[table.id] ?? fallbackPosition;
+		const layout = tableLayoutById.get(table.id)!;
+		const hasPosition = positions[table.id] !== undefined;
+		const position =
+			positions[table.id] ??
+			{
+				x: fallbackAnchor.x,
+				y: nextFallbackY,
+			};
 
-		if (!positions[table.id]) {
-			fallbackIndex += 1;
+		if (!hasPosition) {
+			missingPositionIds.push(table.id);
+			nextFallbackY += layout.height + FALLBACK_LAYOUT_GAP;
 		}
 
 		return {
@@ -227,8 +262,6 @@ export const buildDiagram = (
 	return {
 		nodes,
 		edges,
-		missingPositionIds: nodes
-			.filter((node) => !(node.id in positions))
-			.map((node) => node.id),
+		missingPositionIds,
 	};
 };

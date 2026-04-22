@@ -10,11 +10,12 @@ import {
 } from "@/components/canvas-dock/DockPopovers";
 import { DOCK_SURFACE_CLASS, LAYOUT_ALGORITHM_OPTIONS } from "@/components/canvas-dock/constants";
 import { useDiagramUiStore } from "@/store/useDiagramUiStore";
+import type { DiagramLayoutAlgorithm } from "@/types";
 
 interface CanvasDockProps {
 	readonly isLayouting: boolean;
 	readonly matchedTableNames: readonly string[];
-	readonly onAutoLayout: () => void;
+	readonly onAutoLayout: (layoutAlgorithm?: DiagramLayoutAlgorithm) => void;
 	readonly onFitView: () => void;
 	readonly onZoomIn: () => void;
 	readonly onZoomOut: () => void;
@@ -74,9 +75,14 @@ export function CanvasDock({
 	};
 
 	const applyLayout = (id: (typeof LAYOUT_ALGORITHM_OPTIONS)[number]["id"]) => {
+		console.info("[layout] dock applyLayout", {
+			nextLayoutAlgorithm: id,
+			currentLayoutAlgorithm: layoutAlgorithm,
+			isLayouting,
+		});
 		setLayoutAlgorithm(id);
 		setLayoutOpen(false);
-		onAutoLayout();
+		onAutoLayout(id);
 	};
 
 	useEffect(() => {

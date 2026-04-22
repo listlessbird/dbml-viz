@@ -38,7 +38,7 @@ import { SAMPLE_SCHEMA_SOURCE } from "@/lib/sample-dbml";
 import { getDiagramDraft, useDiagramDraftStore } from "@/store/useDiagramDraftStore";
 import { useDiagramUiStore } from "@/store/useDiagramUiStore";
 import { useStickyNotesStore } from "@/store/useStickyNotesStore";
-import type { DiagramEdge, DiagramNode } from "@/types";
+import type { DiagramEdge, DiagramLayoutAlgorithm, DiagramNode } from "@/types";
 
 interface InitialAppState {
 	readonly route: DiagramRouteState;
@@ -196,7 +196,7 @@ function App() {
 		};
 	}, []);
 
-	const { isLayouting, applyAutoLayout } = useDiagramSync({
+	const { isLayouting, applyAutoLayout, canPersistNodePositions } = useDiagramSync({
 		parsed,
 		searchState,
 		shareSeedPositions,
@@ -220,6 +220,7 @@ function App() {
 	useDraftPersistence({
 		source,
 		nodes,
+		canPersistNodePositions,
 		shareSeedPositions,
 		isLoadingShare,
 		viewedRoute,
@@ -241,9 +242,17 @@ function App() {
 		setShareLoadError,
 	});
 
-	const handleAutoLayoutClick = useCallback(() => {
-		void applyAutoLayout({ fitView: true });
-	}, [applyAutoLayout]);
+	const handleAutoLayoutClick = useCallback((nextLayoutAlgorithm?: DiagramLayoutAlgorithm) => {
+		console.info("[layout] App.handleAutoLayoutClick", {
+			nextLayoutAlgorithm: nextLayoutAlgorithm ?? layoutAlgorithm,
+			layoutAlgorithmFromStore: layoutAlgorithm,
+			nodeCount: nodes.length,
+		});
+		void applyAutoLayout({
+			fitView: true,
+			layoutAlgorithm: nextLayoutAlgorithm,
+		});
+	}, [applyAutoLayout, layoutAlgorithm, nodes.length]);
 
 	const handleFitViewClick = useCallback(() => {
 		requestFitView(fitViewTargetIds.length > 0 ? fitViewTargetIds : undefined);

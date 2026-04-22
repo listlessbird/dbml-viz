@@ -38,7 +38,12 @@ import { useRelationHighlighting } from "@/hooks/useRelationHighlighting";
 import { useStickyNoteSpawner } from "@/hooks/useStickyNoteSpawner";
 import { cn } from "@/lib/utils";
 import { useDiagramUiStore } from "@/store/useDiagramUiStore";
-import type { DiagramEdge, DiagramGridMode, DiagramNode } from "@/types";
+import type {
+  DiagramEdge,
+  DiagramGridMode,
+  DiagramLayoutAlgorithm,
+  DiagramNode,
+} from "@/types";
 
 const nodeTypes: NodeTypes = { table: TableNode, sticky: StickyNoteNode };
 const EMPTY_STICKY_DATA = Object.freeze({}) as Record<string, never>;
@@ -97,7 +102,7 @@ interface CanvasProps {
   readonly isEditorHidden: boolean;
   readonly matchedTableNames: readonly string[];
   readonly zoom: number;
-  readonly onAutoLayout: () => void;
+  readonly onAutoLayout: (layoutAlgorithm?: DiagramLayoutAlgorithm) => void;
   readonly onNodesChange: (changes: NodeChange<DiagramNode>[]) => void;
   readonly onEdgesChange: (changes: EdgeChange<DiagramEdge>[]) => void;
   readonly onFitView: () => void;
