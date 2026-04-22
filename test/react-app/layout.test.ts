@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildElkLayoutGraph } from "@/lib/layout";
+import { buildElkLayoutGraph, doDiagramNodesOverlap } from "@/lib/layout";
 import { parseDbmlSource } from "@/lib/dbml-schema";
 import {
 	getRelationSourceHandleId,
@@ -48,5 +48,37 @@ describe("buildElkLayoutGraph", () => {
 		});
 		expect(edge?.sources).toEqual([getRelationSourceHandleId(ref.id)]);
 		expect(edge?.targets).toEqual([getRelationTargetHandleId(ref.id)]);
+	});
+
+	it("detects overlapping saved node bounds", () => {
+		expect(
+			doDiagramNodesOverlap([
+				{
+					position: { x: 80, y: 80 },
+					width: 320,
+					height: 240,
+				},
+				{
+					position: { x: 240, y: 180 },
+					width: 320,
+					height: 240,
+				},
+			]),
+		).toBe(true);
+
+		expect(
+			doDiagramNodesOverlap([
+				{
+					position: { x: 80, y: 80 },
+					width: 320,
+					height: 240,
+				},
+				{
+					position: { x: 440, y: 80 },
+					width: 320,
+					height: 240,
+				},
+			]),
+		).toBe(false);
 	});
 });

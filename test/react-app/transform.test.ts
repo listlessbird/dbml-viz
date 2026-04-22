@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { parseDbmlSource } from "@/lib/dbml-schema";
+import { doDiagramNodesOverlap } from "@/lib/layout";
 import {
 	getRelationSourceHandleId,
 	getRelationTargetHandleId,
@@ -153,5 +154,40 @@ describe("buildDiagram", () => {
 		});
 		expect(childNode?.data.layout.typeColumnWidth).toBeGreaterThan(0);
 		expect(childNode?.height).toBe(childNode?.data.layout.height);
+	});
+
+	it("stacks fallback-positioned tables without overlapping their measured heights", () => {
+		const parsed = parseDbmlSource(`
+			Table alpha {
+			  id uuid [pk]
+			  account_identifier varchar
+			  delivery_channel_configuration character_varying(255)
+			  this_is_a_deliberately_long_column_name_that_forces_wrapping varchar
+			  another_long_attribute_name_for_height_testing text
+			  created_at timestamp
+			}
+
+			Table beta {
+			  id uuid [pk]
+			  account_identifier varchar
+			  delivery_channel_configuration character_varying(255)
+			  this_is_a_deliberately_long_column_name_that_forces_wrapping varchar
+			  another_long_attribute_name_for_height_testing text
+			  created_at timestamp
+			}
+
+			Table gamma {
+			  id uuid [pk]
+			  account_identifier varchar
+			  delivery_channel_configuration character_varying(255)
+			  this_is_a_deliberately_long_column_name_that_forces_wrapping varchar
+			  another_long_attribute_name_for_height_testing text
+			  created_at timestamp
+			}
+		`);
+		const diagram = buildDiagram(parsed);
+
+		expect(diagram.missingPositionIds).toEqual(["alpha", "beta", "gamma"]);
+		expect(doDiagramNodesOverlap(diagram.nodes)).toBe(false);
 	});
 });

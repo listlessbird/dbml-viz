@@ -10,6 +10,7 @@ import type { Dispatch, SetStateAction } from "react";
 import { toast } from "sonner";
 
 import { getPositionsFromNodes } from "@/lib/draftPersistence";
+import { doDiagramNodesOverlap } from "@/lib/layout";
 import {
 	createDiagramSearchContext,
 	type DiagramSearchState,
@@ -26,6 +27,7 @@ import type {
 interface ApplyAutoLayoutArgs {
 	readonly positions?: DiagramPositions;
 	readonly fitView?: boolean;
+	readonly layoutAlgorithm?: DiagramLayoutAlgorithm;
 }
 
 interface DiagramSyncOptions {
@@ -66,16 +68,33 @@ export function useDiagramSync({
 	setEdges,
 }: DiagramSyncOptions) {
 	const [isLayouting, setIsLayouting] = useState(false);
+	const [canPersistNodePositions, setCanPersistNodePositions] = useState(
+		() => Object.keys(shareSeedPositions).length > 0,
+	);
+	const hasStableNodePositionsRef = useRef(
+		Object.keys(shareSeedPositions).length > 0,
+	);
 	const getCurrentNodePositions = useEffectEvent(() => getPositionsFromNodes(nodes));
 	const autoLayoutRevisionRef = useRef<number | null>(null);
 
 	const applyAutoLayoutImpl = async ({
 		positions = {},
 		fitView = false,
+		layoutAlgorithm: nextLayoutAlgorithm,
 	}: ApplyAutoLayoutArgs) => {
+		const requestedLayoutAlgorithm = nextLayoutAlgorithm ?? layoutAlgorithm;
 		const diagram = buildDiagram(parsed, {
 			positions,
 			search: createDiagramSearchContext(searchState),
+		});
+
+		console.info("[layout] useDiagramSync.applyAutoLayout start", {
+			requestedLayoutAlgorithm,
+			layoutAlgorithmFromStore: layoutAlgorithm,
+			fitView,
+			providedPositionCount: Object.keys(positions).length,
+			nodeCount: diagram.nodes.length,
+			edgeCount: diagram.edges.length,
 		});
 
 		setIsLayouting(true);
@@ -85,19 +104,28 @@ export function useDiagramSync({
 			const laidOutNodes = await autoLayoutDiagram(
 				diagram.nodes,
 				diagram.edges,
-				layoutAlgorithm,
+				requestedLayoutAlgorithm,
 			);
 			autoLayoutRevisionRef.current = layoutRevision;
-			startTransition(() => {
-				setNodes(laidOutNodes);
-				setEdges(diagram.edges);
+			hasStableNodePositionsRef.current = true;
+			setCanPersistNodePositions(true);
+			console.info("[layout] useDiagramSync.applyAutoLayout success", {
+				requestedLayoutAlgorithm,
+				firstNodePositionBefore: diagram.nodes[0]?.position ?? null,
+				firstNodePositionAfter: laidOutNodes[0]?.position ?? null,
 			});
+			setNodes(laidOutNodes);
+			setEdges(diagram.edges);
 
 			if (fitView) {
 				requestFitView(focusIds.length > 0 ? focusIds : undefined);
 			}
 		} catch (error) {
 			console.error(error);
+			console.error("[layout] useDiagramSync.applyAutoLayout failed", {
+				requestedLayoutAlgorithm,
+				error,
+			});
 			toast.error(
 				error instanceof Error ? error.message : "Unable to auto-layout schema.",
 			);
@@ -126,23 +154,71 @@ export function useDiagramSync({
 			search: createDiagramSearchContext(searchState),
 		});
 		const hasSavedPositions = Object.keys(shareSeedPositions).length > 0;
-		const needsInitialAutoLayout =
-			diagram.nodes.length > 0 && Object.keys(preferredPositions).length === 0;
+		const hasPreferredPositions = Object.keys(preferredPositions).length > 0;
+		const hasStableNodePositions = hasSavedPositions
+			? true
+			: hasPreferredPositions
+				? hasStableNodePositionsRef.current
+				: false;
+		const hasKnownStablePositions =
+			hasSavedPositions || (hasStableNodePositions && hasPreferredPositions);
+		const hasOverlappingSavedPositions =
+			hasSavedPositions && doDiagramNodesOverlap(diagram.nodes);
+		const needsInitialAutoLayout = diagram.nodes.length > 0 && !hasKnownStablePositions;
 		const needsRevisionAutoLayout =
 			!hasSavedPositions &&
 			diagram.nodes.length > 0 &&
 			autoLayoutRevisionRef.current !== layoutRevision;
+		const needsRecoveryAutoLayout = hasOverlappingSavedPositions;
+		const hasTransientFallbackPositions = diagram.nodes.length > 0 && !hasKnownStablePositions;
+
+		console.info("[layout] useDiagramSync effect", {
+			layoutAlgorithm,
+			nodeCount: diagram.nodes.length,
+			hasSavedPositions,
+			hasPreferredPositions,
+			hasKnownStablePositions,
+			hasOverlappingSavedPositions,
+			needsInitialAutoLayout,
+			needsRevisionAutoLayout,
+			needsRecoveryAutoLayout,
+			isLayouting,
+		});
+
+		if (hasSavedPositions) {
+			hasStableNodePositionsRef.current = true;
+		} else if (!hasPreferredPositions) {
+			hasStableNodePositionsRef.current = false;
+		}
+
+		setCanPersistNodePositions(
+			!(hasTransientFallbackPositions || hasOverlappingSavedPositions),
+		);
 
 		startTransition(() => {
 			setNodes(diagram.nodes);
 			setEdges(diagram.edges);
 		});
 
-		if ((!needsInitialAutoLayout && !needsRevisionAutoLayout) || isLayouting) {
+		if (
+			(!needsInitialAutoLayout &&
+				!needsRevisionAutoLayout &&
+				!needsRecoveryAutoLayout) ||
+			isLayouting
+		) {
+			console.info("[layout] useDiagramSync effect skip auto-layout", {
+				layoutAlgorithm,
+				reason: isLayouting
+					? "already-layouting"
+					: "no-auto-layout-needed",
+			});
 			return;
 		}
 
 		const frameId = window.requestAnimationFrame(() => {
+			console.info("[layout] useDiagramSync effect schedule auto-layout", {
+				layoutAlgorithm,
+			});
 			void applyAutoLayout({ fitView: true });
 		});
 
@@ -160,5 +236,5 @@ export function useDiagramSync({
 		shareSeedPositions,
 	]);
 
-	return { isLayouting, applyAutoLayout };
+	return { isLayouting, applyAutoLayout, canPersistNodePositions };
 }

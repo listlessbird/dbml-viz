@@ -101,6 +101,7 @@ describe("CanvasDock hotkeys", () => {
 		await dispatchHotkey("2");
 
 		expect(onAutoLayout).toHaveBeenCalledTimes(1);
+		expect(onAutoLayout).toHaveBeenCalledWith("snowflake");
 		expect(useDiagramUiStore.getState().layoutAlgorithm).toBe("snowflake");
 	});
 

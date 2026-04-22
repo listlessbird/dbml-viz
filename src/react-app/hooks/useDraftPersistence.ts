@@ -18,6 +18,7 @@ const DRAFT_DEBOUNCE_MS = 180;
 interface DraftPersistenceOptions {
 	readonly source: string;
 	readonly nodes: readonly DiagramNode[];
+	readonly canPersistNodePositions: boolean;
 	readonly shareSeedPositions: DiagramPositions;
 	readonly isLoadingShare: boolean;
 	readonly viewedRoute: DiagramRouteState;
@@ -30,6 +31,7 @@ interface DraftPersistenceOptions {
 export function useDraftPersistence({
 	source,
 	nodes,
+	canPersistNodePositions,
 	shareSeedPositions,
 	isLoadingShare,
 	viewedRoute,
@@ -48,7 +50,7 @@ export function useDraftPersistence({
 		const flush = () => {
 			const payload = buildDraftPayload({
 				source,
-				nodes,
+				nodes: canPersistNodePositions ? nodes : [],
 				fallbackPositions: shareSeedPositions,
 				notes: getSharedStickyNotes(),
 			});
@@ -92,6 +94,7 @@ export function useDraftPersistence({
 		clearDraft,
 		currentShareBaseline,
 		source,
+		canPersistNodePositions,
 		isLoadingShare,
 		nodes,
 		replaceViewedRoute,
