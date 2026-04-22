@@ -52,7 +52,7 @@ export const tableNodeMetrics = Object.freeze({
 		kindGap: 10,
 		kindTopOffset: 1,
 		padX: 10,
-		padY: 8,
+		padY: 16,
 		schema: createFontMetrics(SANS_FAMILY, 12, 16, 400),
 		textGap: 2,
 		title: createFontMetrics(SANS_FAMILY, 18, 22, 600),
@@ -74,13 +74,13 @@ export const tableNodeMetrics = Object.freeze({
 		minTypeColumnWidth: 84,
 		name: createFontMetrics(MONO_FAMILY, 16, 20, 500),
 		padX: 10,
-		padY: 6,
+		padY: 10,
 		type: createFontMetrics(MONO_FAMILY, 13, 18, 400),
 	}),
 	stats: Object.freeze({
 		gap: 14,
 		padX: 10,
-		padY: 5,
+		padY: 8,
 		text: createFontMetrics(MONO_FAMILY, 11, 14, 500),
 	}),
 });
@@ -145,4 +145,3 @@ export function getSchemaColumnRowStyle(
 		gridTemplateColumns: `${tableNodeMetrics.row.glyphWidth}px minmax(0,1fr) ${typeColumnWidth}px`,
 	};
 }
-
