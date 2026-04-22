@@ -234,19 +234,28 @@ export function Editor({
 		};
 	}, [sourceMetadata.dialect, sourceMetadata.format]);
 
+	const lineCount = value.split("\n").length;
+	const formatLabel = sourceMetadata.format === "sql"
+		? sourceMetadata.dialect
+			? sourceMetadata.dialect.toUpperCase()
+			: "SQL"
+		: "DBML";
+
 	return (
 		<div
 			className="dark flex h-full min-h-0 flex-col overflow-hidden bg-sidebar text-sidebar-foreground"
 			aria-busy={isParsing}
 		>
-			<div className="flex min-h-12 items-center justify-between border-b border-sidebar-border/80 px-3 text-xs text-muted-foreground">
-				<div className="flex items-center gap-2">
-
-				</div>
+			<div className="flex min-h-10 items-center justify-between border-b border-sidebar-border/80 px-3">
+				<span className="inline-flex items-center gap-0 text-[11px] font-medium bg-[var(--gray-800)] border border-white/10 text-[var(--gray-100)] px-2.5 py-1 leading-none">
+					schema.dbml
+				</span>
 				<button
 					type="button"
-					className="inline-flex min-h-8 items-center gap-1.5 border border-sidebar-border/70 px-2.5 text-[11px] font-medium text-sidebar-foreground transition-[background-color,border-color,color,transform] duration-200 ease-out hover:-translate-y-px hover:border-sidebar-border hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-sidebar-ring motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+					className="inline-flex size-[26px] items-center justify-center border border-white/[0.14] bg-transparent text-[var(--gray-400)] transition-[border-color,color] duration-[120ms] ease-[cubic-bezier(0.215,0.61,0.355,1)] hover:border-white/[0.28] hover:text-[var(--gray-0)] focus-visible:outline-none"
+					style={{ height: 24, width: 26 }}
 					onClick={onHide}
+					title="Hide editor"
 				>
 					<IconLayoutSidebarLeftCollapse className="size-3.5" />
 				</button>
@@ -280,6 +289,21 @@ export function Editor({
 			) : null}
 			<div className="min-h-0 flex-1">
 				<div ref={containerRef} className="h-full" />
+			</div>
+			<div
+				className="flex shrink-0 items-center gap-3.5 border-t border-white/10 px-3.5 py-1.5 text-[10px] uppercase tracking-[0.12em] text-[var(--gray-400)]"
+				style={{ background: "color-mix(in oklab, #000 20%, var(--gray-900))" }}
+			>
+				<span>{formatLabel}</span>
+				<span>UTF-8</span>
+				<span>{lineCount} {lineCount === 1 ? "line" : "lines"}</span>
+				{isParsing ? (
+					<span>Parsing…</span>
+				) : diagnostics.length > 0 ? (
+					<span className="text-destructive">● {diagnostics.length} error{diagnostics.length === 1 ? "" : "s"}</span>
+				) : (
+					<span style={{ color: "oklch(0.75 0.12 150)" }}>● Parsed</span>
+				)}
 			</div>
 		</div>
 	);
