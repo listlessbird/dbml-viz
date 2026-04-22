@@ -1,4 +1,3 @@
-import { oneDark } from "@codemirror/theme-one-dark";
 import {
 	Compartment,
 	EditorState,
@@ -22,6 +21,7 @@ import { useEffectEvent } from "react";
 import { useEffect, useRef } from "react";
 
 import { buildDiagnosticDecorations } from "@/lib/editor-diagnostics";
+import { vesperTheme } from "@/lib/vesper-theme";
 import type {
 	ParseDiagnostic,
 	SchemaSourceMetadata,
@@ -74,36 +74,6 @@ const diagnosticField = StateField.define({
 	provide: (field) => EditorView.decorations.from(field),
 });
 
-const editorTheme = EditorView.theme({
-	"&": {
-		height: "100%",
-		backgroundColor: "var(--sidebar)",
-		color: "var(--sidebar-foreground)",
-	},
-	".cm-scroller": {
-		fontFamily: '"IBM Plex Mono", "SFMono-Regular", ui-monospace, monospace',
-		fontSize: "13px",
-		lineHeight: "1.7",
-		padding: "0 0 24px",
-		scrollbarGutter: "stable",
-	},
-	".cm-content": {
-		padding: "14px 18px 28px 16px",
-	},
-	".cm-gutters": {
-		border: "none",
-		borderRight: "1px solid var(--sidebar-border)",
-		backgroundColor: "var(--sidebar)",
-		color: "var(--muted-foreground)",
-	},
-	".cm-activeLine, .cm-activeLineGutter": {
-		backgroundColor: "var(--sidebar-accent)",
-	},
-	".cm-cursor": {
-		borderLeftColor: "var(--sidebar-primary)",
-	},
-});
-
 export function Editor({
 	value,
 	diagnostics,
@@ -136,8 +106,7 @@ export function Editor({
 					dropCursor(),
 					highlightActiveLine(),
 					EditorView.lineWrapping,
-					oneDark,
-					editorTheme,
+					vesperTheme,
 					diagnosticField,
 					EditorView.updateListener.of((update) => {
 						if (update.docChanged) {
@@ -295,15 +264,7 @@ export function Editor({
 				style={{ background: "color-mix(in oklab, #000 20%, var(--gray-900))" }}
 			>
 				<span>{formatLabel}</span>
-				<span>UTF-8</span>
 				<span>{lineCount} {lineCount === 1 ? "line" : "lines"}</span>
-				{isParsing ? (
-					<span>Parsing…</span>
-				) : diagnostics.length > 0 ? (
-					<span className="text-destructive">● {diagnostics.length} error{diagnostics.length === 1 ? "" : "s"}</span>
-				) : (
-					<span style={{ color: "oklch(0.75 0.12 150)" }}>● Parsed</span>
-				)}
 			</div>
 		</div>
 	);
