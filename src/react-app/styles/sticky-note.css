@@ -185,8 +185,8 @@
 }
 
 .sticky-note__swatch[data-active="true"] {
-	outline: 1px solid var(--sticky-focus-ring);
-	outline-offset: 1px;
+	border-color: var(--sticky-focus-ring);
+	box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.7);
 }
 
 /* Swatch buttons sample the four surfaces directly so a note in any

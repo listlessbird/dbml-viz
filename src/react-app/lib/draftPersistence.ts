@@ -32,6 +32,7 @@ interface DraftPersistenceOptions {
 	readonly payload: SchemaPayload;
 	readonly sampleSource: string;
 	readonly baseline: SchemaPayload | null;
+	readonly rootBaseline: SchemaPayload | null;
 }
 
 export interface DraftHydrationResult {
@@ -109,7 +110,7 @@ const arePositionsEqual = (
 	return true;
 };
 
-const areStickyNotesEqual = (
+export const areSharedStickyNotesEqual = (
 	left: readonly SharedStickyNote[],
 	right: readonly SharedStickyNote[],
 ) => {
@@ -143,7 +144,7 @@ export const areSchemaPayloadsEqual = (
 	left.version === right.version &&
 	left.source === right.source &&
 	arePositionsEqual(left.positions, right.positions) &&
-	areStickyNotesEqual(left.notes, right.notes);
+	areSharedStickyNotesEqual(left.notes, right.notes);
 
 export const getInitialDraftState = ({
 	route,
@@ -233,12 +234,18 @@ export const resolveDraftPersistence = ({
 	payload,
 	sampleSource,
 	baseline,
+	rootBaseline,
 }: DraftPersistenceOptions): DraftPersistenceDecision => {
 	if (route.shareId === null) {
-		const shouldClearRootDraft =
-			payload.source === sampleSource &&
-			Object.keys(payload.positions).length === 0 &&
-			payload.notes.length === 0;
+		const sampleBaseline =
+			rootBaseline ??
+			({
+				source: sampleSource,
+				positions: {},
+				notes: [],
+				version: 3,
+			} satisfies SchemaPayload);
+		const shouldClearRootDraft = areSchemaPayloadsEqual(payload, sampleBaseline);
 
 		return {
 			shouldStoreDraft: !shouldClearRootDraft,

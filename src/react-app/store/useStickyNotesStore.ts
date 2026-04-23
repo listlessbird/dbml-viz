@@ -1,4 +1,9 @@
-import { applyNodeChanges, type NodeChange, type XYPosition } from "@xyflow/react";
+import {
+	applyNodeChanges,
+	type NodeChange,
+	type NodeDimensionChange,
+	type XYPosition,
+} from "@xyflow/react";
 import { create } from "zustand";
 
 import {
@@ -7,11 +12,14 @@ import {
 	type StickyNoteColor,
 } from "@/types";
 
+export type StickyNoteWidthMode = "auto" | "manual";
+
 export interface StickyNoteRecord {
 	readonly id: string;
 	readonly position: XYPosition;
 	readonly color: StickyNoteColor;
 	readonly selected?: boolean;
+	readonly widthMode: StickyNoteWidthMode;
 	readonly width: number;
 	readonly height: number;
 }
@@ -25,6 +33,10 @@ interface StickyNotesState {
 	readonly addNote: (position: XYPosition) => string;
 	readonly updateText: (id: string, text: string) => void;
 	readonly updateColor: (id: string, color: StickyNoteColor) => void;
+	readonly syncAutoLayout: (
+		id: string,
+		layout: { readonly width: number; readonly height: number },
+	) => void;
 	readonly deleteNote: (id: string) => void;
 	readonly applyChanges: (changes: NodeChange[]) => void;
 	readonly hydrate: (shared: readonly SharedStickyNote[]) => void;
@@ -68,6 +80,7 @@ export const useStickyNotesStore = create<StickyNotesState>((set) => ({
 					y: position.y - DEFAULT_SIZE.height / 2,
 				},
 				color: pickNextColor(state.notes),
+				widthMode: "auto",
 				width: DEFAULT_SIZE.width,
 				height: DEFAULT_SIZE.height,
 			};
@@ -93,6 +106,27 @@ export const useStickyNotesStore = create<StickyNotesState>((set) => ({
 			};
 		});
 	},
+	syncAutoLayout: (id, layout) => {
+		set((state) => {
+			const existing = state.notesById[id];
+			if (!existing) return state;
+			const nextWidth =
+				existing.widthMode === "auto" ? layout.width : existing.width;
+			const nextHeight = layout.height;
+			if (nextWidth === existing.width && nextHeight === existing.height) {
+				return state;
+			}
+			const nextNote: StickyNoteRecord = {
+				...existing,
+				width: nextWidth,
+				height: nextHeight,
+			};
+			return {
+				notes: state.notes.map((note) => (note.id === id ? nextNote : note)),
+				notesById: { ...state.notesById, [id]: nextNote },
+			};
+		});
+	},
 	deleteNote: (id) => {
 		set((state) => {
 			if (!(id in state.notesById)) return state;
@@ -107,6 +141,20 @@ export const useStickyNotesStore = create<StickyNotesState>((set) => ({
 		if (changes.length === 0) return;
 
 		set((state) => {
+			const manualWidthIds = new Set(
+				changes
+					.filter(
+						(change): change is NodeDimensionChange =>
+							change.type === "dimensions",
+					)
+					.filter(
+						(change) =>
+							change.dimensions?.width !== undefined &&
+							change.setAttributes !== "height",
+					)
+					.map((change) => change.id),
+			);
+
 			const asNodes = state.notes.map((note) => ({
 				id: note.id,
 				type: "sticky",
@@ -139,6 +187,7 @@ export const useStickyNotesStore = create<StickyNotesState>((set) => ({
 					if (
 						nextSelected === (note.selected ?? false) &&
 						nextPosition === note.position &&
+						!manualWidthIds.has(note.id) &&
 						nextWidth === note.width &&
 						nextHeight === note.height
 					) {
@@ -149,6 +198,10 @@ export const useStickyNotesStore = create<StickyNotesState>((set) => ({
 						...note,
 						position: nextPosition,
 						selected: nextSelected,
+						widthMode:
+							manualWidthIds.has(note.id) && nextWidth !== note.width
+								? "manual"
+								: note.widthMode,
 						width: nextWidth,
 						height: nextHeight,
 					};
@@ -173,6 +226,7 @@ export const useStickyNotesStore = create<StickyNotesState>((set) => ({
 		const notes: StickyNoteRecord[] = shared.map((note) => ({
 			id: note.id,
 			position: { x: note.x, y: note.y },
+			widthMode: "auto",
 			width: note.width,
 			height: note.height,
 			color: note.color,

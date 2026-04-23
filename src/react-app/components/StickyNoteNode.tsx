@@ -95,6 +95,9 @@ function StickyNoteNodeComponent({
 }: NodeProps<StickyNoteNodeType>) {
 	const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 	const text = useStickyNotesStore((state) => state.texts[id] ?? "");
+	const widthMode = useStickyNotesStore(
+		(state) => state.notesById[id]?.widthMode ?? "auto",
+	);
 	const color = useStickyNotesStore(
 		(state) => state.notesById[id]?.color ?? "yellow",
 	);
@@ -136,6 +139,7 @@ function StickyNoteNodeComponent({
 		id,
 		text,
 		width,
+		widthMode,
 		isEditing,
 		selected,
 		links,

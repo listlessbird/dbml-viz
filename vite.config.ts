@@ -7,7 +7,6 @@ import { cloudflare } from "@cloudflare/vite-plugin";
 import tailwindcss from "@tailwindcss/vite";
 
 const isTest = process.env.VITEST === "true";
-
 export default defineConfig({
 	resolve: {
 		alias: {

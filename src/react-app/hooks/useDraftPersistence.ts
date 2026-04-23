@@ -23,6 +23,7 @@ interface DraftPersistenceOptions {
 	readonly isLoadingShare: boolean;
 	readonly viewedRoute: DiagramRouteState;
 	readonly currentShareBaseline: SchemaPayload | null;
+	readonly rootSampleBaseline: SchemaPayload | null;
 	readonly clearDraft: (shareId: string | null) => void;
 	readonly setDraft: (shareId: string | null, payload: SchemaPayload) => void;
 	readonly replaceViewedRoute: (route: DiagramRouteState) => void;
@@ -36,6 +37,7 @@ export function useDraftPersistence({
 	isLoadingShare,
 	viewedRoute,
 	currentShareBaseline,
+	rootSampleBaseline,
 	clearDraft,
 	setDraft,
 	replaceViewedRoute,
@@ -59,6 +61,7 @@ export function useDraftPersistence({
 				payload,
 				sampleSource: SAMPLE_SCHEMA_SOURCE,
 				baseline: currentShareBaseline,
+				rootBaseline: rootSampleBaseline,
 			});
 
 			if (!isSameDiagramRoute(decision.nextRoute, viewedRoute)) {
@@ -93,6 +96,7 @@ export function useDraftPersistence({
 	}, [
 		clearDraft,
 		currentShareBaseline,
+		rootSampleBaseline,
 		source,
 		canPersistNodePositions,
 		isLoadingShare,
