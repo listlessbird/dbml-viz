@@ -1,3 +1,5 @@
+import type { DiagramNode, SharedStickyNote, StickyNoteColor } from "@/types";
+
 export const SAMPLE_SCHEMA_SOURCE = `
 CREATE TABLE tenants (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -276,3 +278,167 @@ CREATE TABLE webhook_deliveries (
     ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 `;
+
+const SAMPLE_STICKY_NOTE_WIDTH = 276;
+const SAMPLE_STICKY_NOTE_HEIGHT = 172;
+const SAMPLE_STICKY_NOTE_GAP = 44;
+const SAMPLE_SCHEMA_SOURCE_COMPARISON = SAMPLE_SCHEMA_SOURCE.trim();
+
+type NotePlacement = "top" | "right" | "bottom" | "left";
+
+interface SampleStickyNoteDefinition {
+	readonly id: string;
+	readonly tables: readonly string[];
+	readonly color: StickyNoteColor;
+	readonly placement: NotePlacement;
+	readonly text: string;
+	readonly offsetX?: number;
+	readonly offsetY?: number;
+	readonly width?: number;
+	readonly height?: number;
+}
+
+interface Bounds {
+	readonly left: number;
+	readonly top: number;
+	readonly right: number;
+	readonly bottom: number;
+}
+
+const SAMPLE_STICKY_NOTES: readonly SampleStickyNoteDefinition[] = [
+	{
+		id: "sample-note-tenant-spine",
+		tables: ["tenants", "tenant_settings", "memberships", "users"],
+		color: "yellow",
+		placement: "top",
+		offsetX: -24,
+		text: [
+			"Tenant spine",
+			"#tenants owns config in #tenant_settings and access in #memberships.",
+			"Follow #memberships.invited_by_user_id to see the self-reference.",
+		].join("\n"),
+	},
+	{
+		id: "sample-note-inventory-path",
+		tables: ["products", "product_variants", "stock_lots", "warehouses"],
+		color: "blue",
+		placement: "right",
+		offsetY: -12,
+		text: [
+			"Inventory path",
+			"#products branch into #product_variants.",
+			"Watch #stock_lots.quantity_on_hand and #stock_lots.quantity_reserved in #warehouses.",
+		].join("\n"),
+	},
+	{
+		id: "sample-note-fulfillment-loop",
+		tables: ["orders", "order_lines", "pick_tasks", "invoices"],
+		color: "pink",
+		placement: "bottom",
+		offsetX: 18,
+		text: [
+			"Fulfillment loop",
+			"#orders fan out into #order_lines.allocated_qty and spawn #pick_tasks.",
+			"Billing closes through #invoices.status.",
+		].join("\n"),
+	},
+];
+
+const roundPosition = (value: number) => Math.round(value);
+
+const getNodeBounds = (node: DiagramNode): Bounds => ({
+	left: node.position.x,
+	top: node.position.y,
+	right: node.position.x + (node.width ?? node.data.layout.width),
+	bottom: node.position.y + (node.height ?? node.data.layout.height),
+});
+
+const getBoundsForTables = (
+	tables: readonly string[],
+	nodesById: ReadonlyMap<string, DiagramNode>,
+) => {
+	let bounds: Bounds | null = null;
+
+	for (const tableId of tables) {
+		const node = nodesById.get(tableId);
+		if (!node) return null;
+
+		const nextBounds = getNodeBounds(node);
+		bounds =
+			bounds === null
+				? nextBounds
+				: {
+						left: Math.min(bounds.left, nextBounds.left),
+						top: Math.min(bounds.top, nextBounds.top),
+						right: Math.max(bounds.right, nextBounds.right),
+						bottom: Math.max(bounds.bottom, nextBounds.bottom),
+					};
+	}
+
+	return bounds;
+};
+
+const placeStickyNote = (
+	bounds: Bounds,
+	definition: SampleStickyNoteDefinition,
+) => {
+	const width = definition.width ?? SAMPLE_STICKY_NOTE_WIDTH;
+	const height = definition.height ?? SAMPLE_STICKY_NOTE_HEIGHT;
+	const offsetX = definition.offsetX ?? 0;
+	const offsetY = definition.offsetY ?? 0;
+	const horizontalCenter = bounds.left + (bounds.right - bounds.left) / 2 - width / 2;
+	const verticalCenter = bounds.top + (bounds.bottom - bounds.top) / 2 - height / 2;
+
+	switch (definition.placement) {
+		case "left":
+			return {
+				x: roundPosition(bounds.left - width - SAMPLE_STICKY_NOTE_GAP + offsetX),
+				y: roundPosition(verticalCenter + offsetY),
+			};
+		case "right":
+			return {
+				x: roundPosition(bounds.right + SAMPLE_STICKY_NOTE_GAP + offsetX),
+				y: roundPosition(verticalCenter + offsetY),
+			};
+		case "bottom":
+			return {
+				x: roundPosition(horizontalCenter + offsetX),
+				y: roundPosition(bounds.bottom + SAMPLE_STICKY_NOTE_GAP + offsetY),
+			};
+		default:
+			return {
+				x: roundPosition(horizontalCenter + offsetX),
+				y: roundPosition(bounds.top - height - SAMPLE_STICKY_NOTE_GAP + offsetY),
+			};
+	}
+};
+
+export const isSampleSchemaSource = (source: string) =>
+	source.trim() === SAMPLE_SCHEMA_SOURCE_COMPARISON;
+
+export const buildSampleStickyNotes = (
+	nodes: readonly DiagramNode[],
+): SharedStickyNote[] => {
+	const nodesById = new Map(nodes.map((node) => [node.id, node] as const));
+
+	return SAMPLE_STICKY_NOTES.flatMap((definition) => {
+		const bounds = getBoundsForTables(definition.tables, nodesById);
+		if (bounds === null) return [];
+
+		const width = definition.width ?? SAMPLE_STICKY_NOTE_WIDTH;
+		const height = definition.height ?? SAMPLE_STICKY_NOTE_HEIGHT;
+		const position = placeStickyNote(bounds, definition);
+
+		return [
+			{
+				id: definition.id,
+				x: position.x,
+				y: position.y,
+				width,
+				height,
+				color: definition.color,
+				text: definition.text,
+			} satisfies SharedStickyNote,
+		];
+	});
+};

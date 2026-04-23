@@ -24,6 +24,14 @@ export function ProseBody({
 		() => splitTextWithTokens(text, isValidRef),
 		[text, isValidRef],
 	);
+	const keyedSegments = useMemo(() => {
+		let offset = 0;
+		return segments.map((segment) => {
+			const key = `${segment.kind}:${offset}`;
+			offset += segment.value.length;
+			return { key, segment };
+		});
+	}, [segments]);
 	return (
 		<div
 			role="presentation"
@@ -34,22 +42,22 @@ export function ProseBody({
 			{text.length === 0 ? (
 				<span className="italic opacity-50">{PLACEHOLDER_TEXT}</span>
 			) : (
-				segments.map((seg, idx) =>
-					seg.kind === "token" ? (
+				keyedSegments.map(({ key, segment }) =>
+					segment.kind === "token" ? (
 						<button
-							key={idx}
+							key={key}
 							type="button"
 							onClick={(e) => {
 								e.stopPropagation();
-								const ref = links.find((l) => l.token === seg.value);
+								const ref = links.find((l) => l.token === segment.value);
 								if (ref) onChipClick(ref);
 							}}
 							className="sticky-note__token mx-px rounded-xs border px-1 font-sans text-[13px] align-baseline"
 						>
-							{seg.value}
+							{segment.value}
 						</button>
 					) : (
-						<span key={idx}>{seg.value}</span>
+						<span key={key}>{segment.value}</span>
 					),
 				)
 			)}
@@ -65,7 +73,7 @@ export function LinksRow({
 	readonly onChipClick: (ref: StickyNoteLinkRef) => void;
 }) {
 	return (
-		<div className="flex flex-wrap gap-x-1.5 gap-y-1 px-3 pb-1.5">
+		<div className="flex flex-wrap gap-x-1.5 gap-y-1 px-3 pt-2 pb-2">
 			{links.map((ref) => (
 				<button
 					key={ref.token}

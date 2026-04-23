@@ -23,6 +23,7 @@ import { useDiagramSearch } from "@/hooks/useDiagramSearch";
 import { useDiagramSync } from "@/hooks/useDiagramSync";
 import { usePretextLayoutRevision } from "@/hooks/usePretextLayoutRevision";
 import { useDraftPersistence } from "@/hooks/useDraftPersistence";
+import { useSampleStickyNotes } from "@/hooks/useSampleStickyNotes";
 import { useRouting } from "@/hooks/useRouting";
 import { useSchemaLoader } from "@/hooks/useSchemaLoader";
 import { useSchemaParser } from "@/hooks/useSchemaParser";
@@ -209,6 +210,15 @@ function App() {
 		setEdges,
 	});
 
+	const { rootSampleBaseline } = useSampleStickyNotes({
+		source,
+		nodes,
+		canPersistNodePositions,
+		shareId: viewedRoute.shareId,
+		getDraft,
+		requestFitView,
+	});
+
 	useEffect(() => {
 		if (searchFocusIds.length === 0) {
 			return;
@@ -225,6 +235,7 @@ function App() {
 		isLoadingShare,
 		viewedRoute,
 		currentShareBaseline,
+		rootSampleBaseline,
 		clearDraft,
 		setDraft,
 		replaceViewedRoute,

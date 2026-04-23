@@ -214,6 +214,7 @@ describe("draftPersistence", () => {
 					payload: createPayload(SAMPLE_DBML, {}),
 					sampleSource: SAMPLE_DBML,
 					baseline: null,
+					rootBaseline: null,
 				}),
 		).toEqual({
 			shouldStoreDraft: false,
@@ -235,6 +236,7 @@ describe("draftPersistence", () => {
 					}),
 					sampleSource: SAMPLE_DBML,
 					baseline: null,
+					rootBaseline: null,
 				}),
 		).toEqual({
 			shouldStoreDraft: true,
@@ -256,6 +258,7 @@ describe("draftPersistence", () => {
 					payload: createPayload("Table edited_shared_copy {}"),
 					sampleSource: SAMPLE_DBML,
 					baseline: createPayload("Table original_shared_copy {}"),
+					rootBaseline: null,
 				}),
 		).toEqual({
 			shouldStoreDraft: true,
@@ -281,6 +284,7 @@ describe("draftPersistence", () => {
 					payload: baseline,
 					sampleSource: SAMPLE_DBML,
 					baseline,
+					rootBaseline: null,
 				}),
 		).toEqual({
 			shouldStoreDraft: false,
@@ -302,6 +306,7 @@ describe("draftPersistence", () => {
 					payload: createPayload("Table edited_shared_copy {}"),
 					sampleSource: SAMPLE_DBML,
 					baseline: null,
+					rootBaseline: null,
 				}),
 		).toEqual({
 			shouldStoreDraft: true,
@@ -309,6 +314,48 @@ describe("draftPersistence", () => {
 			nextRoute: {
 				shareId: "shared-123",
 				isDirty: true,
+			},
+		});
+	});
+
+	it("treats the seeded sample presentation as the clean root baseline", () => {
+		const payload: SchemaPayload = {
+			source: SAMPLE_DBML,
+			positions: {
+				tenants: { x: 80, y: 120 },
+				orders: { x: 420, y: 120 },
+			},
+			notes: [
+				{
+					id: "sample-note-tenant-spine",
+					x: -120,
+					y: 48,
+					width: 276,
+					height: 172,
+					color: "yellow",
+					text: "#tenants -> #memberships",
+				},
+			],
+			version: 3,
+		};
+
+		expect(
+			resolveDraftPersistence({
+				route: {
+					shareId: null,
+					isDirty: false,
+				},
+				payload,
+				sampleSource: SAMPLE_DBML,
+				baseline: null,
+				rootBaseline: payload,
+			}),
+		).toEqual({
+			shouldStoreDraft: false,
+			shouldClearDraft: true,
+			nextRoute: {
+				shareId: null,
+				isDirty: false,
 			},
 		});
 	});
