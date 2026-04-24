@@ -12,6 +12,7 @@ import {
 	useStickyNotesStore,
 } from "@/store/useStickyNotesStore";
 import type { DiagramNode, DiagramPositions, SchemaPayload } from "@/types";
+import type { SessionStatus } from "@/types/session";
 
 const DRAFT_DEBOUNCE_MS = 180;
 
@@ -21,6 +22,7 @@ interface DraftPersistenceOptions {
 	readonly canPersistNodePositions: boolean;
 	readonly shareSeedPositions: DiagramPositions;
 	readonly isLoadingShare: boolean;
+	readonly sessionStatus: SessionStatus;
 	readonly viewedRoute: DiagramRouteState;
 	readonly currentShareBaseline: SchemaPayload | null;
 	readonly rootSampleBaseline: SchemaPayload | null;
@@ -35,6 +37,7 @@ export function useDraftPersistence({
 	canPersistNodePositions,
 	shareSeedPositions,
 	isLoadingShare,
+	sessionStatus,
 	viewedRoute,
 	currentShareBaseline,
 	rootSampleBaseline,
@@ -43,7 +46,11 @@ export function useDraftPersistence({
 	replaceViewedRoute,
 }: DraftPersistenceOptions) {
 	useEffect(() => {
-		if (isLoadingShare) {
+		if (
+			isLoadingShare ||
+			sessionStatus === "live" ||
+			sessionStatus === "reconnecting"
+		) {
 			return;
 		}
 
@@ -100,6 +107,7 @@ export function useDraftPersistence({
 		source,
 		canPersistNodePositions,
 		isLoadingShare,
+		sessionStatus,
 		nodes,
 		replaceViewedRoute,
 		setDraft,

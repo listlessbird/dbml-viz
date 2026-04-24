@@ -1,7 +1,8 @@
-import { IconCheck, IconCopy } from "@tabler/icons-react";
+import { IconCheck, IconCopy, IconLoader2, IconPlug, IconPlugConnected, IconLockOpen } from "@tabler/icons-react";
 import { useState } from "react";
 
 import { ShareButton } from "@/components/ShareButton";
+import type { SessionStatus } from "@/types/session";
 
 interface ToolbarProps {
 	readonly tableCount: number;
@@ -9,7 +10,12 @@ interface ToolbarProps {
 	readonly isSharing: boolean;
 	readonly shareId: string | null;
 	readonly isDirty: boolean;
+	readonly sessionStatus: SessionStatus;
+	readonly agentEditorLocked: boolean;
 	readonly onShare: () => void;
+	readonly onConnectAgent: () => void;
+	readonly onDisconnectAgent: () => void;
+	readonly onUnlockEditor: () => void;
 }
 
 function StatusDot() {
@@ -87,7 +93,17 @@ export function Toolbar({
 	shareId,
 	isDirty,
 	onShare,
+	sessionStatus,
+	agentEditorLocked,
+	onConnectAgent,
+	onDisconnectAgent,
+	onUnlockEditor,
 }: ToolbarProps) {
+	const isSessionActive =
+		sessionStatus === "connecting" ||
+		sessionStatus === "live" ||
+		sessionStatus === "reconnecting";
+
 	return (
 		<div className="dark flex min-h-12 items-stretch border-b border-border bg-sidebar text-sidebar-foreground">
 			<div className="flex min-w-0 flex-1 items-center gap-[18px] overflow-x-auto px-4">
@@ -101,9 +117,51 @@ export function Toolbar({
 					{relationCount} {relationCount === 1 ? "relationship" : "relationships"}
 				</span>
 				<ShareStatus shareId={shareId} isDirty={isDirty} />
+				{isSessionActive ? (
+					<span className="inline-flex shrink-0 items-center gap-1.5 border border-emerald-400/25 px-2 py-1 text-[11px] text-emerald-200">
+						{sessionStatus === "reconnecting" || sessionStatus === "connecting" ? (
+							<IconLoader2 className="size-3 animate-spin" />
+						) : (
+							<IconPlugConnected className="size-3" />
+						)}
+						{sessionStatus === "reconnecting"
+							? "Reconnecting"
+							: sessionStatus === "connecting"
+								? "Connecting"
+								: "Agent session live"}
+					</span>
+				) : null}
+				{agentEditorLocked ? (
+					<button
+						type="button"
+						className="inline-flex shrink-0 items-center gap-1.5 border border-amber-400/30 px-2 py-1 text-[11px] text-amber-100 transition-colors hover:bg-amber-400/10"
+						onClick={onUnlockEditor}
+					>
+						<IconLockOpen className="size-3" />
+						Unlock editor
+					</button>
+				) : null}
 			</div>
 
 			<div className="flex shrink-0 items-stretch border-l border-border">
+				{isSessionActive ? (
+					<button
+						type="button"
+						className="inline-flex items-center gap-2 border-l border-border px-3 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent"
+						onClick={onDisconnectAgent}
+					>
+						Disconnect
+					</button>
+				) : (
+					<button
+						type="button"
+						className="inline-flex items-center gap-2 border-l border-border px-3 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent"
+						onClick={onConnectAgent}
+					>
+						<IconPlug className="size-4" />
+						Connect Canvas
+					</button>
+				)}
 				<ShareButton isSharing={isSharing} onShare={onShare} />
 			</div>
 		</div>

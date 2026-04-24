@@ -1,0 +1,201 @@
+import { DurableObject } from "cloudflare:workers";
+import { createMcpHandler } from "agents/mcp";
+import { nanoid } from "nanoid";
+
+import { createSessionMcpServer } from "./mcp-tools.ts";
+import { makeSnapshot, SessionStorage } from "./session-storage.ts";
+import {
+	MAX_SCHEMA_SOURCE_LENGTH,
+	SESSION_EVICTION_MS,
+	SHARE_TTL_SECONDS,
+	type ClientMessage,
+	type ServerMessage,
+} from "./session-types.ts";
+
+type McpFetchHandler = (request: Request, env: unknown, ctx: ExecutionContext) => Promise<Response>;
+
+export class SchemaSessionDO extends DurableObject<Env> {
+	private store = new SessionStorage(this.ctx.storage);
+
+
+	private broadcast(message: ServerMessage, exclude?: WebSocket): void {
+		const payload = JSON.stringify(message);
+		for (const ws of this.ctx.getWebSockets("browser")) {
+			if (ws !== exclude) {
+				try { ws.send(payload); } catch { /* gone */ }
+			}
+		}
+	}
+
+
+	override async alarm(): Promise<void> {
+		const session = await this.store.load();
+		if (!session) return;
+
+		const remaining = SESSION_EVICTION_MS - (Date.now() - session.lastActivityAt);
+		if (remaining > 0) {
+			await this.ctx.storage.setAlarm(Date.now() + remaining);
+			return;
+		}
+
+		await this.store.clear();
+	}
+
+	private async scheduleEvictionIfEmpty(): Promise<void> {
+		if (this.ctx.getWebSockets("browser").length === 0) {
+			await this.ctx.storage.setAlarm(Date.now() + SESSION_EVICTION_MS);
+		}
+	}
+
+
+	private handleWebSocketUpgrade(request: Request): Response {
+		if (request.headers.get("Upgrade") !== "websocket") {
+			return new Response("Expected WebSocket upgrade", { status: 426 });
+		}
+
+		const pair = new WebSocketPair();
+		this.ctx.acceptWebSocket(pair[1], ["browser"]);
+		void this.ctx.storage.deleteAlarm();
+
+		return new Response(null, { status: 101, webSocket: pair[0] });
+	}
+
+
+	override async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
+		if (typeof message !== "string") return;
+
+		let msg: ClientMessage;
+		try {
+			const parsed = JSON.parse(message);
+			if (!parsed || typeof parsed !== "object" || !("type" in parsed)) throw 0;
+			msg = parsed as ClientMessage;
+		} catch {
+			ws.send(JSON.stringify({ type: "error", message: "Invalid message" } satisfies ServerMessage));
+			return;
+		}
+
+		switch (msg.type) {
+			case "ping":
+				return void ws.send(JSON.stringify({ type: "pong" } satisfies ServerMessage));
+
+			case "init":
+				return void await this.handleInit(ws, msg);
+
+			case "reconnect":
+				return void await this.handleReconnect(ws);
+
+			case "set-source":
+				return void await this.handleSetSource(ws, msg.source);
+
+			case "set-positions":
+				return void await this.handlePatch(ws, { positions: msg.positions });
+
+			case "set-notes":
+				return void await this.handlePatch(ws, { notes: [...msg.notes] });
+
+			case "set-diagnostics":
+				return void await this.store.save({
+					diagnostics: [...msg.diagnostics],
+					parsedTableCount: msg.tableCount,
+					parsedRefCount: msg.refCount,
+				});
+
+			case "share-request":
+				return void await this.handleShare(ws);
+		}
+	}
+
+	override async webSocketClose(ws: WebSocket): Promise<void> {
+		ws.close();
+		await this.scheduleEvictionIfEmpty();
+	}
+
+	override async webSocketError(ws: WebSocket): Promise<void> {
+		ws.close();
+		await this.scheduleEvictionIfEmpty();
+	}
+
+
+	private async handleInit(ws: WebSocket, msg: Extract<ClientMessage, { type: "init" }>): Promise<void> {
+		let session = await this.store.load();
+		if (!session) {
+			session = await this.store.init(msg.state);
+		}
+		ws.send(JSON.stringify({ type: "state-ack", state: makeSnapshot(session) } satisfies ServerMessage));
+	}
+
+	private async handleReconnect(ws: WebSocket): Promise<void> {
+		const session = await this.store.load();
+		if (!session) {
+			ws.send(JSON.stringify({ type: "error", message: "session-expired" } satisfies ServerMessage));
+			ws.close(4000, "Session expired");
+			return;
+		}
+		ws.send(JSON.stringify({ type: "state-ack", state: makeSnapshot(session) } satisfies ServerMessage));
+	}
+
+	private async handleSetSource(ws: WebSocket, source: string): Promise<void> {
+		if (!(await this.store.load())) return;
+
+		if (source.length > MAX_SCHEMA_SOURCE_LENGTH) {
+			ws.send(JSON.stringify({ type: "error", message: `Source exceeds ${MAX_SCHEMA_SOURCE_LENGTH} chars` } satisfies ServerMessage));
+			return;
+		}
+
+		await this.store.save({ source });
+		this.broadcast({ type: "state-update", patch: { source } }, ws);
+	}
+
+	private async handlePatch(ws: WebSocket, partial: Parameters<SessionStorage["save"]>[0]): Promise<void> {
+		if (!(await this.store.load())) return;
+		await this.store.save(partial);
+		this.broadcast({ type: "state-update", patch: partial as Partial<import("./session-types.ts").SessionSnapshot> }, ws);
+	}
+
+	private async handleShare(ws: WebSocket): Promise<void> {
+		const session = await this.store.load();
+		if (!session) {
+			ws.send(JSON.stringify({ type: "share-error", error: "No active session" } satisfies ServerMessage));
+			return;
+		}
+
+		try {
+			const shareId = nanoid(8);
+			const payload = { source: session.source, positions: session.positions, notes: session.notes, version: 3 as const };
+
+			await this.env.SCHEMAS.put(shareId, JSON.stringify(payload), { expirationTtl: SHARE_TTL_SECONDS });
+			await this.store.save({
+				baseline: { shareId, source: session.source, positions: session.positions, notes: session.notes },
+			});
+
+			ws.send(JSON.stringify({ type: "share-result", id: shareId } satisfies ServerMessage));
+			this.broadcast({ type: "state-update", patch: { baseline: { shareId } } }, ws);
+		} catch (error) {
+			console.error("Share failed", error);
+			ws.send(JSON.stringify({ type: "share-error", error: "Failed to save shared schema" } satisfies ServerMessage));
+		}
+	}
+
+
+	private getMcpHandler(route: string): McpFetchHandler {
+		const server = createSessionMcpServer(this.store, (msg) => this.broadcast(msg));
+		return createMcpHandler(server, { route });
+	}
+
+
+	override async fetch(request: Request): Promise<Response> {
+		const url = new URL(request.url);
+
+		if (url.pathname.endsWith("/ws")) {
+			return this.handleWebSocketUpgrade(request);
+		}
+
+		if (url.pathname.endsWith("/mcp") || url.pathname.includes("/mcp/")) {
+			const handler = this.getMcpHandler(url.pathname);
+			const ctx = { waitUntil: (p: Promise<unknown>) => this.ctx.waitUntil(p), passThroughOnException: () => {} } as ExecutionContext;
+			return handler(request, this.env, ctx);
+		}
+
+		return new Response("Not found", { status: 404 });
+	}
+}
