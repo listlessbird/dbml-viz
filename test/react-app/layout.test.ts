@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { buildElkLayoutGraph, doDiagramNodesOverlap } from "@/lib/layout";
+import { buildElkLayoutGraph } from "@/lib/layout";
+import { doDiagramNodesOverlap } from "@/lib/diagram-overlap";
 import { parseDbmlSource } from "@/lib/dbml-schema";
 import {
 	getRelationSourceHandleId,

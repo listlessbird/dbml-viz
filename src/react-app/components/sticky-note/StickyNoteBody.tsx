@@ -25,12 +25,13 @@ export function ProseBody({
 		[text, isValidRef],
 	);
 	const keyedSegments = useMemo(() => {
-		let offset = 0;
-		return segments.map((segment) => {
-			const key = `${segment.kind}:${offset}`;
-			offset += segment.value.length;
-			return { key, segment };
-		});
+		let currentOffset = 0;
+		const result = [];
+		for (const segment of segments) {
+			result.push({ key: `${segment.kind}:${currentOffset}`, segment });
+			currentOffset += segment.value.length;
+		}
+		return result;
 	}, [segments]);
 	return (
 		<div

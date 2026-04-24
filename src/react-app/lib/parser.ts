@@ -63,9 +63,41 @@ const scheduleIdleTermination = () => {
 	}, PARSER_WORKER_IDLE_TIMEOUT_MS);
 };
 
+let activeParseId: number | null = null;
+let nextParse: {
+	source: string;
+	resolve: (value: ParsedSourceResult) => void;
+	reject: (reason?: unknown) => void;
+} | null = null;
+
+const processNextParse = () => {
+	if (activeParseId !== null || nextParse === null) {
+		return;
+	}
+
+	const { source, resolve, reject } = nextParse;
+	nextParse = null;
+
+	const worker = ensureParserWorker();
+	const requestId = ++nextRequestId;
+	activeParseId = requestId;
+
+	pendingParses.set(requestId, { resolve, reject });
+	const request: SchemaParserRequest = {
+		id: requestId,
+		source,
+	};
+	worker.postMessage(request);
+};
+
 const handleParserWorkerMessage = (event: MessageEvent<SchemaParserResponse>) => {
+	if (activeParseId === event.data.id) {
+		activeParseId = null;
+	}
+
 	const pending = pendingParses.get(event.data.id);
 	if (!pending) {
+		processNextParse();
 		return;
 	}
 
@@ -81,6 +113,7 @@ const handleParserWorkerMessage = (event: MessageEvent<SchemaParserResponse>) =>
 	}
 
 	scheduleIdleTermination();
+	processNextParse();
 };
 
 const ensureParserWorker = () => {
@@ -97,13 +130,15 @@ const ensureParserWorker = () => {
 	worker.addEventListener("message", handleParserWorkerMessage);
 	worker.addEventListener("error", (event) => {
 		console.error("Schema parser web worker crashed.", event.error ?? event);
-
+		activeParseId = null;
 		terminateParserWorker(new Error("Schema parser worker crashed."));
+		processNextParse();
 	});
 	worker.addEventListener("messageerror", (event) => {
 		console.error("Schema parser web worker returned an invalid message.", event);
-
+		activeParseId = null;
 		terminateParserWorker(new Error("Schema parser worker returned an invalid message."));
+		processNextParse();
 	});
 
 	parserWorker = worker;
@@ -120,17 +155,12 @@ export const parseSchema = (source: string): Promise<ParsedSourceResult> => {
 		});
 	}
 
-	const worker = ensureParserWorker();
-	const requestId = ++nextRequestId;
-
 	return new Promise<ParsedSourceResult>((resolve, reject) => {
-		pendingParses.set(requestId, { resolve, reject });
+		if (nextParse !== null) {
+			nextParse.reject(new Error("Parse cancelled by newer request."));
+		}
 
-		const request: SchemaParserRequest = {
-			id: requestId,
-			source,
-		};
-
-		worker.postMessage(request);
+		nextParse = { source, resolve, reject };
+		processNextParse();
 	});
 };

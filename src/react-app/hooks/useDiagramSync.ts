@@ -10,7 +10,7 @@ import type { Dispatch, SetStateAction } from "react";
 import { toast } from "sonner";
 
 import { getPositionsFromNodes } from "@/lib/draftPersistence";
-import { doDiagramNodesOverlap } from "@/lib/layout";
+import { doDiagramNodesOverlap } from "@/lib/diagram-overlap";
 import {
 	createDiagramSearchContext,
 	type DiagramSearchState,
@@ -228,6 +228,7 @@ export function useDiagramSync({
 	}, [
 		applyAutoLayout,
 		isLayouting,
+		layoutAlgorithm,
 		layoutRevision,
 		parsed,
 		searchState,

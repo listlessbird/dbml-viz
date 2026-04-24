@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { parseDbmlSource } from "@/lib/dbml-schema";
-import { doDiagramNodesOverlap } from "@/lib/layout";
+import { doDiagramNodesOverlap } from "@/lib/diagram-overlap";
 import {
 	getRelationSourceHandleId,
 	getRelationTargetHandleId,

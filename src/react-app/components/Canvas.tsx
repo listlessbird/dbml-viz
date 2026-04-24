@@ -136,7 +136,7 @@ export function Canvas({
   onZoomIn,
   onZoomOut,
 }: CanvasProps) {
-  const { displayNodes, displayEdges, handlers } = useRelationHighlighting(
+  const { handlers } = useRelationHighlighting(
     nodes,
     edges,
   );
@@ -157,8 +157,8 @@ export function Canvas({
   );
 
   const mergedNodes = useMemo<CanvasNode[]>(
-    () => [...stickyNoteNodes, ...displayNodes],
-    [displayNodes, stickyNoteNodes],
+    () => [...stickyNoteNodes, ...nodes],
+    [nodes, stickyNoteNodes],
   );
 
   const tableLookupByName = useMemo(() => buildTableLookupByName(nodes), [nodes]);
@@ -169,8 +169,8 @@ export function Canvas({
   );
 
   const mergedEdges = useMemo<CanvasEdge[]>(
-    () => [...displayEdges, ...stickyLinkEdges],
-    [displayEdges, stickyLinkEdges],
+    () => [...edges, ...stickyLinkEdges],
+    [edges, stickyLinkEdges],
   );
 
   const handleInit = useCallback(

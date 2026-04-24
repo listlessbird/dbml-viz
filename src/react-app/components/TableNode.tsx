@@ -16,6 +16,7 @@ import type {
 	TableData,
 	TableNodeData,
 } from "@/types";
+import { useRelationHighlightingStore } from "@/store/useRelationHighlightingStore";
 
 const areStringArraysEqual = (
 	a: readonly string[] | undefined,
@@ -79,10 +80,8 @@ const areTableNodePropsEqual = (
 		a.isSearchMatch === b.isSearchMatch &&
 		a.isSearchRelated === b.isSearchRelated &&
 		a.isSearchDimmed === b.isSearchDimmed &&
-		a.isRelationContextActive === b.isRelationContextActive &&
 		areTableLayoutsEqual(a.layout, b.layout) &&
 		areStringArraysEqual(a.connectedColumns, b.connectedColumns) &&
-		areStringArraysEqual(a.activeRelationColumns, b.activeRelationColumns) &&
 		areRelationAnchorsEqual(a.relationAnchors, b.relationAnchors) &&
 		areNumberRecordsEqual(a.compositeHandleOffsets, b.compositeHandleOffsets)
 	);
@@ -91,11 +90,11 @@ const areTableNodePropsEqual = (
 type SchemaTableNodeStyle = CSSProperties &
 	Record<"--schema-node-opacity" | "--schema-surface-shadow", string | number>;
 
-const getSurfaceShadow = (data: TableNodeData, selected: boolean) => {
+const getSurfaceShadow = (data: TableNodeData, selected: boolean, isRelationContextActive: boolean) => {
 	if (selected || data.isSearchMatch) {
 		return "0 0 0 1px var(--primary), 0 0 0 3px color-mix(in oklab, var(--primary) 14%, transparent), 0 16px 34px color-mix(in oklab, var(--foreground) 14%, transparent)";
 	}
-	if (data.isRelationContextActive) {
+	if (isRelationContextActive) {
 		return "0 0 0 1px color-mix(in oklab, var(--primary) 18%, var(--border)), 0 16px 30px color-mix(in oklab, var(--primary) 10%, transparent)";
 	}
 	if (data.isSearchRelated) {
@@ -200,15 +199,18 @@ export const TableNode = memo(function TableNode({
 	data,
 	selected,
 }: NodeProps<DiagramNode>) {
+	const activeRelationColumnsSet = useRelationHighlightingStore((state) => state.activeRelationColumnsByTable.get(id));
+	const isRelationContextActive = useRelationHighlightingStore((state) => state.activeTableIds.has(id));
+
 	const viewModel = useMemo(() => getTableNodeViewModel(
 		data.table,
 		data.connectedColumns,
-		data.activeRelationColumns,
-	), [data.activeRelationColumns, data.connectedColumns, data.table]);
+		activeRelationColumnsSet ? Array.from(activeRelationColumnsSet) : undefined,
+	), [activeRelationColumnsSet, data.connectedColumns, data.table]);
 
 	const nodeStyle: SchemaTableNodeStyle = {
 		"--schema-node-opacity": data.isSearchDimmed ? 0.32 : 1,
-		"--schema-surface-shadow": getSurfaceShadow(data, selected),
+		"--schema-surface-shadow": getSurfaceShadow(data, selected, isRelationContextActive),
 		borderWidth: tableNodeMetrics.nodeBorder,
 		width: `${data.layout.width}px`,
 	};

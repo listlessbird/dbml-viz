@@ -1,14 +1,10 @@
-import { useCallback, useMemo, useState } from "react";
-import type { FocusEvent, MouseEvent } from "react";
+import { useCallback, useMemo, useState, useEffect } from "react";
+import type { FocusEvent } from "react";
 
 import { useDiagramUiStore } from "@/store/useDiagramUiStore";
-import type { DiagramEdge, DiagramNode } from "@/types";
+import type { DiagramNode, DiagramEdge } from "@/types";
+import { useRelationHighlightingStore } from "@/store/useRelationHighlightingStore";
 
-const EDGE_TRANSITION_EASING = "cubic-bezier(0.215, 0.61, 0.355, 1)";
-const EDGE_TRANSITION = [
-	`opacity 180ms ${EDGE_TRANSITION_EASING}`,
-	`stroke-width 180ms ${EDGE_TRANSITION_EASING}`,
-].join(", ");
 const EMPTY_RELATION_COLUMNS = new Map<string, Set<string>>();
 
 const getNodeIdFromEvent = (target: EventTarget | null) =>
@@ -16,23 +12,6 @@ const getNodeIdFromEvent = (target: EventTarget | null) =>
 		? target.closest<HTMLElement>(".react-flow__node[data-id]")?.dataset.id ?? null
 		: null;
 
-const readEdgeStyleNumber = (
-	value: number | string | undefined,
-	fallback: number,
-) => {
-	if (typeof value === "number" && Number.isFinite(value)) {
-		return value;
-	}
-
-	if (typeof value === "string") {
-		const parsed = Number(value);
-		if (Number.isFinite(parsed)) {
-			return parsed;
-		}
-	}
-
-	return fallback;
-};
 
 export function useRelationHighlighting(
 	nodes: DiagramNode[],
@@ -89,80 +68,20 @@ export function useRelationHighlighting(
 			}
 
 			const sourceColumns = columnsByTable.get(edge.data.from.table) ?? new Set<string>();
-			edge.data.from.columns.forEach((column) => sourceColumns.add(column));
+			edge.data.from.columns.forEach((column: string) => sourceColumns.add(column));
 			columnsByTable.set(edge.data.from.table, sourceColumns);
 
 			const targetColumns = columnsByTable.get(edge.data.to.table) ?? new Set<string>();
-			edge.data.to.columns.forEach((column) => targetColumns.add(column));
+			edge.data.to.columns.forEach((column: string) => targetColumns.add(column));
 			columnsByTable.set(edge.data.to.table, targetColumns);
 		}
 
 		return columnsByTable;
 	}, [activeTableIds, edges]);
 
-	const displayNodes = useMemo(() => {
-		if (activeRelationColumnsByTable.size === 0) {
-			return nodes;
-		}
-
-		return nodes.map((node) => {
-			const activeColumns = activeRelationColumnsByTable.get(node.id);
-			if (!activeColumns || activeColumns.size === 0) {
-				return node;
-			}
-
-			return {
-				...node,
-				data: {
-					...node.data,
-					activeRelationColumns: Array.from(activeColumns),
-					isRelationContextActive: true,
-				},
-			} satisfies DiagramNode;
-		});
-	}, [activeRelationColumnsByTable, nodes]);
-
-	const displayEdges = useMemo(() => {
-		if (activeTableIds.size === 0) {
-			return edges;
-		}
-
-		return edges.map((edge) => {
-			if (edge.data === undefined) {
-				return edge;
-			}
-
-			const isRelationSourceActive = activeTableIds.has(edge.source);
-			const isRelationTargetActive = activeTableIds.has(edge.target);
-			if (!isRelationSourceActive && !isRelationTargetActive) {
-				return edge;
-			}
-
-			const baseStrokeWidth = readEdgeStyleNumber(edge.style?.strokeWidth, 1.4);
-			const stroke = "var(--primary)";
-
-			return {
-				...edge,
-				data: {
-					...edge.data,
-					isRelationActive: true,
-					isRelationSourceActive,
-					isRelationTargetActive,
-				},
-				style: {
-					...edge.style,
-					stroke,
-					strokeWidth: baseStrokeWidth + 0.9,
-					opacity: readEdgeStyleNumber(edge.style?.opacity, 1),
-					transition: EDGE_TRANSITION,
-				},
-				markerEnd:
-					edge.markerEnd && typeof edge.markerEnd === "object"
-						? { ...edge.markerEnd, color: stroke }
-						: edge.markerEnd,
-			} satisfies DiagramEdge;
-		});
-	}, [activeTableIds, edges]);
+	useEffect(() => {
+		useRelationHighlightingStore.getState().setActiveElements(activeTableIds, activeRelationColumnsByTable);
+	}, [activeTableIds, activeRelationColumnsByTable]);
 
 	const onFocusCapture = useCallback((event: FocusEvent) => {
 		const nodeId = getNodeIdFromEvent(event.target);
@@ -181,11 +100,11 @@ export function useRelationHighlighting(
 		);
 	}, []);
 
-	const onNodeMouseEnter = useCallback((_: MouseEvent, node: DiagramNode) => {
+	const onNodeMouseEnter = useCallback((_: React.MouseEvent, node: DiagramNode) => {
 		setHoveredNodeId((current) => (current === node.id ? current : node.id));
 	}, []);
 
-	const onNodeMouseLeave = useCallback((_: MouseEvent, node: DiagramNode) => {
+	const onNodeMouseLeave = useCallback((_: React.MouseEvent, node: DiagramNode) => {
 		setHoveredNodeId((current) => (current === node.id ? null : current));
 	}, []);
 
@@ -215,5 +134,5 @@ export function useRelationHighlighting(
 		],
 	);
 
-	return { displayNodes, displayEdges, handlers };
+	return { handlers };
 }

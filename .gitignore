@@ -204,5 +204,5 @@ dist
 Heap-*
 Trace-*
 
-.codex-artifacts
 .tmp
+.codex-artifacts

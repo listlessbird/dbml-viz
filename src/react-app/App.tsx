@@ -36,7 +36,7 @@ import {
 	getInitialDraftState,
 	type DiagramRouteState,
 } from "@/lib/draftPersistence";
-import { cancelIdleCallback, scheduleIdleCallback } from "@/lib/idle-callback";
+
 import { SAMPLE_SCHEMA_SOURCE } from "@/lib/sample-dbml";
 import { getDiagramDraft, useDiagramDraftStore } from "@/store/useDiagramDraftStore";
 import { useDiagramUiStore } from "@/store/useDiagramUiStore";
@@ -181,24 +181,7 @@ function App() {
 		});
 	}, [isEditorReady]);
 
-	useEffect(() => {
-		let cancelled = false;
-		const idleHandle = scheduleIdleCallback(() => {
-			void loadEditorModule().then(() => {
-				if (cancelled) {
-					return;
-				}
-				startTransition(() => {
-					setIsEditorReady(true);
-				});
-			});
-		});
 
-		return () => {
-			cancelled = true;
-			cancelIdleCallback(idleHandle);
-		};
-	}, []);
 
 	const { isLayouting, applyAutoLayout, canPersistNodePositions } = useDiagramSync({
 		parsed,

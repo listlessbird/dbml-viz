@@ -74,22 +74,26 @@ export function SchemaColumnRow({
 			style={getSchemaColumnRowStyle(typeColumnWidth, showDivider)}
 			title={buildRowTooltip(column, badges)}
 		>
-			<Handle
-				id={getTargetHandleId(tableId, column.name)}
-				type="target"
-				position={Position.Left}
-				isConnectable={false}
-				className={cn(HANDLE_CLASS, handleVisibility)}
-				style={{ left: -6, top: "50%", transform: "translateY(-50%)" }}
-			/>
-			<Handle
-				id={getSourceHandleId(tableId, column.name)}
-				type="source"
-				position={Position.Right}
-				isConnectable={false}
-				className={cn(HANDLE_CLASS, handleVisibility)}
-				style={{ right: -6, top: "50%", transform: "translateY(-50%)" }}
-			/>
+			{isConnected ? (
+				<>
+					<Handle
+						id={getTargetHandleId(tableId, column.name)}
+						type="target"
+						position={Position.Left}
+						isConnectable={false}
+						className={cn(HANDLE_CLASS, handleVisibility)}
+						style={{ left: -6, top: "50%", transform: "translateY(-50%)" }}
+					/>
+					<Handle
+						id={getSourceHandleId(tableId, column.name)}
+						type="source"
+						position={Position.Right}
+						isConnectable={false}
+						className={cn(HANDLE_CLASS, handleVisibility)}
+						style={{ right: -6, top: "50%", transform: "translateY(-50%)" }}
+					/>
+				</>
+			) : null}
 
 			<span
 				className={cn("schema-column-key", glyph.cls)}

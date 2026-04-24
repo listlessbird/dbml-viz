@@ -2,19 +2,17 @@ import {
 	BaseEdge,
 	EdgeLabelRenderer,
 	getSmoothStepPath,
+	useStore,
 	type EdgeProps,
 } from "@xyflow/react";
 import { memo, useMemo } from "react";
 
 import { sampleEdgeLabelPosition } from "@/lib/edge-label";
 import { formatRefEndpointSummary } from "@/lib/schema-format";
+import { useRelationHighlightingStore } from "@/store/useRelationHighlightingStore";
 import type { DiagramEdge } from "@/types";
 
-const RELATION_ACTIVITY_EASING = "cubic-bezier(0.215, 0.61, 0.355, 1)";
-const RELATION_ACTIVITY_TRANSITION = [
-	`opacity 180ms ${RELATION_ACTIVITY_EASING}`,
-	`stroke-width 180ms ${RELATION_ACTIVITY_EASING}`,
-].join(", ");
+
 const RELATION_PARTICLE_DURATION = 1.36;
 const RELATION_PARTICLE_OFFSETS = [0, -0.34, -0.68, -1.02] as const;
 
@@ -66,7 +64,11 @@ export const RelationshipEdge = memo(function RelationshipEdge({
 				.filter(Boolean)
 				.join("\n")
 		: undefined;
-	const isRelationActive = data?.isRelationActive ?? false;
+	const isRelationActive = useRelationHighlightingStore(
+		(state) => data && (state.activeTableIds.has(data.from.table) || state.activeTableIds.has(data.to.table)),
+	);
+	const isLargeGraph = useStore((s) => s.edges.length > 150);
+	const isLabelVisible = relationBadge && (isRelationActive || !isLargeGraph);
 	const strokeWidth =
 		typeof style?.strokeWidth === "number"
 			? style.strokeWidth
@@ -83,30 +85,22 @@ export const RelationshipEdge = memo(function RelationshipEdge({
 
 	return (
 		<>
-			<path
-				d={edgePath}
-				fill="none"
-				className="relation-edge-highlight"
-				style={{
-					stroke: "color-mix(in oklab, var(--primary) 28%, transparent)",
-					strokeWidth: strokeWidth + 3.4,
-					opacity: isRelationActive ? 0.44 : 0,
-					transition: RELATION_ACTIVITY_TRANSITION,
-				}}
-			/>
-			<BaseEdge
-				id={id}
-				path={edgePath}
-				style={style}
-				markerEnd={markerEnd}
-				interactionWidth={20}
-			/>
 			{isRelationActive ? (
 				<g aria-hidden="true">
-						{RELATION_PARTICLE_OFFSETS.map((begin) => (
-							<rect
-								key={`${id}-particle-${begin}`}
-								x={-6}
+					<path
+						d={edgePath}
+						fill="none"
+						className="relation-edge-highlight animate-in fade-in duration-200"
+						style={{
+							stroke: "color-mix(in oklab, var(--primary) 28%, transparent)",
+							strokeWidth: strokeWidth + 3.4,
+							opacity: 0.44,
+						}}
+					/>
+					{RELATION_PARTICLE_OFFSETS.map((begin) => (
+						<rect
+							key={`${id}-particle-${begin}`}
+							x={-6}
 							y={-2.4}
 							width={12}
 							height={4.8}
@@ -135,23 +129,34 @@ export const RelationshipEdge = memo(function RelationshipEdge({
 					))}
 				</g>
 			) : null}
-			<EdgeLabelRenderer>
-				<div
-					className="pointer-events-none absolute flex flex-col items-center"
-					style={{
-						transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
-					}}
-				>
-					{relationBadge ? (
+			<BaseEdge
+				id={id}
+				path={edgePath}
+				style={{
+					...style,
+					strokeWidth: isRelationActive ? strokeWidth + 0.9 : strokeWidth,
+					stroke: isRelationActive ? "var(--primary)" : style?.stroke,
+				}}
+				markerEnd={markerEnd}
+				interactionWidth={20}
+			/>
+			{isLabelVisible ? (
+				<EdgeLabelRenderer>
+					<div
+						className="pointer-events-none absolute flex flex-col items-center"
+						style={{
+							transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
+						}}
+					>
 						<div
 							className={badgeClassName}
 							title={nativeTooltip}
 						>
 							{relationBadge}
 						</div>
-					) : null}
-				</div>
-			</EdgeLabelRenderer>
+					</div>
+				</EdgeLabelRenderer>
+			) : null}
 		</>
 	);
 });
