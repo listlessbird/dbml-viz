@@ -11,6 +11,8 @@ import { makeWorkerInfraLayer } from "./effect/infra";
 import { makeWorkerHandler } from "./effect/runtime";
 import { SchemaShareStore } from "./services/schema-share-store";
 
+import { callSession } from "./durable-objects/call-session";
+
 const withJsonErrorBoundary = <R>(
 	program: Effect.Effect<
 		HttpServerResponse.HttpServerResponse,
@@ -90,6 +92,24 @@ const app = HttpRouter.empty.pipe(
 	),
 );
 
+const effectHandler = makeWorkerHandler(app, makeWorkerInfraLayer);
+
+
+const SESSION_PATH_PATTERN = /^\/api\/session\/([A-Za-z0-9_-]+)\/(ws|mcp.*)$/;
+
 export default {
-	fetch: makeWorkerHandler(app, makeWorkerInfraLayer),
+	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+		const url = new URL(request.url);
+		const match = SESSION_PATH_PATTERN.exec(url.pathname);
+
+		if (match) {
+			const [, sessionId] = match;
+			return callSession(env, sessionId, (stub) => stub.fetch(request));
+		}
+
+		return effectHandler(request, env, ctx);
+	},
 };
+
+
+export { SchemaSessionDO } from "./durable-objects/schema-session";

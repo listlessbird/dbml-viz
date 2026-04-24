@@ -1,4 +1,5 @@
 import { act } from "react";
+import type { ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -7,6 +8,11 @@ import { Toolbar } from "@/components/Toolbar";
 interface RenderToolbarOptions {
 	shareId?: string | null;
 	isDirty?: boolean;
+	sessionStatus?: ComponentProps<typeof Toolbar>["sessionStatus"];
+	agentEditorLocked?: boolean;
+	onConnectAgent?: () => void;
+	onDisconnectAgent?: () => void;
+	onUnlockEditor?: () => void;
 }
 
 interface RenderToolbarResult {
@@ -17,6 +23,11 @@ interface RenderToolbarResult {
 const renderToolbar = ({
 	shareId = null,
 	isDirty = false,
+	sessionStatus = "offline",
+	agentEditorLocked = false,
+	onConnectAgent = vi.fn(),
+	onDisconnectAgent = vi.fn(),
+	onUnlockEditor = vi.fn(),
 }: RenderToolbarOptions = {}): RenderToolbarResult => {
 	const container = document.createElement("div");
 	document.body.appendChild(container);
@@ -30,7 +41,12 @@ const renderToolbar = ({
 				isSharing={false}
 				shareId={shareId}
 				isDirty={isDirty}
+				sessionStatus={sessionStatus}
+				agentEditorLocked={agentEditorLocked}
 				onShare={vi.fn()}
+				onConnectAgent={onConnectAgent}
+				onDisconnectAgent={onDisconnectAgent}
+				onUnlockEditor={onUnlockEditor}
 			/>,
 		);
 	});
@@ -100,5 +116,56 @@ describe("Toolbar share status", () => {
 			new URL("/s/abc123", window.location.origin).toString(),
 		);
 		expect(copyButton?.textContent).toContain("Copied");
+	});
+
+	it("shows connect action while offline and calls the connect handler", () => {
+		const onConnectAgent = vi.fn();
+		const rendered = renderToolbar({ onConnectAgent });
+		activeRoot = rendered.root;
+		activeContainer = rendered.container;
+
+		const connectButton = Array.from(rendered.container.querySelectorAll("button")).find(
+			(button) => button.textContent?.includes("Connect Canvas"),
+		);
+
+		expect(connectButton).toBeInstanceOf(HTMLButtonElement);
+
+		act(() => {
+			(connectButton as HTMLButtonElement).click();
+		});
+
+		expect(onConnectAgent).toHaveBeenCalledTimes(1);
+	});
+
+	it("shows live session controls and editor unlock action", () => {
+		const onDisconnectAgent = vi.fn();
+		const onUnlockEditor = vi.fn();
+		const rendered = renderToolbar({
+			sessionStatus: "live",
+			agentEditorLocked: true,
+			onDisconnectAgent,
+			onUnlockEditor,
+		});
+		activeRoot = rendered.root;
+		activeContainer = rendered.container;
+
+		expect(rendered.container.textContent).toContain("Agent session live");
+		expect(rendered.container.textContent).toContain("Unlock editor");
+
+		const buttons = Array.from(rendered.container.querySelectorAll("button"));
+		const disconnectButton = buttons.find((button) =>
+			button.textContent?.includes("Disconnect"),
+		);
+		const unlockButton = buttons.find((button) =>
+			button.textContent?.includes("Unlock editor"),
+		);
+
+		act(() => {
+			(disconnectButton as HTMLButtonElement).click();
+			(unlockButton as HTMLButtonElement).click();
+		});
+
+		expect(onDisconnectAgent).toHaveBeenCalledTimes(1);
+		expect(onUnlockEditor).toHaveBeenCalledTimes(1);
 	});
 });

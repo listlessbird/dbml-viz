@@ -16,6 +16,7 @@ import {
 } from "react";
 
 import { Canvas } from "@/components/Canvas";
+import { ConnectAgentModal } from "@/components/ConnectAgentModal";
 import { EditorBootstrapShell } from "@/components/EditorBootstrapShell";
 import { Toolbar } from "@/components/Toolbar";
 import { useCanvasViewport } from "@/hooks/useCanvasViewport";
@@ -27,6 +28,7 @@ import { useSampleStickyNotes } from "@/hooks/useSampleStickyNotes";
 import { useRouting } from "@/hooks/useRouting";
 import { useSchemaLoader } from "@/hooks/useSchemaLoader";
 import { useSchemaParser } from "@/hooks/useSchemaParser";
+import { useCanvasSession } from "@/hooks/useCanvasSession";
 import { useShareSchema } from "@/hooks/useShareSchema";
 import {
 	getDraftHydrationResult,
@@ -84,6 +86,7 @@ function App() {
 	const [initialState] = useState(getInitialAppState);
 	const [isEditorHidden, setIsEditorHidden] = useState(false);
 	const [isEditorReady, setIsEditorReady] = useState(false);
+	const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
 
 	useEffect(() => {
 		useStickyNotesStore.getState().hydrate(initialState.draftState.notes);
@@ -227,20 +230,6 @@ function App() {
 		requestFitView(searchFocusIds);
 	}, [requestFitView, searchFocusIds]);
 
-	useDraftPersistence({
-		source,
-		nodes,
-		canPersistNodePositions,
-		shareSeedPositions,
-		isLoadingShare,
-		viewedRoute,
-		currentShareBaseline,
-		rootSampleBaseline,
-		clearDraft,
-		setDraft,
-		replaceViewedRoute,
-	});
-
 	const { isSharing, handleShare } = useShareSchema({
 		source,
 		nodes,
@@ -252,6 +241,62 @@ function App() {
 		setShareBaseline,
 		setShareLoadError,
 	});
+	const {
+		status: sessionStatus,
+		pairingUrl: sessionPairingUrl,
+		agentEditorLocked,
+		isSharing: isSessionSharing,
+		isEditorReadOnly,
+		handleConnect: handleSessionConnect,
+		handleDisconnect: handleSessionDisconnect,
+		handleShare: handleSessionShare,
+		handleSourceChange,
+		unlockEditor: unlockSessionEditor,
+	} = useCanvasSession({
+		source,
+		nodes,
+		parsed,
+		diagnostics,
+		canPersistNodePositions,
+		shareSeedPositions,
+		isLoadingShare,
+		viewedRoute,
+		currentShareBaseline,
+		setSource,
+		setNodes,
+		setShareSeedPositions,
+		clearDraft,
+		pushViewedRoute,
+		setShareBaseline,
+		setShareLoadError,
+		requestFitView,
+		handleRegularShare: () => void handleShare(),
+	});
+
+	useDraftPersistence({
+		source,
+		nodes,
+		canPersistNodePositions,
+		shareSeedPositions,
+		isLoadingShare,
+		sessionStatus,
+		viewedRoute,
+		currentShareBaseline,
+		rootSampleBaseline,
+		clearDraft,
+		setDraft,
+		replaceViewedRoute,
+	});
+
+	const handleConnectAgent = useCallback(() => {
+		setIsConnectModalOpen(true);
+		handleSessionConnect();
+	}, [handleSessionConnect]);
+
+	const handleDisconnectAgent = useCallback(() => {
+		handleSessionDisconnect();
+		setIsConnectModalOpen(false);
+	}, [handleSessionDisconnect]);
 
 	const handleAutoLayoutClick = useCallback((nextLayoutAlgorithm?: DiagramLayoutAlgorithm) => {
 		console.info("[layout] App.handleAutoLayoutClick", {
@@ -286,7 +331,9 @@ function App() {
 		<EditorBootstrapShell
 			value={source}
 			isParsing={isParsing}
-			onChange={setSource}
+			readOnly={isEditorReadOnly}
+			onUnlock={unlockSessionEditor}
+			onChange={handleSourceChange}
 			onHide={handleToggleEditor}
 			onActivate={bootstrapEditor}
 		/>
@@ -298,10 +345,25 @@ function App() {
 				<Toolbar
 					tableCount={parsed.tables.length}
 					relationCount={parsed.refs.length}
-					isSharing={isSharing}
+					isSharing={isSharing || isSessionSharing}
+					sessionStatus={sessionStatus}
+					agentEditorLocked={agentEditorLocked}
 					shareId={viewedRoute.shareId}
 					isDirty={viewedRoute.isDirty}
-					onShare={handleShare}
+					onShare={handleSessionShare}
+					onConnectAgent={handleConnectAgent}
+					onDisconnectAgent={handleDisconnectAgent}
+					onUnlockEditor={unlockSessionEditor}
+				/>
+
+				<ConnectAgentModal
+					open={isConnectModalOpen}
+					status={sessionStatus}
+					pairingUrl={sessionPairingUrl}
+					agentEditorLocked={agentEditorLocked}
+					onOpenChange={setIsConnectModalOpen}
+					onDisconnect={handleDisconnectAgent}
+					onUnlockEditor={unlockSessionEditor}
 				/>
 
 				{shareLoadError ? (
@@ -334,7 +396,9 @@ function App() {
 									diagnostics={diagnostics}
 									isParsing={isParsing}
 									sourceMetadata={metadata}
-									onChange={setSource}
+									readOnly={isEditorReadOnly}
+									onUnlock={unlockSessionEditor}
+									onChange={handleSourceChange}
 									onHide={handleToggleEditor}
 								/>
 							</Suspense>
@@ -348,7 +412,7 @@ function App() {
 								nodes={nodes}
 								edges={edges}
 								gridMode={gridMode}
-								isBusy={isLoadingShare || isLayouting}
+								isBusy={isLoadingShare || isLayouting || sessionStatus === "reconnecting"}
 								isLayouting={isLayouting}
 								isEditorHidden={isEditorHidden}
 								matchedTableNames={matchedTableNames}

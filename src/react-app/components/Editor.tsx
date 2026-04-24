@@ -32,12 +32,15 @@ interface EditorProps {
 	readonly diagnostics: readonly ParseDiagnostic[];
 	readonly isParsing: boolean;
 	readonly sourceMetadata: SchemaSourceMetadata;
+	readonly readOnly?: boolean;
+	readonly onUnlock?: () => void;
 	readonly onChange: (value: string) => void;
 	readonly onHide: () => void;
 }
 
 const setDiagnosticsEffect = StateEffect.define<readonly ParseDiagnostic[]>();
 const languageCompartment = new Compartment();
+const editabilityCompartment = new Compartment();
 const MAX_VISIBLE_DIAGNOSTICS = 6;
 const MAX_DIAGNOSTIC_MESSAGE_LENGTH = 160;
 
@@ -79,12 +82,16 @@ export function Editor({
 	diagnostics,
 	isParsing,
 	sourceMetadata,
+	readOnly = false,
+	onUnlock,
 	onChange,
 	onHide,
 }: EditorProps) {
 	const containerRef = useRef<HTMLDivElement | null>(null);
 	const initialValueRef = useRef(value);
+	const initialReadOnlyRef = useRef(readOnly);
 	const viewRef = useRef<EditorView | null>(null);
+	const readOnlyRef = useRef(readOnly);
 	const handleChange = useEffectEvent(onChange);
 	const visibleDiagnostics = diagnostics.slice(0, MAX_VISIBLE_DIAGNOSTICS);
 	const hiddenDiagnosticCount = Math.max(0, diagnostics.length - visibleDiagnostics.length);
@@ -100,6 +107,10 @@ export function Editor({
 				doc: initialValueRef.current,
 				extensions: [
 					languageCompartment.of([]),
+					editabilityCompartment.of([
+						EditorState.readOnly.of(initialReadOnlyRef.current),
+						EditorView.editable.of(!initialReadOnlyRef.current),
+					]),
 					lineNumbers(),
 					highlightActiveLineGutter(),
 					drawSelection(),
@@ -109,7 +120,7 @@ export function Editor({
 					vesperTheme,
 					diagnosticField,
 					EditorView.updateListener.of((update) => {
-						if (update.docChanged) {
+						if (update.docChanged && !readOnlyRef.current) {
 							handleChange(update.state.doc.toString());
 						}
 					}),
@@ -125,6 +136,21 @@ export function Editor({
 			viewRef.current = null;
 		};
 	}, []);
+
+	useEffect(() => {
+		const view = viewRef.current;
+		readOnlyRef.current = readOnly;
+		if (!view) {
+			return;
+		}
+
+		view.dispatch({
+			effects: editabilityCompartment.reconfigure([
+				EditorState.readOnly.of(readOnly),
+				EditorView.editable.of(!readOnly),
+			]),
+		});
+	}, [readOnly]);
 
 	useEffect(() => {
 		const view = viewRef.current;
@@ -254,6 +280,20 @@ export function Editor({
 							) : null}
 						</div>
 					</div>
+				</div>
+			) : null}
+			{readOnly ? (
+				<div className="flex items-center justify-between gap-3 border-b border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+					<span>Agent is editing this schema. User edits are locked to prevent conflicts.</span>
+					{onUnlock ? (
+						<button
+							type="button"
+							className="border border-amber-400/40 px-2 py-1 text-[11px] font-medium text-amber-100 transition-colors hover:bg-amber-400/10"
+							onClick={onUnlock}
+						>
+							Unlock
+						</button>
+					) : null}
 				</div>
 			) : null}
 			<div className="min-h-0 flex-1">
