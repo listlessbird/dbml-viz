@@ -1,48 +1,48 @@
 import { create } from "zustand";
 
-import { makeSessionMcpUrl } from "@/lib/session-url";
+import { makeWorkspaceMcpUrl } from "@/lib/workspace-url";
 import type {
-	ClientSessionMessage,
-	ServerSessionMessage,
-	SessionStatus,
-} from "@/types/session";
+	ClientWorkspaceMessage,
+	ServerWorkspaceMessage,
+	WorkspaceStatus,
+} from "@/types/workspace";
 
-interface SessionRuntimeState {
-	readonly status: SessionStatus;
-	readonly sessionId: string | null;
-	readonly pairingUrl: string | null;
+interface WorkspaceRuntimeState {
+	readonly status: WorkspaceStatus;
+	readonly workspaceId: string | null;
+	readonly workspaceUrl: string | null;
 	readonly socket: WebSocket | null;
 	readonly agentEditorLocked: boolean;
 	readonly isSharing: boolean;
 	readonly lastError: string | null;
-	readonly setConnecting: (sessionId: string) => void;
+	readonly setConnecting: (workspaceId: string) => void;
 	readonly setSocket: (socket: WebSocket | null) => void;
-	readonly setStatus: (status: SessionStatus) => void;
+	readonly setStatus: (status: WorkspaceStatus) => void;
 	readonly setLive: () => void;
 	readonly setError: (message: string | null) => void;
 	readonly lockEditorForAgent: () => void;
 	readonly unlockEditor: () => void;
 	readonly setSharing: (isSharing: boolean) => void;
 	readonly reset: () => void;
-	readonly send: (message: ClientSessionMessage) => boolean;
+	readonly send: (message: ClientWorkspaceMessage) => boolean;
 }
 
 const canSend = (socket: WebSocket | null): socket is WebSocket =>
 	socket !== null && socket.readyState === WebSocket.OPEN;
 
-export const useSessionStore = create<SessionRuntimeState>((set, get) => ({
+export const useWorkspaceStore = create<WorkspaceRuntimeState>((set, get) => ({
 	status: "offline",
-	sessionId: null,
-	pairingUrl: null,
+	workspaceId: null,
+	workspaceUrl: null,
 	socket: null,
 	agentEditorLocked: false,
 	isSharing: false,
 	lastError: null,
-	setConnecting: (sessionId) => {
+	setConnecting: (workspaceId) => {
 		set({
 			status: "connecting",
-			sessionId,
-			pairingUrl: null,
+			workspaceId,
+			workspaceUrl: null,
 			lastError: null,
 			agentEditorLocked: false,
 		});
@@ -50,10 +50,10 @@ export const useSessionStore = create<SessionRuntimeState>((set, get) => ({
 	setSocket: (socket) => set({ socket }),
 	setStatus: (status) => set({ status }),
 	setLive: () => {
-		const sessionId = get().sessionId;
+		const workspaceId = get().workspaceId;
 		set({
 			status: "live",
-			pairingUrl: sessionId ? makeSessionMcpUrl(sessionId) : null,
+			workspaceUrl: workspaceId ? makeWorkspaceMcpUrl(workspaceId) : null,
 			lastError: null,
 		});
 	},
@@ -64,12 +64,12 @@ export const useSessionStore = create<SessionRuntimeState>((set, get) => ({
 	reset: () => {
 		const socket = get().socket;
 		if (socket && socket.readyState < WebSocket.CLOSING) {
-			socket.close(1000, "Session ended");
+			socket.close(1000, "Workspace disconnected");
 		}
 		set({
 			status: "offline",
-			sessionId: null,
-			pairingUrl: null,
+			workspaceId: null,
+			workspaceUrl: null,
 			socket: null,
 			agentEditorLocked: false,
 			isSharing: false,
@@ -84,13 +84,13 @@ export const useSessionStore = create<SessionRuntimeState>((set, get) => ({
 	},
 }));
 
-export const parseServerSessionMessage = (
+export const parseServerWorkspaceMessage = (
 	raw: string,
-): ServerSessionMessage | null => {
+): ServerWorkspaceMessage | null => {
 	try {
 		const parsed = JSON.parse(raw);
 		return parsed && typeof parsed === "object" && "type" in parsed
-			? (parsed as ServerSessionMessage)
+			? (parsed as ServerWorkspaceMessage)
 			: null;
 	} catch {
 		return null;

@@ -1,8 +1,8 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
-import { makeSnapshot, type SessionStorage } from "./session-storage.ts";
-import { MAX_SCHEMA_SOURCE_LENGTH, type ServerMessage } from "./session-types.ts";
+import { makeSnapshot, type WorkspaceStorage } from "./workspace-storage.ts";
+import { MAX_SCHEMA_SOURCE_LENGTH, type ServerMessage } from "./workspace-types.ts";
 
 const STICKY_NOTE_COLORS = ["yellow", "pink", "blue", "green"] as const;
 const DEFAULT_STICKY_NOTE = {
@@ -14,17 +14,17 @@ const DEFAULT_STICKY_NOTE = {
 	text: "",
 } as const;
 
-export function createSessionMcpServer(
-	storage: SessionStorage,
+export function createWorkspaceMcpServer(
+	storage: WorkspaceStorage,
 	broadcast: (message: ServerMessage) => void,
 ): McpServer {
 	const server = new McpServer({ name: "dbml-canvas", version: "1.0.0" });
 
-	const requireSession = async () => {
-		const session = await storage.load();
-		if (!session) {
+	const requireWorkspace = async () => {
+		const workspace = await storage.load();
+		if (!workspace) {
 			return {
-				content: [{ type: "text" as const, text: JSON.stringify({ error: "No active session. Ask the user to click 'Connect Canvas' first." }) }],
+				content: [{ type: "text" as const, text: JSON.stringify({ error: "No active workspace. Ask the user to click 'Connect Canvas' first." }) }],
 				isError: true as const,
 			};
 		}
@@ -33,23 +33,26 @@ export function createSessionMcpServer(
 	};
 
 	server.registerTool("get_schema", {
-		description: "Returns the current session state: DBML/SQL source, positions, notes, and diagnostics.",
+		description: "Returns the current workspace state: DBML/SQL source, positions, notes, and diagnostics.",
 		annotations: { readOnlyHint: true },
 	}, async () => {
-		const err = await requireSession();
+		const err = await requireWorkspace();
 		if (err) return err;
 		return { content: [{ type: "text", text: JSON.stringify(makeSnapshot(storage.cached!), null, 2) }] };
 	});
-
+	// Todo: allow notes to be created in this call
 	server.registerTool("set_schema", {
 		description: "Replaces the entire DBML/SQL source. The browser parses it — poll get_schema to see diagnostics.",
 		inputSchema: { source: z.string().max(MAX_SCHEMA_SOURCE_LENGTH).describe("DBML or SQL DDL source code") },
 	}, async ({ source }) => {
-		const err = await requireSession();
+		const err = await requireWorkspace();
 		if (err) return err;
 
-		await storage.save({ source });
-		broadcast({ type: "state-update", patch: { source } });
+		await storage.saveAgentMutation({ source });
+		broadcast({
+			type: "state-update",
+			patch: { source, updatedAt: storage.cached!.updatedAt },
+		});
 
 		return { content: [{ type: "text", text: JSON.stringify({ ok: true, note: "Source updated. Call get_schema to check for parse errors." }) }] };
 	});
@@ -58,11 +61,14 @@ export function createSessionMcpServer(
 		description: "Replaces node positions on the canvas. Keys are table IDs, values are {x, y}.",
 		inputSchema: { positions: z.record(z.string(), z.object({ x: z.number(), y: z.number() })).describe("Map of table ID to {x, y}") },
 	}, async ({ positions }) => {
-		const err = await requireSession();
+		const err = await requireWorkspace();
 		if (err) return err;
 
-		await storage.save({ positions });
-		broadcast({ type: "state-update", patch: { positions } });
+		await storage.saveAgentMutation({ positions });
+		broadcast({
+			type: "state-update",
+			patch: { positions, updatedAt: storage.cached!.updatedAt },
+		});
 
 		return { content: [{ type: "text", text: JSON.stringify({ ok: true }) }] };
 	});
@@ -72,14 +78,14 @@ export function createSessionMcpServer(
 		inputSchema: { tableIds: z.array(z.string()).min(1).describe("Table IDs to focus on") },
 		annotations: { readOnlyHint: true },
 	}, async ({ tableIds }) => {
-		const err = await requireSession();
+		const err = await requireWorkspace();
 		if (err) return err;
 
 		broadcast({ type: "focus", tableIds });
 
 		return { content: [{ type: "text", text: JSON.stringify({ ok: true, focused: tableIds }) }] };
 	});
-
+	// TODO: allow multiple notes to be created
 	server.registerTool("add_sticky_note", {
 		description: "Adds a sticky note to the canvas and syncs it to the browser.",
 		inputSchema: {
@@ -91,10 +97,10 @@ export function createSessionMcpServer(
 			color: z.enum(STICKY_NOTE_COLORS).default(DEFAULT_STICKY_NOTE.color).describe("Sticky note color"),
 		},
 	}, async ({ text, x, y, width, height, color }) => {
-		const err = await requireSession();
+		const err = await requireWorkspace();
 		if (err) return err;
 
-		const session = storage.cached!;
+		const workspace = storage.cached!;
 		const note = {
 			id: `sticky-${crypto.randomUUID()}`,
 			x,
@@ -104,10 +110,13 @@ export function createSessionMcpServer(
 			color,
 			text,
 		};
-		const notes = [...session.notes, note];
+		const notes = [...workspace.notes, note];
 
-		await storage.save({ notes });
-		broadcast({ type: "state-update", patch: { notes } });
+		await storage.saveAgentMutation({ notes });
+		broadcast({
+			type: "state-update",
+			patch: { notes, updatedAt: storage.cached!.updatedAt },
+		});
 
 		return { content: [{ type: "text", text: JSON.stringify({ ok: true, note }) }] };
 	});

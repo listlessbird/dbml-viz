@@ -2,8 +2,8 @@ import { IconCheck, IconCopy } from "@tabler/icons-react";
 import { useState } from "react";
 
 import { ShareButton } from "@/components/ShareButton";
-import { ToolbarSessionSlot } from "@/components/agent-connectivity/ToolbarSessionSlot";
-import type { SessionStatus } from "@/types/session";
+import { ToolbarWorkspaceSlot } from "@/components/agent-connectivity/ToolbarWorkspaceSlot";
+import type { WorkspaceStatus } from "@/types/workspace";
 
 interface ToolbarProps {
 	readonly tableCount: number;
@@ -11,11 +11,11 @@ interface ToolbarProps {
 	readonly isSharing: boolean;
 	readonly shareId: string | null;
 	readonly isDirty: boolean;
-	readonly sessionStatus: SessionStatus;
-	readonly sessionId: string | null;
+	readonly workspaceStatus: WorkspaceStatus;
+	readonly workspaceId: string | null;
 	readonly onShare: () => void;
 	readonly onConnectAgent: () => void;
-	readonly onShowSession: () => void;
+	readonly onShowWorkspace: () => void;
 }
 
 function StatusDot() {
@@ -101,10 +101,10 @@ export function Toolbar({
 	shareId,
 	isDirty,
 	onShare,
-	sessionStatus,
-	sessionId,
+	workspaceStatus,
+	workspaceId,
 	onConnectAgent,
-	onShowSession,
+	onShowWorkspace,
 }: ToolbarProps) {
 	return (
 		<div className="dark flex min-h-12 items-stretch border-b border-border bg-sidebar text-sidebar-foreground">
@@ -122,11 +122,11 @@ export function Toolbar({
 			</div>
 
 			<div className="flex shrink-0 items-center gap-2 border-l border-border px-3">
-				<ToolbarSessionSlot
-					status={sessionStatus}
-					sessionId={sessionId}
+				<ToolbarWorkspaceSlot
+					status={workspaceStatus}
+					workspaceId={workspaceId}
 					onConnect={onConnectAgent}
-					onShowSession={onShowSession}
+					onShowWorkspace={onShowWorkspace}
 				/>
 				<ShareButton isSharing={isSharing} onShare={onShare} />
 			</div>

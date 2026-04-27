@@ -2,8 +2,9 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { useCanvasSession } from "@/hooks/useCanvasSession";
-import { useSessionStore } from "@/store/useSessionStore";
+import { useCanvasWorkspace } from "@/hooks/useCanvasWorkspace";
+import { useWorkspaceMetaStore } from "@/store/useWorkspaceMetaStore";
+import { useWorkspaceStore } from "@/store/useWorkspaceStore";
 import { useStickyNotesStore } from "@/store/useStickyNotesStore";
 import type { DiagramRouteState } from "@/lib/draftPersistence";
 import type {
@@ -12,7 +13,7 @@ import type {
 	SchemaPayload,
 	SharedStickyNote,
 } from "@/types";
-import type { ServerSessionMessage } from "@/types/session";
+import type { ServerWorkspaceMessage } from "@/types/workspace";
 
 const SOURCE = "Table users {\n  id integer [pk]\n}";
 const REMOTE_SOURCE = "Table accounts {\n  id integer [pk]\n}";
@@ -51,7 +52,7 @@ class MockWebSocket extends EventTarget {
 		this.dispatchEvent(new Event("open"));
 	}
 
-	serverMessage(message: ServerSessionMessage) {
+	serverMessage(message: ServerWorkspaceMessage) {
 		this.dispatchEvent(
 			new MessageEvent("message", { data: JSON.stringify(message) }),
 		);
@@ -68,6 +69,7 @@ interface HarnessApi {
 	readonly share: () => void;
 	readonly sourceChange: (source: string) => void;
 	readonly disconnect: () => void;
+	readonly isEditorReadOnly: boolean;
 }
 
 interface HarnessProps {
@@ -80,6 +82,7 @@ interface HarnessProps {
 	readonly setNodes?: React.Dispatch<React.SetStateAction<DiagramNode[]>>;
 	readonly setShareSeedPositions?: (positions: Record<string, { x: number; y: number }>) => void;
 	readonly clearDraft?: (shareId: string | null) => void;
+	readonly setDraft?: (shareId: string | null, payload: SchemaPayload) => void;
 	readonly pushViewedRoute?: (route: DiagramRouteState) => void;
 	readonly setShareBaseline?: React.Dispatch<
 		React.SetStateAction<{ shareId: string; payload: SchemaPayload } | null>
@@ -108,7 +111,7 @@ const baselinePayload: SchemaPayload = {
 	version: 3,
 };
 
-function CanvasSessionHarness({
+function CanvasWorkspaceHarness({
 	route = { shareId: null, isDirty: false },
 	currentShareBaseline = null,
 	source = SOURCE,
@@ -118,12 +121,13 @@ function CanvasSessionHarness({
 	setNodes = vi.fn(),
 	setShareSeedPositions = vi.fn(),
 	clearDraft = vi.fn(),
+	setDraft = vi.fn(),
 	pushViewedRoute = vi.fn(),
 	setShareBaseline = vi.fn(),
 	setShareLoadError = vi.fn(),
 	requestFitView = vi.fn(),
 }: HarnessProps) {
-	const session = useCanvasSession({
+	const workspace = useCanvasWorkspace({
 		source,
 		nodes: [
 			{
@@ -144,6 +148,7 @@ function CanvasSessionHarness({
 		setNodes,
 		setShareSeedPositions,
 		clearDraft,
+		setDraft,
 		pushViewedRoute,
 		setShareBaseline,
 		setShareLoadError,
@@ -152,10 +157,11 @@ function CanvasSessionHarness({
 	});
 
 	onReady({
-		connect: session.handleConnect,
-		share: session.handleShare,
-		sourceChange: session.handleSourceChange,
-		disconnect: session.handleDisconnect,
+		connect: workspace.handleConnect,
+		share: workspace.handleShare,
+		sourceChange: workspace.handleSourceChange,
+		disconnect: workspace.handleDisconnect,
+		isEditorReadOnly: workspace.isEditorReadOnly,
 	});
 
 	return null;
@@ -169,7 +175,7 @@ const renderHarness = (props: Omit<HarnessProps, "onReady"> = {}) => {
 
 	act(() => {
 		root.render(
-			<CanvasSessionHarness
+			<CanvasWorkspaceHarness
 				{...props}
 				onReady={(nextApi) => {
 					apiRef.current = nextApi;
@@ -216,12 +222,14 @@ afterEach(() => {
 	activeRoot = null;
 	activeContainer = null;
 	globalThis.WebSocket = OriginalWebSocket;
-	useSessionStore.getState().reset();
+	useWorkspaceStore.getState().reset();
+	useWorkspaceMetaStore.setState({ lastServerUpdatedAt: null });
+	window.localStorage.clear();
 	vi.useRealTimers();
 });
 
-describe("useCanvasSession state machine", () => {
-	it("starts a clean shared session with the share baseline and moves connecting to live on ack", () => {
+describe("useCanvasWorkspace state machine", () => {
+	it("starts a clean shared workspace with the share baseline and moves connecting to live on ack", () => {
 		const rendered = renderHarness({
 			route: { shareId: "share-old", isDirty: false },
 			currentShareBaseline: baselinePayload,
@@ -234,10 +242,10 @@ describe("useCanvasSession state machine", () => {
 		});
 
 		const socket = MockWebSocket.instances[0]!;
-		expect(useSessionStore.getState().status).toBe("connecting");
-		expect(useSessionStore.getState().pairingUrl).toBeNull();
+		expect(useWorkspaceStore.getState().status).toBe("connecting");
+		expect(useWorkspaceStore.getState().workspaceUrl).toBeNull();
 		expect(window.localStorage.getItem("dbml-viz:device-id")).toBe(
-			useSessionStore.getState().sessionId,
+			useWorkspaceStore.getState().workspaceId,
 		);
 
 		act(() => {
@@ -273,9 +281,10 @@ describe("useCanvasSession state machine", () => {
 			});
 		});
 
-		expect(useSessionStore.getState().status).toBe("live");
-		expect(useSessionStore.getState().pairingUrl).toContain("/api/agent/");
-		expect(useSessionStore.getState().pairingUrl).toContain("/mcp");
+		expect(useWorkspaceStore.getState().status).toBe("live");
+		expect(useWorkspaceStore.getState().workspaceUrl).toContain("/api/agent/");
+		expect(useWorkspaceStore.getState().workspaceUrl).toContain("/mcp");
+		expect(rendered.getApi().isEditorReadOnly).toBe(true);
 	});
 
 	it("locks editor and applies remote source patches without echoing set-source", () => {
@@ -312,7 +321,7 @@ describe("useCanvasSession state machine", () => {
 		});
 
 		expect(setSource).toHaveBeenCalledWith(REMOTE_SOURCE);
-		expect(useSessionStore.getState().agentEditorLocked).toBe(true);
+		expect(useWorkspaceStore.getState().agentEditorLocked).toBe(true);
 		expect(socket.sent).not.toContainEqual(expect.stringContaining("set-source"));
 	});
 
@@ -459,8 +468,7 @@ describe("useCanvasSession state machine", () => {
 		expect(requestFitView).toHaveBeenCalledWith(["users", "accounts"]);
 	});
 
-	it("sends local source edits after debounce when live", async () => {
-		vi.useFakeTimers();
+	it("ignores local source edits while the workspace is live", async () => {
 		const setSource = vi.fn();
 		const rendered = renderHarness({ setSource });
 		activeRoot = rendered.root;
@@ -492,26 +500,15 @@ describe("useCanvasSession state machine", () => {
 
 		act(() => {
 			rendered.getApi().sourceChange(REMOTE_SOURCE);
-			vi.advanceTimersByTime(299);
 		});
 
-		expect(setSource).toHaveBeenCalledWith(REMOTE_SOURCE);
-		expect(socket.sent.map((payload) => JSON.parse(payload))).not.toContainEqual({
-			type: "set-source",
-			source: REMOTE_SOURCE,
-		});
-
-		act(() => {
-			vi.advanceTimersByTime(1);
-		});
-
-		expect(socket.sent.map((payload) => JSON.parse(payload))).toContainEqual({
-			type: "set-source",
-			source: REMOTE_SOURCE,
-		});
+		expect(setSource).not.toHaveBeenCalledWith(REMOTE_SOURCE);
+		expect(socket.sent.map((payload) => JSON.parse(payload))).not.toContainEqual(
+			{ type: "set-source", source: REMOTE_SOURCE },
+		);
 	});
 
-	it("syncs client parse diagnostics after the session becomes live", () => {
+	it("syncs client parse diagnostics after the workspace becomes live", () => {
 		const rendered = renderHarness();
 		activeRoot = rendered.root;
 		activeContainer = rendered.container;
@@ -541,7 +538,7 @@ describe("useCanvasSession state machine", () => {
 		});
 	});
 
-	it("marks share during session clean and updates the browser baseline", async () => {
+	it("marks share during workspace clean and updates the browser baseline", async () => {
 		const clearDraft = vi.fn();
 		const pushViewedRoute = vi.fn();
 		const setShareBaseline = vi.fn();
@@ -586,13 +583,13 @@ describe("useCanvasSession state machine", () => {
 		expect(socket.sent.map((payload) => JSON.parse(payload))).toContainEqual({
 			type: "share-request",
 		});
-		expect(useSessionStore.getState().isSharing).toBe(true);
+		expect(useWorkspaceStore.getState().isSharing).toBe(true);
 
 		act(() => {
 			socket.serverMessage({ type: "share-result", id: "share-new" });
 		});
 
-		expect(useSessionStore.getState().isSharing).toBe(false);
+		expect(useWorkspaceStore.getState().isSharing).toBe(false);
 		expect(clearDraft).toHaveBeenCalledWith("share-old");
 		expect(pushViewedRoute).toHaveBeenCalledWith({
 			shareId: "share-new",
@@ -610,6 +607,123 @@ describe("useCanvasSession state machine", () => {
 				version: 3,
 			},
 		});
+	});
+
+	it("attaches with the persisted server-stamped updatedAt when one is present", () => {
+		useWorkspaceMetaStore.getState().setLastServerUpdatedAt(1_700_000_000_000);
+
+		const rendered = renderHarness();
+		activeRoot = rendered.root;
+		activeContainer = rendered.container;
+
+		act(() => {
+			rendered.getApi().connect();
+			MockWebSocket.instances[0]!.open();
+		});
+
+		const attach = JSON.parse(MockWebSocket.instances[0]!.sent[0]!);
+		expect(attach.updatedAt).toBe(1_700_000_000_000);
+	});
+
+	it("persists the server's updatedAt from a state-ack snapshot", () => {
+		const rendered = renderHarness();
+		activeRoot = rendered.root;
+		activeContainer = rendered.container;
+
+		act(() => {
+			rendered.getApi().connect();
+			MockWebSocket.instances[0]!.open();
+			MockWebSocket.instances[0]!.serverMessage({
+				type: "state-ack",
+				state: {
+					source: SOURCE,
+					positions: {},
+					notes: [],
+					diagnostics: [],
+					tableCount: 1,
+					refCount: 0,
+					baseline: null,
+					updatedAt: 1_700_000_000_500,
+				},
+			});
+		});
+
+		expect(useWorkspaceMetaStore.getState().lastServerUpdatedAt).toBe(
+			1_700_000_000_500,
+		);
+	});
+
+	it("persists the server's updatedAt from a state-update patch", () => {
+		const rendered = renderHarness();
+		activeRoot = rendered.root;
+		activeContainer = rendered.container;
+
+		act(() => {
+			rendered.getApi().connect();
+			MockWebSocket.instances[0]!.open();
+			MockWebSocket.instances[0]!.serverMessage({
+				type: "state-ack",
+				state: {
+					source: SOURCE,
+					positions: {},
+					notes: [],
+					diagnostics: [],
+					tableCount: 1,
+					refCount: 0,
+					baseline: null,
+					updatedAt: 1_700_000_000_000,
+				},
+			});
+			MockWebSocket.instances[0]!.serverMessage({
+				type: "state-update",
+				patch: { source: REMOTE_SOURCE, updatedAt: 1_700_000_001_000 },
+			});
+		});
+
+		expect(useWorkspaceMetaStore.getState().lastServerUpdatedAt).toBe(
+			1_700_000_001_000,
+		);
+	});
+
+	it("preserves the server-stamped updatedAt across disconnect so offline edits win on reconnect", () => {
+		const rendered = renderHarness();
+		activeRoot = rendered.root;
+		activeContainer = rendered.container;
+
+		act(() => {
+			rendered.getApi().connect();
+			MockWebSocket.instances[0]!.open();
+			MockWebSocket.instances[0]!.serverMessage({
+				type: "state-ack",
+				state: {
+					source: SOURCE,
+					positions: {},
+					notes: [],
+					diagnostics: [],
+					tableCount: 1,
+					refCount: 0,
+					baseline: null,
+					updatedAt: 1_700_000_000_000,
+				},
+			});
+		});
+
+		act(() => {
+			rendered.getApi().disconnect();
+		});
+
+		expect(useWorkspaceStore.getState().status).toBe("offline");
+		expect(useWorkspaceMetaStore.getState().lastServerUpdatedAt).toBe(
+			1_700_000_000_000,
+		);
+
+		act(() => {
+			rendered.getApi().connect();
+			MockWebSocket.instances[1]!.open();
+		});
+
+		const attach = JSON.parse(MockWebSocket.instances[1]!.sent[0]!);
+		expect(attach.updatedAt).toBe(1_700_000_000_000);
 	});
 
 	it("transitions live to reconnecting on unexpected close and re-attaches on retry", () => {
@@ -636,7 +750,7 @@ describe("useCanvasSession state machine", () => {
 			MockWebSocket.instances[0]!.serverClose();
 		});
 
-		expect(useSessionStore.getState().status).toBe("reconnecting");
+		expect(useWorkspaceStore.getState().status).toBe("reconnecting");
 
 		act(() => {
 			vi.advanceTimersByTime(1_000);

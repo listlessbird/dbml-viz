@@ -1,13 +1,14 @@
 import type {
 	DiagramPositions,
 	ParseDiagnostic,
-	SessionBaseline,
-	SessionSnapshot,
-	SessionState,
+	WorkspaceBaseline,
+	WorkspaceSnapshot,
+	WorkspaceState,
 	SharedStickyNote,
-} from "./session-types.ts";
+} from "./workspace-types.ts";
+import { decideWorkspaceAttach, type WorkspaceAttachDecision } from "./workspace-attach.ts";
 
-export const makeSnapshot = (s: SessionState): SessionSnapshot => ({
+export const makeSnapshot = (s: WorkspaceState): WorkspaceSnapshot => ({
 	source: s.source,
 	positions: s.positions,
 	notes: s.notes,
@@ -24,16 +25,29 @@ const STORAGE_KEYS = [
 	"createdAt", "updatedAt", "lastActivityAt",
 ] as const;
 
-export class SessionStorage {
-	private cache: SessionState | null = null;
+type WorkspaceMutation = Partial<
+	Pick<
+		WorkspaceState,
+		| "source"
+		| "positions"
+		| "notes"
+		| "diagnostics"
+		| "parsedTableCount"
+		| "parsedRefCount"
+		| "baseline"
+	>
+>;
+
+export class WorkspaceStorage {
+	private cache: WorkspaceState | null = null;
 
 	constructor(private readonly storage: DurableObjectStorage) {}
 
-	get cached(): SessionState | null {
+	get cached(): WorkspaceState | null {
 		return this.cache;
 	}
 
-	async load(): Promise<SessionState | null> {
+	async load(): Promise<WorkspaceState | null> {
 		if (this.cache) return this.cache;
 
 		const createdAt = await this.storage.get<number>("createdAt");
@@ -48,7 +62,7 @@ export class SessionStorage {
 			diagnostics: (values.get("diagnostics") as ParseDiagnostic[]) ?? [],
 			parsedTableCount: (values.get("parsedTableCount") as number) ?? 0,
 			parsedRefCount: (values.get("parsedRefCount") as number) ?? 0,
-			baseline: (values.get("baseline") as SessionBaseline | null) ?? null,
+			baseline: (values.get("baseline") as WorkspaceBaseline | null) ?? null,
 			createdAt,
 			updatedAt: (values.get("updatedAt") as number) ?? createdAt,
 			lastActivityAt: (values.get("lastActivityAt") as number) ?? createdAt,
@@ -57,7 +71,7 @@ export class SessionStorage {
 		return this.cache;
 	}
 
-	async save(partial: Partial<SessionState>): Promise<void> {
+	private async saveMutation(partial: WorkspaceMutation): Promise<void> {
 		if (!this.cache) return;
 
 		Object.assign(this.cache, partial);
@@ -69,10 +83,18 @@ export class SessionStorage {
 			updatedAt: this.cache.updatedAt,
 			lastActivityAt: this.cache.lastActivityAt,
 		};
-		for (const key of Object.keys(partial) as (keyof SessionState)[]) {
+		for (const key of Object.keys(partial) as (keyof WorkspaceState)[]) {
 			entries[key] = this.cache[key];
 		}
 		await this.storage.put(entries);
+	}
+
+	async saveBrowserMutation(partial: WorkspaceMutation): Promise<void> {
+		await this.saveMutation(partial);
+	}
+
+	async saveAgentMutation(partial: WorkspaceMutation): Promise<void> {
+		await this.saveMutation(partial);
 	}
 
 	async touch(): Promise<void> {
@@ -86,8 +108,8 @@ export class SessionStorage {
 		source: string;
 		positions: DiagramPositions;
 		notes: readonly SharedStickyNote[];
-		baseline: SessionBaseline | null;
-	}, updatedAt = Date.now()): Promise<SessionState> {
+		baseline: WorkspaceBaseline | null;
+	}, updatedAt = Date.now()): Promise<WorkspaceState> {
 		const now = Date.now();
 		this.cache = {
 			source: seed.source,
@@ -118,12 +140,12 @@ export class SessionStorage {
 		return this.cache;
 	}
 
-	async replaceFromBrowser(seed: {
+	private async replaceFromBrowser(seed: {
 		source: string;
 		positions: DiagramPositions;
 		notes: readonly SharedStickyNote[];
-		baseline: SessionBaseline | null;
-	}, updatedAt: number): Promise<SessionState> {
+		baseline: WorkspaceBaseline | null;
+	}, updatedAt: number): Promise<WorkspaceState> {
 		const existing = await this.load();
 		if (!existing) return this.init(seed, updatedAt);
 
@@ -154,6 +176,23 @@ export class SessionStorage {
 		});
 
 		return this.cache;
+	}
+
+	async attachBrowser(seed: {
+		source: string;
+		positions: DiagramPositions;
+		notes: readonly SharedStickyNote[];
+		baseline: WorkspaceBaseline | null;
+	}, updatedAt: number): Promise<WorkspaceAttachDecision> {
+		const current = await this.load();
+		const decision = decideWorkspaceAttach(current, { state: seed, updatedAt });
+		if (decision.winner === "remote") {
+			await this.touch();
+			return decision;
+		}
+
+		await this.replaceFromBrowser(decision.state, decision.updatedAt);
+		return decision;
 	}
 
 	async clear(): Promise<void> {

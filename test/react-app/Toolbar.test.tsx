@@ -9,10 +9,10 @@ import { useAgentActivityStore } from "@/store/useAgentActivityStore";
 interface RenderToolbarOptions {
 	shareId?: string | null;
 	isDirty?: boolean;
-	sessionStatus?: ComponentProps<typeof Toolbar>["sessionStatus"];
-	sessionId?: string | null;
+	workspaceStatus?: ComponentProps<typeof Toolbar>["workspaceStatus"];
+	workspaceId?: string | null;
 	onConnectAgent?: () => void;
-	onShowSession?: () => void;
+	onShowWorkspace?: () => void;
 }
 
 interface RenderToolbarResult {
@@ -23,10 +23,10 @@ interface RenderToolbarResult {
 const renderToolbar = ({
 	shareId = null,
 	isDirty = false,
-	sessionStatus = "offline",
-	sessionId = null,
+	workspaceStatus = "offline",
+	workspaceId = null,
 	onConnectAgent = vi.fn(),
-	onShowSession = vi.fn(),
+	onShowWorkspace = vi.fn(),
 }: RenderToolbarOptions = {}): RenderToolbarResult => {
 	const container = document.createElement("div");
 	document.body.appendChild(container);
@@ -40,11 +40,11 @@ const renderToolbar = ({
 				isSharing={false}
 				shareId={shareId}
 				isDirty={isDirty}
-				sessionStatus={sessionStatus}
-				sessionId={sessionId}
+				workspaceStatus={workspaceStatus}
+				workspaceId={workspaceId}
 				onShare={vi.fn()}
 				onConnectAgent={onConnectAgent}
-				onShowSession={onShowSession}
+				onShowWorkspace={onShowWorkspace}
 			/>,
 		);
 	});
@@ -118,7 +118,7 @@ describe("Toolbar share status", () => {
 	});
 });
 
-describe("Toolbar session pill", () => {
+describe("Toolbar workspace pill", () => {
 	it("renders the offline connect pill and triggers the connect handler", () => {
 		const onConnectAgent = vi.fn();
 		const rendered = renderToolbar({ onConnectAgent });
@@ -139,9 +139,9 @@ describe("Toolbar session pill", () => {
 		expect(onConnectAgent).toHaveBeenCalledTimes(1);
 	});
 
-	it("renders the connecting pill and re-opens the session modal when clicked", () => {
-		const onShowSession = vi.fn();
-		const rendered = renderToolbar({ sessionStatus: "connecting", onShowSession });
+	it("renders the connecting pill and re-opens the workspace modal when clicked", () => {
+		const onShowWorkspace = vi.fn();
+		const rendered = renderToolbar({ workspaceStatus: "connecting", onShowWorkspace });
 		activeRoot = rendered.root;
 		activeContainer = rendered.container;
 
@@ -154,13 +154,13 @@ describe("Toolbar session pill", () => {
 			pill?.click();
 		});
 
-		expect(onShowSession).toHaveBeenCalledTimes(1);
+		expect(onShowWorkspace).toHaveBeenCalledTimes(1);
 	});
 
-	it("renders the live pill with session id hint", () => {
+	it("renders the live pill with workspace id hint", () => {
 		const rendered = renderToolbar({
-			sessionStatus: "live",
-			sessionId: "sess_xyz",
+			workspaceStatus: "live",
+			workspaceId: "sess_xyz",
 		});
 		activeRoot = rendered.root;
 		activeContainer = rendered.container;
@@ -175,7 +175,7 @@ describe("Toolbar session pill", () => {
 			nextDelayMs: 4000,
 			maxAttempts: 5,
 		});
-		const rendered = renderToolbar({ sessionStatus: "reconnecting" });
+		const rendered = renderToolbar({ workspaceStatus: "reconnecting" });
 		activeRoot = rendered.root;
 		activeContainer = rendered.container;
 

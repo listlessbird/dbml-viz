@@ -5,16 +5,16 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { useDraftPersistence } from "@/hooks/useDraftPersistence";
 import type { DiagramRouteState } from "@/lib/draftPersistence";
 import type { DiagramNode, SchemaPayload } from "@/types";
-import type { SessionStatus } from "@/types/session";
+import type { WorkspaceStatus } from "@/types/workspace";
 
 const SOURCE = "Table edited_root_copy {\n  id integer [pk]\n}";
 
 interface HarnessProps {
-	readonly sessionStatus: SessionStatus;
+	readonly workspaceStatus: WorkspaceStatus;
 	readonly setDraft: (shareId: string | null, payload: SchemaPayload) => void;
 }
 
-function DraftPersistenceHarness({ sessionStatus, setDraft }: HarnessProps) {
+function DraftPersistenceHarness({ workspaceStatus, setDraft }: HarnessProps) {
 	const route: DiagramRouteState = { shareId: null, isDirty: false };
 
 	useDraftPersistence({
@@ -23,7 +23,7 @@ function DraftPersistenceHarness({ sessionStatus, setDraft }: HarnessProps) {
 		canPersistNodePositions: false,
 		shareSeedPositions: {},
 		isLoadingShare: false,
-		sessionStatus,
+		workspaceStatus,
 		viewedRoute: route,
 		currentShareBaseline: null,
 		rootSampleBaseline: null,
@@ -63,12 +63,12 @@ afterEach(() => {
 	vi.useRealTimers();
 });
 
-describe("useDraftPersistence session behavior", () => {
+describe("useDraftPersistence workspace behavior", () => {
 	it("persists drafts while offline", () => {
 		vi.useFakeTimers();
 		const setDraft = vi.fn();
 
-		const rendered = renderHarness({ sessionStatus: "offline", setDraft });
+		const rendered = renderHarness({ workspaceStatus: "offline", setDraft });
 		activeRoot = rendered.root;
 		activeContainer = rendered.container;
 
@@ -84,21 +84,38 @@ describe("useDraftPersistence session behavior", () => {
 		});
 	});
 
-	it.each(["live", "reconnecting"] as const)(
-		"skips draft writes while session is %s",
-		(sessionStatus) => {
-			vi.useFakeTimers();
-			const setDraft = vi.fn();
+	it("persists drafts while workspace is live so MCP-pushed changes survive refresh", () => {
+		vi.useFakeTimers();
+		const setDraft = vi.fn();
 
-			const rendered = renderHarness({ sessionStatus, setDraft });
-			activeRoot = rendered.root;
-			activeContainer = rendered.container;
+		const rendered = renderHarness({ workspaceStatus: "live", setDraft });
+		activeRoot = rendered.root;
+		activeContainer = rendered.container;
 
-			act(() => {
-				vi.advanceTimersByTime(1_000);
-			});
+		act(() => {
+			vi.advanceTimersByTime(180);
+		});
 
-			expect(setDraft).not.toHaveBeenCalled();
-		},
-	);
+		expect(setDraft).toHaveBeenCalledWith(null, {
+			source: SOURCE,
+			positions: {},
+			notes: [],
+			version: 3,
+		});
+	});
+
+	it("skips draft writes while workspace is reconnecting", () => {
+		vi.useFakeTimers();
+		const setDraft = vi.fn();
+
+		const rendered = renderHarness({ workspaceStatus: "reconnecting", setDraft });
+		activeRoot = rendered.root;
+		activeContainer = rendered.container;
+
+		act(() => {
+			vi.advanceTimersByTime(1_000);
+		});
+
+		expect(setDraft).not.toHaveBeenCalled();
+	});
 });

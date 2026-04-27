@@ -28,7 +28,7 @@ import { useSampleStickyNotes } from "@/hooks/useSampleStickyNotes";
 import { useRouting } from "@/hooks/useRouting";
 import { useSchemaLoader } from "@/hooks/useSchemaLoader";
 import { useSchemaParser } from "@/hooks/useSchemaParser";
-import { useCanvasSession } from "@/hooks/useCanvasSession";
+import { useCanvasWorkspace } from "@/hooks/useCanvasWorkspace";
 import { useShareSchema } from "@/hooks/useShareSchema";
 import {
 	getDraftHydrationResult,
@@ -103,6 +103,7 @@ function App() {
 		replaceViewedRoute,
 		pushViewedRoute,
 	} = useRouting(initialState.route);
+
 	const {
 		viewportZoom,
 		requestFitView,
@@ -111,10 +112,12 @@ function App() {
 		handleZoomIn,
 		handleZoomOut,
 	} = useCanvasViewport();
+	
 	const gridMode = useDiagramUiStore((state) => state.gridMode);
 	const layoutAlgorithm = useDiagramUiStore((state) => state.layoutAlgorithm);
 	const searchQuery = useDiagramUiStore((state) => state.searchQuery);
 	const focusedTableIds = useDiagramUiStore((state) => state.focusedTableIds);
+	
 	const getDraft = useDiagramDraftStore((state) => state.getDraft);
 	const setDraft = useDiagramDraftStore((state) => state.setDraft);
 	const clearDraft = useDiagramDraftStore((state) => state.clearDraft);
@@ -242,16 +245,16 @@ function App() {
 		setShareLoadError,
 	});
 	const {
-		status: sessionStatus,
-		sessionId,
-		pairingUrl: sessionPairingUrl,
-		isSharing: isSessionSharing,
+		status: workspaceStatus,
+		workspaceId,
+		workspaceUrl: workspaceUrl,
+		isSharing: isWorkspaceSharing,
 		isEditorReadOnly,
-		handleConnect: handleSessionConnect,
-		handleDisconnect: handleSessionDisconnect,
-		handleShare: handleSessionShare,
+		handleConnect: handleWorkspaceConnect,
+		handleDisconnect: handleWorkspaceDisconnect,
+		handleShare: handleWorkspaceShare,
 		handleSourceChange,
-	} = useCanvasSession({
+	} = useCanvasWorkspace({
 		source,
 		nodes,
 		parsed,
@@ -265,6 +268,7 @@ function App() {
 		setNodes,
 		setShareSeedPositions,
 		clearDraft,
+		setDraft,
 		pushViewedRoute,
 		setShareBaseline,
 		setShareLoadError,
@@ -278,7 +282,7 @@ function App() {
 		canPersistNodePositions,
 		shareSeedPositions,
 		isLoadingShare,
-		sessionStatus,
+		workspaceStatus,
 		viewedRoute,
 		currentShareBaseline,
 		rootSampleBaseline,
@@ -289,17 +293,17 @@ function App() {
 
 	const handleConnectAgent = useCallback(() => {
 		setIsConnectModalOpen(true);
-		handleSessionConnect();
-	}, [handleSessionConnect]);
+		handleWorkspaceConnect();
+	}, [handleWorkspaceConnect]);
 
-	const handleShowSession = useCallback(() => {
+	const handleShowWorkspace = useCallback(() => {
 		setIsConnectModalOpen(true);
 	}, []);
 
 	const handleDisconnectAgent = useCallback(() => {
-		handleSessionDisconnect();
+		handleWorkspaceDisconnect();
 		setIsConnectModalOpen(false);
-	}, [handleSessionDisconnect]);
+	}, [handleWorkspaceDisconnect]);
 
 	const handleAutoLayoutClick = useCallback((nextLayoutAlgorithm?: DiagramLayoutAlgorithm) => {
 		console.info("[layout] App.handleAutoLayoutClick", {
@@ -347,20 +351,20 @@ function App() {
 				<Toolbar
 					tableCount={parsed.tables.length}
 					relationCount={parsed.refs.length}
-					isSharing={isSharing || isSessionSharing}
-					sessionStatus={sessionStatus}
-					sessionId={sessionId}
+					isSharing={isSharing || isWorkspaceSharing}
+					workspaceStatus={workspaceStatus}
+					workspaceId={workspaceId}
 					shareId={viewedRoute.shareId}
 					isDirty={viewedRoute.isDirty}
-					onShare={handleSessionShare}
+					onShare={handleWorkspaceShare}
 					onConnectAgent={handleConnectAgent}
-					onShowSession={handleShowSession}
+					onShowWorkspace={handleShowWorkspace}
 				/>
 
 				<ConnectAgentModal
 					open={isConnectModalOpen}
-					status={sessionStatus}
-					pairingUrl={sessionPairingUrl}
+					status={workspaceStatus}
+					workspaceUrl={workspaceUrl}
 					onOpenChange={setIsConnectModalOpen}
 					onDisconnect={handleDisconnectAgent}
 				/>
@@ -410,7 +414,7 @@ function App() {
 								nodes={nodes}
 								edges={edges}
 								gridMode={gridMode}
-								isBusy={isLoadingShare || isLayouting || sessionStatus === "reconnecting"}
+								isBusy={isLoadingShare || isLayouting || workspaceStatus === "reconnecting"}
 								isLayouting={isLayouting}
 								isEditorHidden={isEditorHidden}
 								matchedTableNames={matchedTableNames}

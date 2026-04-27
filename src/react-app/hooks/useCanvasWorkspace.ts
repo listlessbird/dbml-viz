@@ -5,15 +5,17 @@ import { toast } from "sonner";
 import {
 	buildDraftPayload,
 	getPositionsFromNodes,
+	resolveDraftPersistence,
 	type DiagramRouteState,
 } from "@/lib/draftPersistence";
-import { useSessionConnection } from "@/hooks/useSessionConnection";
-import { useSessionStore } from "@/store/useSessionStore";
+import { SAMPLE_SCHEMA_SOURCE } from "@/lib/sample-dbml";
+import { useWorkspaceConnection } from "@/hooks/useWorkspaceConnection";
+import { useWorkspaceStore } from "@/store/useWorkspaceStore";
 import { getSharedStickyNotes, useStickyNotesStore } from "@/store/useStickyNotesStore";
 import type { DiagramNode, DiagramPositions, ParsedSchema, ParseDiagnostic, SchemaPayload } from "@/types";
-import type { SessionSnapshot } from "@/types/session";
+import type { WorkspaceSnapshot } from "@/types/workspace";
 
-interface CanvasSessionOptions {
+interface CanvasWorkspaceOptions {
 	readonly source: string;
 	readonly nodes: readonly DiagramNode[];
 	readonly parsed: ParsedSchema;
@@ -27,6 +29,7 @@ interface CanvasSessionOptions {
 	readonly setNodes: Dispatch<SetStateAction<DiagramNode[]>>;
 	readonly setShareSeedPositions: (positions: DiagramPositions) => void;
 	readonly clearDraft: (shareId: string | null) => void;
+	readonly setDraft: (shareId: string | null, payload: SchemaPayload) => void;
 	readonly pushViewedRoute: (route: DiagramRouteState) => void;
 	readonly setShareBaseline: Dispatch<
 		SetStateAction<{ shareId: string; payload: SchemaPayload } | null>
@@ -36,7 +39,7 @@ interface CanvasSessionOptions {
 	readonly handleRegularShare: () => void;
 }
 
-export function useCanvasSession({
+export function useCanvasWorkspace({
 	source,
 	nodes,
 	parsed,
@@ -50,21 +53,21 @@ export function useCanvasSession({
 	setNodes,
 	setShareSeedPositions,
 	clearDraft,
+	setDraft,
 	pushViewedRoute,
 	setShareBaseline,
 	setShareLoadError,
 	requestFitView,
 	handleRegularShare,
-}: CanvasSessionOptions) {
-	const status = useSessionStore((state) => state.status);
-	const sessionId = useSessionStore((state) => state.sessionId);
-	const pairingUrl = useSessionStore((state) => state.pairingUrl);
-	const agentEditorLocked = useSessionStore((state) => state.agentEditorLocked);
-	const isSharing = useSessionStore((state) => state.isSharing);
-	const sendSessionMessage = useSessionStore((state) => state.send);
-	const unlockEditor = useSessionStore((state) => state.unlockEditor);
-	const setSessionSharing = useSessionStore((state) => state.setSharing);
-	const sourceSendTimerRef = useRef<number | null>(null);
+}: CanvasWorkspaceOptions) {
+	const status = useWorkspaceStore((state) => state.status);
+	const workspaceId = useWorkspaceStore((state) => state.workspaceId);
+	const workspaceUrl = useWorkspaceStore((state) => state.workspaceUrl);
+	const agentEditorLocked = useWorkspaceStore((state) => state.agentEditorLocked);
+	const isSharing = useWorkspaceStore((state) => state.isSharing);
+	const sendWorkspaceMessage = useWorkspaceStore((state) => state.send);
+	const unlockEditor = useWorkspaceStore((state) => state.unlockEditor);
+	const setWorkspaceSharing = useWorkspaceStore((state) => state.setSharing);
 	const positionSendTimerRef = useRef<number | null>(null);
 	const latestRef = useRef({
 		source,
@@ -106,17 +109,46 @@ export function useCanvasSession({
 		);
 	}, [setNodes, setShareSeedPositions]);
 
-	const applySnapshot = useCallback((snapshot: SessionSnapshot) => {
+	const applySnapshot = useCallback((snapshot: WorkspaceSnapshot) => {
 		setSource(snapshot.source);
 		applyPositions(snapshot.positions);
 		useStickyNotesStore.getState().hydrate(snapshot.notes);
 	}, [applyPositions, setSource]);
 
-	const applyPatch = useCallback((patch: Partial<SessionSnapshot>) => {
+	const applyPatch = useCallback((patch: Partial<WorkspaceSnapshot>) => {
 		if (typeof patch.source === "string") setSource(patch.source);
 		if (patch.positions) applyPositions(patch.positions);
 		if (patch.notes) useStickyNotesStore.getState().hydrate(patch.notes);
-	}, [applyPositions, setSource]);
+
+		if (
+			typeof patch.source === "string" ||
+			patch.positions !== undefined ||
+			patch.notes !== undefined
+		) {
+			const latest = latestRef.current;
+			const positions =
+				patch.positions ??
+				(latest.canPersistNodePositions
+					? getPositionsFromNodes(latest.nodes)
+					: latest.shareSeedPositions);
+			const payload = buildDraftPayload({
+				source: patch.source ?? latest.source,
+				nodes: [],
+				fallbackPositions: positions,
+				notes: patch.notes ?? getSharedStickyNotes(),
+			});
+			const decision = resolveDraftPersistence({
+				route: latest.viewedRoute,
+				payload,
+				sampleSource: SAMPLE_SCHEMA_SOURCE,
+				baseline: latest.currentShareBaseline,
+				rootBaseline: null,
+			});
+
+			if (decision.shouldClearDraft) clearDraft(latest.viewedRoute.shareId);
+			if (decision.shouldStoreDraft) setDraft(latest.viewedRoute.shareId, payload);
+		}
+	}, [applyPositions, clearDraft, setDraft, setSource]);
 
 	const handleShareResult = useCallback((id: string) => {
 		const latest = latestRef.current;
@@ -127,14 +159,14 @@ export function useCanvasSession({
 			notes: getSharedStickyNotes().filter((note) => note.text.trim().length > 0),
 		});
 		const nextUrl = new URL(`/s/${id}`, window.location.origin).toString();
-		const isLiveSession = useSessionStore.getState().status === "live";
+		const isLiveWorkspace = useWorkspaceStore.getState().status === "live";
 
 		void navigator.clipboard
 			.writeText(nextUrl)
 			.then(() => {
-				if (isLiveSession) {
+				if (isLiveWorkspace) {
 					toast.success(`Snapshot saved · /s/${id}`, {
-						description: "Session continues. Future edits diverge from this baseline.",
+						description: "Workspace continues. Future edits diverge from this baseline.",
 					});
 				} else {
 					toast.success("Share link copied to clipboard.");
@@ -155,7 +187,7 @@ export function useCanvasSession({
 		setShareSeedPositions,
 	]);
 
-	const getCurrentSessionSeed = useCallback(() => {
+	const getCurrentWorkspaceSeed = useCallback(() => {
 		const latest = latestRef.current;
 		const positions = latest.canPersistNodePositions
 			? getPositionsFromNodes(latest.nodes)
@@ -177,15 +209,15 @@ export function useCanvasSession({
 		};
 	}, []);
 
-	const { startSession, endSession, markLocalWorkspaceChanged } = useSessionConnection({
-		getCurrentSeed: getCurrentSessionSeed,
+	const { startWorkspace, endWorkspace, markLocalWorkspaceChanged } = useWorkspaceConnection({
+		getCurrentSeed: getCurrentWorkspaceSeed,
 		applySnapshot,
 		applyPatch,
 		onFocusTables: requestFitView,
 		onShareResult: handleShareResult,
 		onExpired: () => {
-			const expiredId = useSessionStore.getState().sessionId;
-			useSessionStore.getState().reset();
+			const expiredId = useWorkspaceStore.getState().workspaceId;
+			useWorkspaceStore.getState().reset();
 			toast.error("Workspace expired", {
 				description: `${expiredId ?? "workspace"} was cleared after 30 days idle. Your local changes were restored.`,
 			});
@@ -193,26 +225,19 @@ export function useCanvasSession({
 	});
 
 	const handleSourceChange = useCallback((nextSource: string) => {
+		if (useWorkspaceStore.getState().status !== "offline") return;
 		setSource(nextSource);
-		if (useSessionStore.getState().status !== "live") return;
-		markLocalWorkspaceChanged();
-		if (sourceSendTimerRef.current !== null) {
-			window.clearTimeout(sourceSendTimerRef.current);
-		}
-		sourceSendTimerRef.current = window.setTimeout(() => {
-			useSessionStore.getState().send({ type: "set-source", source: nextSource });
-		}, 300);
-	}, [markLocalWorkspaceChanged, setSource]);
+	}, [setSource]);
 
 	useEffect(() => {
 		if (status !== "live") return;
-		sendSessionMessage({
+		sendWorkspaceMessage({
 			type: "set-diagnostics",
 			diagnostics,
 			tableCount: diagnostics.length > 0 ? 0 : parsed.tables.length,
 			refCount: diagnostics.length > 0 ? 0 : parsed.refs.length,
 		});
-	}, [diagnostics, parsed.refs.length, parsed.tables.length, sendSessionMessage, status]);
+	}, [diagnostics, parsed.refs.length, parsed.tables.length, sendWorkspaceMessage, status]);
 
 	useEffect(() => {
 		if (status !== "live" || !canPersistNodePositions) return;
@@ -220,7 +245,7 @@ export function useCanvasSession({
 			window.clearTimeout(positionSendTimerRef.current);
 		}
 		positionSendTimerRef.current = window.setTimeout(() => {
-			useSessionStore.getState().send({
+			useWorkspaceStore.getState().send({
 				type: "set-positions",
 				positions: getPositionsFromNodes(nodes),
 			});
@@ -237,7 +262,7 @@ export function useCanvasSession({
 		const scheduleNotesSync = () => {
 			if (timeoutId !== null) window.clearTimeout(timeoutId);
 			timeoutId = window.setTimeout(() => {
-				useSessionStore.getState().send({ type: "set-notes", notes: getSharedStickyNotes() });
+				useWorkspaceStore.getState().send({ type: "set-notes", notes: getSharedStickyNotes() });
 				markLocalWorkspaceChanged();
 			}, 500);
 		};
@@ -251,7 +276,6 @@ export function useCanvasSession({
 
 	useEffect(() => {
 		return () => {
-			if (sourceSendTimerRef.current !== null) window.clearTimeout(sourceSendTimerRef.current);
 			if (positionSendTimerRef.current !== null) window.clearTimeout(positionSendTimerRef.current);
 		};
 	}, []);
@@ -263,30 +287,30 @@ export function useCanvasSession({
 			toast.error("Wait for the shared schema to finish loading before connecting.");
 			return;
 		}
-		startSession(getCurrentSessionSeed());
-	}, [getCurrentSessionSeed, startSession, status]);
+		startWorkspace(getCurrentWorkspaceSeed());
+	}, [getCurrentWorkspaceSeed, startWorkspace, status]);
 
 	const handleShare = useCallback(() => {
 		if (status !== "live") {
 			handleRegularShare();
 			return;
 		}
-		setSessionSharing(true);
-		if (!sendSessionMessage({ type: "share-request" })) {
-			setSessionSharing(false);
-			toast.error("Session is not connected.");
+		setWorkspaceSharing(true);
+		if (!sendWorkspaceMessage({ type: "share-request" })) {
+			setWorkspaceSharing(false);
+			toast.error("Workspace is not connected.");
 		}
-	}, [handleRegularShare, sendSessionMessage, setSessionSharing, status]);
+	}, [handleRegularShare, sendWorkspaceMessage, setWorkspaceSharing, status]);
 
 	return {
 		status,
-		sessionId,
-		pairingUrl,
+		workspaceId,
+		workspaceUrl,
 		agentEditorLocked,
 		isSharing,
-		isEditorReadOnly: status === "reconnecting" || agentEditorLocked,
+		isEditorReadOnly: status !== "offline" || agentEditorLocked,
 		handleConnect,
-		handleDisconnect: endSession,
+		handleDisconnect: endWorkspace,
 		handleShare,
 		handleSourceChange,
 		unlockEditor,
