@@ -5,12 +5,12 @@ import { ClientConfigSnippet } from "@/components/agent-connectivity/ClientConfi
 import { CopyButton } from "@/components/agent-connectivity/CopyButton";
 import { getDisplayEndpoint } from "@/lib/agent-client-snippets";
 import { cn } from "@/lib/utils";
-import type { SessionStatus } from "@/types/session";
+import type { WorkspaceStatus } from "@/types/workspace";
 
 interface ConnectAgentModalProps {
 	readonly open: boolean;
-	readonly status: SessionStatus;
-	readonly pairingUrl: string | null;
+	readonly status: WorkspaceStatus;
+	readonly workspaceUrl: string | null;
 	readonly onOpenChange: (open: boolean) => void;
 	readonly onDisconnect: () => void;
 }
@@ -43,16 +43,16 @@ function ConnectionLight({ label, active, pulse = false }: ConnectionLightProps)
 export function ConnectAgentModal({
 	open,
 	status,
-	pairingUrl,
+	workspaceUrl,
 	onOpenChange,
 	onDisconnect,
 }: ConnectAgentModalProps) {
-	const endpoint = pairingUrl ? getDisplayEndpoint(pairingUrl) : null;
+	const endpoint = workspaceUrl ? getDisplayEndpoint(workspaceUrl) : null;
 	const isLive = status === "live";
 	const isAttaching = status === "connecting" || status === "reconnecting";
 	const browserActive = isLive || isAttaching;
 	const agentActive = isLive;
-	const agentLabel = isLive ? "Agent attached" : "Waiting for agent…";
+	const agentLabel = isLive ? "Workspace ready" : "Waiting for workspace…";
 
 	return (
 		<DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>

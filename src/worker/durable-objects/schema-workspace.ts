@@ -2,20 +2,20 @@ import { DurableObject } from "cloudflare:workers";
 import { createMcpHandler } from "agents/mcp";
 import { nanoid } from "nanoid";
 
-import { createSessionMcpServer } from "./mcp-tools.ts";
-import { makeSnapshot, SessionStorage } from "./session-storage.ts";
+import { createWorkspaceMcpServer } from "./mcp-tools.ts";
+import { makeSnapshot, WorkspaceStorage } from "./workspace-storage.ts";
 import {
 	MAX_SCHEMA_SOURCE_LENGTH,
-	SESSION_EVICTION_MS,
+	WORKSPACE_EVICTION_MS,
 	SHARE_TTL_SECONDS,
 	type ClientMessage,
 	type ServerMessage,
-} from "./session-types.ts";
+} from "./workspace-types.ts";
 
 type McpFetchHandler = (request: Request, env: unknown, ctx: ExecutionContext) => Promise<Response>;
 
-export class SchemaSessionDO extends DurableObject<Env> {
-	private store = new SessionStorage(this.ctx.storage);
+export class SchemaWorkspaceDO extends DurableObject<Env> {
+	private store = new WorkspaceStorage(this.ctx.storage);
 
 
 	private broadcast(message: ServerMessage, exclude?: WebSocket): void {
@@ -29,10 +29,10 @@ export class SchemaSessionDO extends DurableObject<Env> {
 
 
 	override async alarm(): Promise<void> {
-		const session = await this.store.load();
-		if (!session) return;
+		const workspace = await this.store.load();
+		if (!workspace) return;
 
-		const remaining = SESSION_EVICTION_MS - (Date.now() - session.lastActivityAt);
+		const remaining = WORKSPACE_EVICTION_MS - (Date.now() - workspace.lastActivityAt);
 		if (remaining > 0) {
 			await this.ctx.storage.setAlarm(Date.now() + remaining);
 			return;
@@ -43,7 +43,7 @@ export class SchemaSessionDO extends DurableObject<Env> {
 
 	private async scheduleEvictionIfEmpty(): Promise<void> {
 		if (this.ctx.getWebSockets("browser").length === 0) {
-			await this.ctx.storage.setAlarm(Date.now() + SESSION_EVICTION_MS);
+			await this.ctx.storage.setAlarm(Date.now() + WORKSPACE_EVICTION_MS);
 		}
 	}
 
@@ -91,7 +91,7 @@ export class SchemaSessionDO extends DurableObject<Env> {
 				return void await this.handlePatch(ws, { notes: [...msg.notes] });
 
 			case "set-diagnostics":
-				return void await this.store.save({
+				return void await this.store.saveBrowserMutation({
 					diagnostics: [...msg.diagnostics],
 					parsedTableCount: msg.tableCount,
 					parsedRefCount: msg.refCount,
@@ -114,14 +114,14 @@ export class SchemaSessionDO extends DurableObject<Env> {
 
 
 	private async handleAttach(ws: WebSocket, msg: Extract<ClientMessage, { type: "attach" }>): Promise<void> {
-		const session = await this.store.load();
-		if (session && session.updatedAt > msg.updatedAt) {
-			ws.send(JSON.stringify({ type: "state-ack", state: makeSnapshot(session) } satisfies ServerMessage));
+		const decision = await this.store.attachBrowser(msg.state, msg.updatedAt);
+		if (decision.winner === "remote") {
+			ws.send(JSON.stringify({ type: "state-ack", state: makeSnapshot(decision.workspace) } satisfies ServerMessage));
 			return;
 		}
 
-		const nextSession = await this.store.replaceFromBrowser(msg.state, msg.updatedAt);
-		ws.send(JSON.stringify({ type: "state-ack", state: makeSnapshot(nextSession) } satisfies ServerMessage));
+		const nextWorkspace = this.store.cached!;
+		ws.send(JSON.stringify({ type: "state-ack", state: makeSnapshot(nextWorkspace) } satisfies ServerMessage));
 	}
 
 	private async handleSetSource(ws: WebSocket, source: string): Promise<void> {
@@ -132,34 +132,58 @@ export class SchemaSessionDO extends DurableObject<Env> {
 			return;
 		}
 
-		await this.store.save({ source });
-		this.broadcast({ type: "state-update", patch: { source } }, ws);
+		await this.store.saveBrowserMutation({ source });
+		this.broadcast(
+			{
+				type: "state-update",
+				patch: { source, updatedAt: this.store.cached!.updatedAt },
+			},
+			ws,
+		);
 	}
 
-	private async handlePatch(ws: WebSocket, partial: Parameters<SessionStorage["save"]>[0]): Promise<void> {
+	private async handlePatch(ws: WebSocket, partial: Parameters<WorkspaceStorage["saveBrowserMutation"]>[0]): Promise<void> {
 		if (!(await this.store.load())) return;
-		await this.store.save(partial);
-		this.broadcast({ type: "state-update", patch: partial as Partial<import("./session-types.ts").SessionSnapshot> }, ws);
+		await this.store.saveBrowserMutation(partial);
+		this.broadcast(
+			{
+				type: "state-update",
+				patch: {
+					...(partial as Partial<import("./workspace-types.ts").WorkspaceSnapshot>),
+					updatedAt: this.store.cached!.updatedAt,
+				},
+			},
+			ws,
+		);
 	}
 
 	private async handleShare(ws: WebSocket): Promise<void> {
-		const session = await this.store.load();
-		if (!session) {
-			ws.send(JSON.stringify({ type: "share-error", error: "No active session" } satisfies ServerMessage));
+		const workspace = await this.store.load();
+		if (!workspace) {
+			ws.send(JSON.stringify({ type: "share-error", error: "No active workspace" } satisfies ServerMessage));
 			return;
 		}
 
 		try {
 			const shareId = nanoid(8);
-			const payload = { source: session.source, positions: session.positions, notes: session.notes, version: 3 as const };
+			const payload = { source: workspace.source, positions: workspace.positions, notes: workspace.notes, version: 3 as const };
 
 			await this.env.SCHEMAS.put(shareId, JSON.stringify(payload), { expirationTtl: SHARE_TTL_SECONDS });
-			await this.store.save({
-				baseline: { shareId, source: session.source, positions: session.positions, notes: session.notes },
+			await this.store.saveBrowserMutation({
+				baseline: { shareId, source: workspace.source, positions: workspace.positions, notes: workspace.notes },
 			});
 
 			ws.send(JSON.stringify({ type: "share-result", id: shareId } satisfies ServerMessage));
-			this.broadcast({ type: "state-update", patch: { baseline: { shareId } } }, ws);
+			this.broadcast(
+				{
+					type: "state-update",
+					patch: {
+						baseline: { shareId },
+						updatedAt: this.store.cached!.updatedAt,
+					},
+				},
+				ws,
+			);
 		} catch (error) {
 			console.error("Share failed", error);
 			ws.send(JSON.stringify({ type: "share-error", error: "Failed to save shared schema" } satisfies ServerMessage));
@@ -168,7 +192,7 @@ export class SchemaSessionDO extends DurableObject<Env> {
 
 
 	private getMcpHandler(route: string): McpFetchHandler {
-		const server = createSessionMcpServer(this.store, (msg) => this.broadcast(msg));
+		const server = createWorkspaceMcpServer(this.store, (msg) => this.broadcast(msg));
 		return createMcpHandler(server, { route });
 	}
 

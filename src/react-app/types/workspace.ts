@@ -1,27 +1,27 @@
 import type { DiagramPositions, ParseDiagnostic, SharedStickyNote } from "@/types";
 
-export type SessionStatus =
+export type WorkspaceStatus =
 	| "offline"
 	| "connecting"
 	| "live"
 	| "reconnecting"
 	| "ended";
 
-export interface SessionBaseline {
+export interface WorkspaceBaseline {
 	readonly shareId: string;
 	readonly source: string;
 	readonly positions: DiagramPositions;
 	readonly notes: readonly SharedStickyNote[];
 }
 
-export interface SessionSeed {
+export interface WorkspaceSeed {
 	readonly source: string;
 	readonly positions: DiagramPositions;
 	readonly notes: readonly SharedStickyNote[];
-	readonly baseline: SessionBaseline | null;
+	readonly baseline: WorkspaceBaseline | null;
 }
 
-export interface SessionSnapshot {
+export interface WorkspaceSnapshot {
 	readonly source: string;
 	readonly positions: DiagramPositions;
 	readonly notes: readonly SharedStickyNote[];
@@ -32,8 +32,8 @@ export interface SessionSnapshot {
 	readonly updatedAt?: number;
 }
 
-export type ClientSessionMessage =
-	| { readonly type: "attach"; readonly state: SessionSeed; readonly updatedAt: number }
+export type ClientWorkspaceMessage =
+	| { readonly type: "attach"; readonly state: WorkspaceSeed; readonly updatedAt: number }
 	| { readonly type: "set-source"; readonly source: string }
 	| { readonly type: "set-positions"; readonly positions: DiagramPositions }
 	| { readonly type: "set-notes"; readonly notes: readonly SharedStickyNote[] }
@@ -46,9 +46,9 @@ export type ClientSessionMessage =
 	| { readonly type: "share-request" }
 	| { readonly type: "ping" };
 
-export type ServerSessionMessage =
-	| { readonly type: "state-ack"; readonly state: SessionSnapshot }
-	| { readonly type: "state-update"; readonly patch: Partial<SessionSnapshot> }
+export type ServerWorkspaceMessage =
+	| { readonly type: "state-ack"; readonly state: WorkspaceSnapshot }
+	| { readonly type: "state-update"; readonly patch: Partial<WorkspaceSnapshot> }
 	| { readonly type: "focus"; readonly tableIds: readonly string[] }
 	| { readonly type: "share-result"; readonly id: string }
 	| { readonly type: "share-error"; readonly error: string }

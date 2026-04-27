@@ -16,6 +16,8 @@ import {
 import {
 	IconAlertTriangle,
 	IconLayoutSidebarLeftCollapse,
+	IconLock,
+	IconLockOpen,
 } from "@tabler/icons-react";
 import { useEffectEvent } from "react";
 import { useEffect, useRef } from "react";
@@ -77,6 +79,29 @@ const diagnosticField = StateField.define({
 	},
 	provide: (field) => EditorView.decorations.from(field),
 });
+
+interface EditorLockIndicatorProps {
+	readonly locked: boolean;
+}
+
+function EditorLockIndicator({ locked }: EditorLockIndicatorProps) {
+	const Icon = locked ? IconLock : IconLockOpen;
+
+	return (
+		<span
+			className={[
+				"inline-flex size-5 shrink-0 items-center justify-center border bg-[var(--gray-800)]",
+				locked
+					? "border-[oklch(0.52_0.13_58_/_0.55)] text-[oklch(0.76_0.14_62)]"
+					: "border-white/10 text-[var(--gray-500)]",
+			].join(" ")}
+			title={locked ? "Editor is locked when connected to an agent" : "Editor unlocked"}
+			aria-label={locked ? "Editor locked" : "Editor unlocked"}
+		>
+			<Icon className="size-3" strokeWidth={2} />
+		</span>
+	);
+}
 
 export function Editor({
 	value,
@@ -243,9 +268,12 @@ export function Editor({
 		>
 			<div className="flex min-h-10 items-center justify-between gap-3 border-b border-sidebar-border/80 px-3">
 				<div className="flex min-w-0 items-center gap-3">
-					<span className="inline-flex items-center gap-0 text-[11px] font-medium bg-[var(--gray-800)] border border-white/10 text-[var(--gray-100)] px-2.5 py-1 leading-none">
-						schema.dbml
-					</span>
+					<div className="inline-flex shrink-0 items-center gap-1.5">
+						<span className="inline-flex items-center gap-0 text-[11px] font-medium bg-[var(--gray-800)] border border-white/10 text-[var(--gray-100)] px-2.5 py-1 leading-none">
+							schema.dbml
+						</span>
+						<EditorLockIndicator locked={readOnly} />
+					</div>
 					<EditorTitleStatus />
 				</div>
 				<button

@@ -6,7 +6,7 @@ import { ConnectAgentModal } from "@/components/agent-connectivity/ConnectAgentM
 
 interface RenderModalOptions {
 	readonly open?: boolean;
-	readonly pairingUrl?: string | null;
+	readonly workspaceUrl?: string | null;
 	readonly status?: "offline" | "connecting" | "live" | "reconnecting" | "ended";
 	readonly onDisconnect?: () => void;
 }
@@ -15,7 +15,7 @@ const MCP_URL = "https://dbml.example/api/agent/device-123/mcp";
 
 const renderModal = ({
 	open = true,
-	pairingUrl = MCP_URL,
+	workspaceUrl = MCP_URL,
 	status = "live",
 	onDisconnect = vi.fn(),
 }: RenderModalOptions = {}) => {
@@ -28,7 +28,7 @@ const renderModal = ({
 			<ConnectAgentModal
 				open={open}
 				status={status}
-				pairingUrl={pairingUrl}
+				workspaceUrl={workspaceUrl}
 				onOpenChange={vi.fn()}
 				onDisconnect={onDisconnect}
 			/>,
@@ -59,7 +59,7 @@ describe("ConnectAgentModal", () => {
 		expect(document.body.textContent).not.toContain("Connect canvas to your agent");
 	});
 
-	it("renders the pairing endpoint, lead copy, and default Claude Code snippet", () => {
+	it("renders the workspace endpoint, lead copy, and default Claude Code snippet", () => {
 		const rendered = renderModal();
 		activeRoot = rendered.root;
 
@@ -70,7 +70,7 @@ describe("ConnectAgentModal", () => {
 	});
 
 	it("does not render endpoint snippets before attach succeeds", () => {
-		const rendered = renderModal({ status: "connecting", pairingUrl: null });
+		const rendered = renderModal({ status: "connecting", workspaceUrl: null });
 		activeRoot = rendered.root;
 
 		expect(document.body.textContent).toContain("Connect canvas to your agent");

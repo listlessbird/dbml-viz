@@ -46,7 +46,7 @@ export function EditorReconnectVeil({
 			aria-live="polite"
 		>
 			<span className="text-[12px] font-medium text-[var(--paper)]">
-				Reconnecting to session…
+				Reconnecting to workspace…
 			</span>
 			<span className="font-mono text-[10px] text-[oklch(0.82_0.08_60)]">
 				{attemptLabel}

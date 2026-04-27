@@ -2,18 +2,17 @@ import { Popover as PopoverPrimitive } from "@base-ui/react/popover";
 import { useMemo } from "react";
 
 import { AgentActivityLog } from "@/components/agent-connectivity/AgentActivityLog";
-import { SessionStatusPill } from "@/components/agent-connectivity/SessionStatusPill";
+import { WorkspaceStatusPill } from "@/components/agent-connectivity/WorkspaceStatusPill";
 import { useAgentActivityStore } from "@/store/useAgentActivityStore";
-import type { SessionStatus } from "@/types/session";
+import type { WorkspaceStatus } from "@/types/workspace";
 
-interface ToolbarSessionSlotProps {
-	readonly status: SessionStatus;
-	readonly sessionId: string | null;
+interface ToolbarWorkspaceSlotProps {
+	readonly status: WorkspaceStatus;
+	readonly workspaceId: string | null;
 	readonly onConnect: () => void;
-	readonly onShowSession: () => void;
+	readonly onShowWorkspace: () => void;
 }
 
-const CONNECT_KBD = "⌘⇧K";
 
 interface PillCopy {
 	readonly label: string;
@@ -22,12 +21,12 @@ interface PillCopy {
 }
 
 function buildPillCopy(
-	status: SessionStatus,
+	status: WorkspaceStatus,
 	reconnectAttempt: number | null,
 ): PillCopy {
 	switch (status) {
 		case "offline":
-			return { label: "Connect canvas", kbd: CONNECT_KBD };
+			return { label: "Connect canvas to an agent	"};
 		case "connecting":
 			return { label: "Connecting…" };
 		case "live":
@@ -38,16 +37,16 @@ function buildPillCopy(
 				hint: reconnectAttempt ? `attempt ${reconnectAttempt}` : undefined,
 			};
 		case "ended":
-			return { label: "Session expired" };
+			return { label: "Workspace expired" };
 	}
 }
 
-export function ToolbarSessionSlot({
+export function ToolbarWorkspaceSlot({
 	status,
-	sessionId,
+	workspaceId,
 	onConnect,
-	onShowSession,
-}: ToolbarSessionSlotProps) {
+	onShowWorkspace,
+}: ToolbarWorkspaceSlotProps) {
 	const reconnect = useAgentActivityStore((state) => state.reconnect);
 	const copy = useMemo(
 		() => buildPillCopy(status, reconnect?.attempt ?? null),
@@ -59,7 +58,7 @@ export function ToolbarSessionSlot({
 			<PopoverPrimitive.Root>
 				<PopoverPrimitive.Trigger
 					render={
-						<SessionStatusPill
+						<WorkspaceStatusPill
 							status="live"
 							tone="dark"
 							label={copy.label}
@@ -76,7 +75,7 @@ export function ToolbarSessionSlot({
 						className="isolate z-50"
 					>
 						<PopoverPrimitive.Popup className="outline-none">
-							<AgentActivityLog sessionId={sessionId} />
+							<AgentActivityLog workspaceId={workspaceId} />
 						</PopoverPrimitive.Popup>
 					</PopoverPrimitive.Positioner>
 				</PopoverPrimitive.Portal>
@@ -85,10 +84,10 @@ export function ToolbarSessionSlot({
 	}
 
 	const handleClick =
-		status === "connecting" || status === "reconnecting" ? onShowSession : onConnect;
+		status === "connecting" || status === "reconnecting" ? onShowWorkspace : onConnect;
 
 	return (
-		<SessionStatusPill
+		<WorkspaceStatusPill
 			status={status}
 			tone="dark"
 			label={copy.label}

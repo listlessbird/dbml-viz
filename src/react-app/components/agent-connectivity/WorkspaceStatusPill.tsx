@@ -2,24 +2,24 @@ import type { ButtonHTMLAttributes } from "react";
 import { forwardRef } from "react";
 
 import { cn } from "@/lib/utils";
-import type { SessionStatus } from "@/types/session";
+import type { WorkspaceStatus } from "@/types/workspace";
 
-export type SessionPillTone = "light" | "dark";
+export type WorkspacePillTone = "light" | "dark";
 
-interface SessionStatusPillProps
+interface WorkspaceStatusPillProps
 	extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children"> {
-	readonly status: SessionStatus;
+	readonly status: WorkspaceStatus;
 	readonly label: string;
 	readonly hint?: string;
 	readonly kbd?: string;
-	readonly tone?: SessionPillTone;
+	readonly tone?: WorkspacePillTone;
 	readonly active?: boolean;
 }
 
 const baseClasses =
 	"shrink-0 inline-flex h-6 items-center justify-center gap-1.5 border px-2 text-[11px] font-medium leading-none whitespace-nowrap select-none transition-[background-color,border-color,color] duration-[120ms]";
 
-const lightTones: Record<SessionStatus, string> = {
+const lightTones: Record<WorkspaceStatus, string> = {
 	offline:
 		"border-[var(--gray-300)] bg-[var(--paper)] text-[var(--gray-700)] hover:bg-[var(--gray-100)]",
 	connecting:
@@ -31,7 +31,7 @@ const lightTones: Record<SessionStatus, string> = {
 		"border-[oklch(0.86_0.04_25)] bg-[oklch(0.975_0.014_25)] text-[var(--crimson-700)]",
 };
 
-const darkTones: Record<SessionStatus, string> = {
+const darkTones: Record<WorkspaceStatus, string> = {
 	offline:
 		"border-white/[0.14] bg-[var(--gray-800)] text-[var(--gray-100)] hover:border-white/25 hover:bg-[var(--gray-700)]",
 	connecting:
@@ -43,7 +43,7 @@ const darkTones: Record<SessionStatus, string> = {
 		"border-[oklch(0.55_0.18_25)] bg-[oklch(0.225_0.06_25)] text-[oklch(0.9_0.05_25)]",
 };
 
-const dotTones: Record<SessionStatus, { light: string; dark: string }> = {
+const dotTones: Record<WorkspaceStatus, { light: string; dark: string }> = {
 	offline: { light: "bg-[var(--gray-400)]", dark: "bg-[var(--gray-400)]" },
 	connecting: {
 		light: "bg-[oklch(0.38_0.14_260)]",
@@ -63,7 +63,7 @@ const dotTones: Record<SessionStatus, { light: string; dark: string }> = {
 	},
 };
 
-const dotAnimationClass: Record<SessionStatus, string> = {
+const dotAnimationClass: Record<WorkspaceStatus, string> = {
 	offline: "",
 	connecting: "acnx-dot-pulse",
 	live: "acnx-dot-halo relative",
@@ -71,10 +71,10 @@ const dotAnimationClass: Record<SessionStatus, string> = {
 	ended: "",
 };
 
-export const SessionStatusPill = forwardRef<
+export const WorkspaceStatusPill = forwardRef<
 	HTMLButtonElement,
-	SessionStatusPillProps
->(function SessionStatusPill(
+	WorkspaceStatusPillProps
+>(function WorkspaceStatusPill(
 	{
 		status,
 		label,

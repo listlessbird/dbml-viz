@@ -1,13 +1,13 @@
-import type { SchemaSessionDO } from "./schema-session.ts";
+import type { SchemaWorkspaceDO } from "./schema-workspace.ts";
 
-export async function callSession<T>(
+export async function callWorkspace<T>(
 	env: Env,
-	sessionId: string,
-	fn: (stub: DurableObjectStub<SchemaSessionDO>) => Promise<T>,
+	workspaceId: string,
+	fn: (stub: DurableObjectStub<SchemaWorkspaceDO>) => Promise<T>,
 	maxAttempts = 3,
 ): Promise<T> {
 	for (let attempt = 0; attempt < maxAttempts; attempt++) {
-		const stub = env.SESSIONS.get(env.SESSIONS.idFromName(sessionId));
+		const stub = env.SESSIONS.get(env.SESSIONS.idFromName(workspaceId));
 		try {
 			return await fn(stub);
 		} catch (error) {

@@ -11,7 +11,7 @@ import { makeWorkerInfraLayer } from "./effect/infra";
 import { makeWorkerHandler } from "./effect/runtime";
 import { SchemaShareStore } from "./services/schema-share-store";
 
-import { callSession } from "./durable-objects/call-session";
+import { callWorkspace } from "./durable-objects/call-workspace";
 
 const withJsonErrorBoundary = <R>(
 	program: Effect.Effect<
@@ -103,8 +103,8 @@ export default {
 		const match = SESSION_PATH_PATTERN.exec(url.pathname);
 
 		if (match) {
-			const [, sessionId] = match;
-			return callSession(env, sessionId, (stub) => stub.fetch(request));
+			const [, workspaceId] = match;
+			return callWorkspace(env, workspaceId, (stub) => stub.fetch(request));
 		}
 
 		return effectHandler(request, env, ctx);
@@ -112,4 +112,7 @@ export default {
 };
 
 
-export { SchemaSessionDO } from "./durable-objects/schema-session";
+export {
+	SchemaWorkspaceDO,
+	SchemaWorkspaceDO as SchemaSessionDO,
+} from "./durable-objects/schema-workspace";

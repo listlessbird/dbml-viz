@@ -9,7 +9,7 @@ import type {
 } from "@/types/session-activity";
 
 interface AgentActivityLogProps {
-	readonly sessionId: string | null;
+	readonly workspaceId: string | null;
 	readonly className?: string;
 }
 
@@ -82,11 +82,11 @@ function ActivityRow({ entry }: { readonly entry: AgentActivityEntry }) {
 	);
 }
 
-export function AgentActivityLog({ sessionId, className }: AgentActivityLogProps) {
+export function AgentActivityLog({ workspaceId, className }: AgentActivityLogProps) {
 	const entries = useAgentActivityStore((state) => state.entries);
 	const clearEntries = useAgentActivityStore((state) => state.clearEntries);
 	const isEmpty = entries.length === 0;
-	const subtitle = useMemo(() => sessionId ?? "session pending", [sessionId]);
+	const subtitle = useMemo(() => workspaceId ?? "workspace pending", [workspaceId]);
 
 	return (
 		<div

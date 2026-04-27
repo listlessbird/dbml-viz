@@ -29,27 +29,27 @@ export interface SharedStickyNote {
 
 export type DiagramPositions = Record<string, SharePosition>;
 
-export interface SessionBaseline {
+export interface WorkspaceBaseline {
 	readonly shareId: string;
 	readonly source: string;
 	readonly positions: DiagramPositions;
 	readonly notes: readonly SharedStickyNote[];
 }
 
-export interface SessionState {
+export interface WorkspaceState {
 	source: string;
 	positions: DiagramPositions;
 	notes: SharedStickyNote[];
 	diagnostics: ParseDiagnostic[];
 	parsedTableCount: number;
 	parsedRefCount: number;
-	baseline: SessionBaseline | null;
+	baseline: WorkspaceBaseline | null;
 	createdAt: number;
 	updatedAt: number;
 	lastActivityAt: number;
 }
 
-export interface SessionSnapshot {
+export interface WorkspaceSnapshot {
 	readonly source: string;
 	readonly positions: DiagramPositions;
 	readonly notes: readonly SharedStickyNote[];
@@ -60,15 +60,15 @@ export interface SessionSnapshot {
 	readonly updatedAt: number;
 }
 
-export interface SessionSeed {
+export interface WorkspaceSeed {
 	readonly source: string;
 	readonly positions: DiagramPositions;
 	readonly notes: readonly SharedStickyNote[];
-	readonly baseline: SessionBaseline | null;
+	readonly baseline: WorkspaceBaseline | null;
 }
 
 export type ClientMessage =
-	| { readonly type: "attach"; readonly state: SessionSeed; readonly updatedAt: number }
+	| { readonly type: "attach"; readonly state: WorkspaceSeed; readonly updatedAt: number }
 	| { readonly type: "set-source"; readonly source: string }
 	| { readonly type: "set-positions"; readonly positions: DiagramPositions }
 	| { readonly type: "set-notes"; readonly notes: readonly SharedStickyNote[] }
@@ -82,8 +82,8 @@ export type ClientMessage =
 	| { readonly type: "ping" };
 
 export type ServerMessage =
-	| { readonly type: "state-ack"; readonly state: SessionSnapshot }
-	| { readonly type: "state-update"; readonly patch: Partial<SessionSnapshot> }
+	| { readonly type: "state-ack"; readonly state: WorkspaceSnapshot }
+	| { readonly type: "state-update"; readonly patch: Partial<WorkspaceSnapshot> }
 	| { readonly type: "focus"; readonly tableIds: readonly string[] }
 	| { readonly type: "share-result"; readonly id: string }
 	| { readonly type: "share-error"; readonly error: string }
@@ -91,5 +91,5 @@ export type ServerMessage =
 	| { readonly type: "pong" };
 
 export const MAX_SCHEMA_SOURCE_LENGTH = 500_000;
-export const SESSION_EVICTION_MS = 30 * 24 * 60 * 60 * 1000;
+export const WORKSPACE_EVICTION_MS = 30 * 24 * 60 * 60 * 1000;
 export const SHARE_TTL_SECONDS = 60 * 60 * 24 * 90;

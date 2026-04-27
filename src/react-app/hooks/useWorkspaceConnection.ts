@@ -3,17 +3,18 @@ import { toast } from "sonner";
 
 import { pluralize, summary } from "@/lib/agent-activity-summary";
 import { getOrCreateDeviceId } from "@/lib/device-workspace";
-import { makeSessionWebSocketUrl } from "@/lib/session-url";
+import { makeWorkspaceWebSocketUrl } from "@/lib/workspace-url";
 import { useAgentActivityStore } from "@/store/useAgentActivityStore";
+import { useWorkspaceMetaStore } from "@/store/useWorkspaceMetaStore";
 import {
-	parseServerSessionMessage,
-	useSessionStore,
-} from "@/store/useSessionStore";
+	parseServerWorkspaceMessage,
+	useWorkspaceStore,
+} from "@/store/useWorkspaceStore";
 import type {
-	ServerSessionMessage,
-	SessionSeed,
-	SessionSnapshot,
-} from "@/types/session";
+	ServerWorkspaceMessage,
+	WorkspaceSeed,
+	WorkspaceSnapshot,
+} from "@/types/workspace";
 
 const MAX_RECONNECT_ATTEMPTS = 5;
 const RECONNECT_DELAYS_MS = [1_000, 2_000, 4_000, 8_000, 16_000] as const;
@@ -29,30 +30,36 @@ const truncateSnippet = (source: string, max = 32): string => {
 	return trimmed.length > max ? `${trimmed.slice(0, max - 1)}…` : trimmed;
 };
 
-interface SessionConnectionOptions {
-	readonly getCurrentSeed: () => SessionSeed;
-	readonly applySnapshot: (snapshot: SessionSnapshot) => void;
-	readonly applyPatch: (patch: Partial<SessionSnapshot>) => void;
+const recordServerUpdatedAt = (value: number) => {
+	useWorkspaceMetaStore.getState().setLastServerUpdatedAt(value);
+};
+
+const readPersistedUpdatedAt = () =>
+	useWorkspaceMetaStore.getState().lastServerUpdatedAt ?? 0;
+
+interface WorkspaceConnectionOptions {
+	readonly getCurrentSeed: () => WorkspaceSeed;
+	readonly applySnapshot: (snapshot: WorkspaceSnapshot) => void;
+	readonly applyPatch: (patch: Partial<WorkspaceSnapshot>) => void;
 	readonly onFocusTables: (tableIds: readonly string[]) => void;
 	readonly onShareResult: (id: string) => void;
 	readonly onExpired: () => void;
 }
 
-export function useSessionConnection({
+export function useWorkspaceConnection({
 	getCurrentSeed,
 	applySnapshot,
 	applyPatch,
 	onFocusTables,
 	onShareResult,
 	onExpired,
-}: SessionConnectionOptions) {
+}: WorkspaceConnectionOptions) {
 	const reconnectAttemptRef = useRef(0);
 	const reconnectTimerRef = useRef<number | null>(null);
-	const seedRef = useRef<SessionSeed | null>(null);
-	const seedUpdatedAtRef = useRef<number>(0);
+	const seedRef = useRef<WorkspaceSeed | null>(null);
 	const intentionalCloseRef = useRef(false);
 	const reconnectingRef = useRef(false);
-	const connectRef = useRef<(sessionId: string) => void>(
+	const connectRef = useRef<(workspaceId: string) => void>(
 		() => {},
 	);
 	const callbacksRef = useRef({
@@ -82,26 +89,30 @@ export function useSessionConnection({
 		}
 	}, []);
 
-	const handleMessage = useCallback((message: ServerSessionMessage) => {
-		const store = useSessionStore.getState();
+	const handleMessage = useCallback((message: ServerWorkspaceMessage) => {
+		const store = useWorkspaceStore.getState();
 		const activity = useAgentActivityStore.getState();
 
 		switch (message.type) {
 			case "state-ack":
 				reconnectAttemptRef.current = 0;
 				reconnectingRef.current = false;
-				seedUpdatedAtRef.current = message.state.updatedAt ?? seedUpdatedAtRef.current;
+				if (typeof message.state.updatedAt === "number") {
+					recordServerUpdatedAt(message.state.updatedAt);
+				}
 				store.setLive();
 				activity.setReconnect(null);
 				activity.logActivity({
 					direction: "out",
-					tool: "session attached",
+					tool: "workspace attached",
 					parts: [summary.text("browser ready"), summary.code(message.state.tableCount + " tables")],
 				});
 				callbacksRef.current.applySnapshot(message.state);
 				return;
 			case "state-update":
-				seedUpdatedAtRef.current = Date.now();
+				if (typeof message.patch.updatedAt === "number") {
+					recordServerUpdatedAt(message.patch.updatedAt);
+				}
 				if (typeof message.patch.source === "string") {
 					store.lockEditorForAgent();
 					activity.startAgentWriting({
@@ -161,7 +172,7 @@ export function useSessionConnection({
 				return;
 			case "error":
 				store.setError(message.message);
-				if (message.message === "session-expired") {
+				if (message.message === "workspace-expired") {
 					callbacksRef.current.onExpired();
 				} else {
 					activity.logActivity({
@@ -177,12 +188,12 @@ export function useSessionConnection({
 		}
 	}, []);
 
-	const connect = useCallback((sessionId: string) => {
-		const socket = new WebSocket(makeSessionWebSocketUrl(sessionId));
-		useSessionStore.getState().setSocket(socket);
+	const connect = useCallback((workspaceId: string) => {
+		const socket = new WebSocket(makeWorkspaceWebSocketUrl(workspaceId));
+		useWorkspaceStore.getState().setSocket(socket);
 
 		socket.addEventListener("open", () => {
-			const store = useSessionStore.getState();
+			const store = useWorkspaceStore.getState();
 			const seed = callbacksRef.current.getCurrentSeed();
 			seedRef.current = seed;
 			if (!seed) {
@@ -190,33 +201,37 @@ export function useSessionConnection({
 				socket.close();
 				return;
 			}
-			store.send({ type: "attach", state: seed, updatedAt: seedUpdatedAtRef.current });
+			store.send({
+				type: "attach",
+				state: seed,
+				updatedAt: readPersistedUpdatedAt(),
+			});
 		});
 
 		socket.addEventListener("message", (event) => {
 			if (typeof event.data !== "string") return;
-			const parsed = parseServerSessionMessage(event.data);
+			const parsed = parseServerWorkspaceMessage(event.data);
 			if (parsed) handleMessage(parsed);
 		});
 
 		socket.addEventListener("close", () => {
-			useSessionStore.getState().setSocket(null);
+			useWorkspaceStore.getState().setSocket(null);
 			if (intentionalCloseRef.current) return;
-			const session = useSessionStore.getState();
+			const workspace = useWorkspaceStore.getState();
 			const activity = useAgentActivityStore.getState();
-			if (!session.sessionId) return;
+			if (!workspace.workspaceId) return;
 
 			const attempt = reconnectAttemptRef.current;
 			if (attempt >= MAX_RECONNECT_ATTEMPTS) {
-				session.setError("Session connection lost.");
-				session.reset();
+				workspace.setError("Workspace connection lost.");
+				workspace.reset();
 				activity.setReconnect(null);
-				toast.error("Session connection lost. Local draft persistence resumed.");
+				toast.error("Workspace connection lost. Local draft persistence resumed.");
 				return;
 			}
 
 			reconnectingRef.current = true;
-			session.setStatus("reconnecting");
+			workspace.setStatus("reconnecting");
 			const delay = RECONNECT_DELAYS_MS[Math.min(attempt, RECONNECT_DELAYS_MS.length - 1)];
 			reconnectAttemptRef.current = attempt + 1;
 			activity.setReconnect({
@@ -225,52 +240,51 @@ export function useSessionConnection({
 				maxAttempts: MAX_RECONNECT_ATTEMPTS,
 			});
 			reconnectTimerRef.current = window.setTimeout(() => {
-				connectRef.current(session.sessionId!);
+				connectRef.current(workspace.workspaceId!);
 			}, delay);
 		});
 
 		socket.addEventListener("error", () => {
-			useSessionStore.getState().setError("WebSocket connection failed.");
+			useWorkspaceStore.getState().setError("WebSocket connection failed.");
 		});
 	}, [handleMessage]);
 	useEffect(() => {
 		connectRef.current = connect;
 	}, [connect]);
 
-	const startSession = useCallback((seed: SessionSeed) => {
-		const existing = useSessionStore.getState();
+	const startWorkspace = useCallback((seed: WorkspaceSeed) => {
+		const existing = useWorkspaceStore.getState();
 		if (existing.status !== "offline") return;
 
-		const sessionId = getOrCreateDeviceId();
+		const workspaceId = getOrCreateDeviceId();
 		seedRef.current = seed;
-		seedUpdatedAtRef.current = Date.now();
 		intentionalCloseRef.current = false;
 		reconnectAttemptRef.current = 0;
 		clearReconnectTimer();
 		useAgentActivityStore.getState().reset();
-		existing.setConnecting(sessionId);
-		connect(sessionId);
+		existing.setConnecting(workspaceId);
+		connect(workspaceId);
 	}, [clearReconnectTimer, connect]);
 
-	const endSession = useCallback(() => {
-		const { socket } = useSessionStore.getState();
+	const endWorkspace = useCallback(() => {
+		const { socket } = useWorkspaceStore.getState();
 		intentionalCloseRef.current = true;
 		clearReconnectTimer();
 		if (socket && socket.readyState < WebSocket.CLOSING) {
-			socket.close(1000, "Session ended");
+			socket.close(1000, "Workspace disconnected");
 		}
-		useSessionStore.getState().reset();
+		useWorkspaceStore.getState().reset();
 		useAgentActivityStore.getState().reset();
 		seedRef.current = null;
 	}, [clearReconnectTimer]);
 
 	const markLocalWorkspaceChanged = useCallback(() => {
-		seedUpdatedAtRef.current = Date.now();
+		recordServerUpdatedAt(Date.now());
 	}, []);
 
 	return {
-		startSession,
-		endSession,
+		startWorkspace,
+		endWorkspace,
 		markLocalWorkspaceChanged,
 	};
 }
