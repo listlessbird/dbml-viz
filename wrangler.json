@@ -27,7 +27,7 @@
 	"migrations": [
 		{
 			"tag": "v1",
-			"new_classes": ["SchemaSessionDO"]
+			"new_sqlite_classes": ["SchemaSessionDO"]
 		}
 	],
 	"assets": {
