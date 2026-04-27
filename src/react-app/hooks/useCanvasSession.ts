@@ -155,7 +155,30 @@ export function useCanvasSession({
 		setShareSeedPositions,
 	]);
 
-	const { startSession, endSession } = useSessionConnection({
+	const getCurrentSessionSeed = useCallback(() => {
+		const latest = latestRef.current;
+		const positions = latest.canPersistNodePositions
+			? getPositionsFromNodes(latest.nodes)
+			: latest.shareSeedPositions;
+
+		return {
+			source: latest.source,
+			positions,
+			notes: getSharedStickyNotes(),
+			baseline:
+				latest.currentShareBaseline && latest.viewedRoute.shareId !== null
+					? {
+							shareId: latest.viewedRoute.shareId,
+							source: latest.currentShareBaseline.source,
+							positions: latest.currentShareBaseline.positions,
+							notes: latest.currentShareBaseline.notes,
+						}
+					: null,
+		};
+	}, []);
+
+	const { startSession, endSession, markLocalWorkspaceChanged } = useSessionConnection({
+		getCurrentSeed: getCurrentSessionSeed,
 		applySnapshot,
 		applyPatch,
 		onFocusTables: requestFitView,
@@ -163,8 +186,8 @@ export function useCanvasSession({
 		onExpired: () => {
 			const expiredId = useSessionStore.getState().sessionId;
 			useSessionStore.getState().reset();
-			toast.error("Session expired", {
-				description: `${expiredId ?? "session"} ended after 1h idle. Your local changes were restored.`,
+			toast.error("Workspace expired", {
+				description: `${expiredId ?? "workspace"} was cleared after 30 days idle. Your local changes were restored.`,
 			});
 		},
 	});
@@ -172,13 +195,14 @@ export function useCanvasSession({
 	const handleSourceChange = useCallback((nextSource: string) => {
 		setSource(nextSource);
 		if (useSessionStore.getState().status !== "live") return;
+		markLocalWorkspaceChanged();
 		if (sourceSendTimerRef.current !== null) {
 			window.clearTimeout(sourceSendTimerRef.current);
 		}
 		sourceSendTimerRef.current = window.setTimeout(() => {
 			useSessionStore.getState().send({ type: "set-source", source: nextSource });
 		}, 300);
-	}, [setSource]);
+	}, [markLocalWorkspaceChanged, setSource]);
 
 	useEffect(() => {
 		if (status !== "live") return;
@@ -200,11 +224,12 @@ export function useCanvasSession({
 				type: "set-positions",
 				positions: getPositionsFromNodes(nodes),
 			});
+			markLocalWorkspaceChanged();
 		}, 500);
 		return () => {
 			if (positionSendTimerRef.current !== null) window.clearTimeout(positionSendTimerRef.current);
 		};
-	}, [canPersistNodePositions, nodes, status]);
+	}, [canPersistNodePositions, markLocalWorkspaceChanged, nodes, status]);
 
 	useEffect(() => {
 		if (status !== "live") return;
@@ -213,6 +238,7 @@ export function useCanvasSession({
 			if (timeoutId !== null) window.clearTimeout(timeoutId);
 			timeoutId = window.setTimeout(() => {
 				useSessionStore.getState().send({ type: "set-notes", notes: getSharedStickyNotes() });
+				markLocalWorkspaceChanged();
 			}, 500);
 		};
 		const unsubscribe = useStickyNotesStore.subscribe(scheduleNotesSync);
@@ -221,7 +247,7 @@ export function useCanvasSession({
 			if (timeoutId !== null) window.clearTimeout(timeoutId);
 			unsubscribe();
 		};
-	}, [status]);
+	}, [markLocalWorkspaceChanged, status]);
 
 	useEffect(() => {
 		return () => {
@@ -237,27 +263,8 @@ export function useCanvasSession({
 			toast.error("Wait for the shared schema to finish loading before connecting.");
 			return;
 		}
-		const positions = latest.canPersistNodePositions
-			? getPositionsFromNodes(latest.nodes)
-			: latest.shareSeedPositions;
-		startSession(
-			{
-				source: latest.source,
-				positions,
-				notes: getSharedStickyNotes(),
-				baseline:
-					latest.currentShareBaseline && latest.viewedRoute.shareId !== null
-						? {
-								shareId: latest.viewedRoute.shareId,
-								source: latest.currentShareBaseline.source,
-								positions: latest.currentShareBaseline.positions,
-								notes: latest.currentShareBaseline.notes,
-							}
-						: null,
-			},
-			latest.viewedRoute,
-		);
-	}, [startSession, status]);
+		startSession(getCurrentSessionSeed());
+	}, [getCurrentSessionSeed, startSession, status]);
 
 	const handleShare = useCallback(() => {
 		if (status !== "live") {

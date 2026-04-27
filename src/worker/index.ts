@@ -95,7 +95,7 @@ const app = HttpRouter.empty.pipe(
 const effectHandler = makeWorkerHandler(app, makeWorkerInfraLayer);
 
 
-const SESSION_PATH_PATTERN = /^\/api\/session\/([A-Za-z0-9_-]+)\/(ws|mcp.*)$/;
+const SESSION_PATH_PATTERN = /^\/api\/agent\/([A-Za-z0-9_-]+)\/(ws|mcp.*)$/;
 
 export default {
 	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {

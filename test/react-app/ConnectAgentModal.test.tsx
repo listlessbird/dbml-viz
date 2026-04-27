@@ -11,7 +11,7 @@ interface RenderModalOptions {
 	readonly onDisconnect?: () => void;
 }
 
-const MCP_URL = "https://dbml.example/api/session/sess_123/mcp";
+const MCP_URL = "https://dbml.example/api/agent/device-123/mcp";
 
 const renderModal = ({
 	open = true,
@@ -67,6 +67,16 @@ describe("ConnectAgentModal", () => {
 		expect(document.body.textContent).toContain("MCP endpoint");
 		expect(document.body.textContent).toContain(MCP_URL);
 		expect(document.body.textContent).toContain("dbml-canvas");
+	});
+
+	it("does not render endpoint snippets before attach succeeds", () => {
+		const rendered = renderModal({ status: "connecting", pairingUrl: null });
+		activeRoot = rendered.root;
+
+		expect(document.body.textContent).toContain("Connect canvas to your agent");
+		expect(document.body.textContent).not.toContain("MCP endpoint");
+		expect(document.body.textContent).not.toContain("/api/agent/");
+		expect(document.body.textContent).not.toContain("dbml-canvas");
 	});
 
 	it("switches between client snippets via tabs", () => {

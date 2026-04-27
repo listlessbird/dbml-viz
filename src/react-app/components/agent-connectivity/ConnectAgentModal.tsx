@@ -47,7 +47,7 @@ export function ConnectAgentModal({
 	onOpenChange,
 	onDisconnect,
 }: ConnectAgentModalProps) {
-	const endpoint = getDisplayEndpoint(pairingUrl);
+	const endpoint = pairingUrl ? getDisplayEndpoint(pairingUrl) : null;
 	const isLive = status === "live";
 	const isAttaching = status === "connecting" || status === "reconnecting";
 	const browserActive = isLive || isAttaching;
@@ -81,28 +81,31 @@ export function ConnectAgentModal({
 							<code className="rounded-none bg-[var(--gray-100)] px-1 font-mono text-[11px] text-[var(--gray-800)]">
 								MCP
 							</code>
-							. The session is anonymous — anyone with the URL can read and write this canvas.
-							Disconnect to end it.
+							. The workspace URL appears after the browser syncs with the remote workspace.
 						</DialogPrimitive.Description>
 
-						<div className="space-y-1.5">
-							<label className="block font-mono text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--gray-500)]">
-								MCP endpoint
-							</label>
-							<div className="flex items-stretch">
-								<input
-									readOnly
-									value={endpoint}
-									className="min-w-0 flex-1 truncate border border-r-0 border-[var(--gray-300)] bg-[var(--gray-50)] px-2.5 py-1.5 font-mono text-[11px] text-[var(--gray-900)] outline-none focus-visible:border-[var(--gray-400)]"
-								/>
-								<CopyButton
-									value={endpoint}
-									className="!h-auto !rounded-none border-l-0"
-								/>
-							</div>
-						</div>
+						{endpoint ? (
+							<>
+								<div className="space-y-1.5">
+									<label className="block font-mono text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--gray-500)]">
+										MCP endpoint
+									</label>
+									<div className="flex items-stretch">
+										<input
+											readOnly
+											value={endpoint}
+											className="min-w-0 flex-1 truncate border border-r-0 border-[var(--gray-300)] bg-[var(--gray-50)] px-2.5 py-1.5 font-mono text-[11px] text-[var(--gray-900)] outline-none focus-visible:border-[var(--gray-400)]"
+										/>
+										<CopyButton
+											value={endpoint}
+											className="!h-auto !rounded-none border-l-0"
+										/>
+									</div>
+								</div>
 
-						<ClientConfigSnippet endpoint={endpoint} />
+								<ClientConfigSnippet endpoint={endpoint} />
+							</>
+						) : null}
 					</div>
 
 					<footer className="flex items-center gap-3 border-t border-[var(--gray-200)] bg-[var(--gray-50)] px-4 py-2.5">

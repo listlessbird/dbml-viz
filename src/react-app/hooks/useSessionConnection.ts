@@ -1,16 +1,14 @@
-import { nanoid } from "nanoid";
 import { useCallback, useEffect, useRef } from "react";
 import { toast } from "sonner";
 
 import { pluralize, summary } from "@/lib/agent-activity-summary";
-import { clearSessionPointer, writeSessionPointer } from "@/lib/session-pointer";
-import { makeSessionMcpUrl, makeSessionWebSocketUrl } from "@/lib/session-url";
+import { getOrCreateDeviceId } from "@/lib/device-workspace";
+import { makeSessionWebSocketUrl } from "@/lib/session-url";
 import { useAgentActivityStore } from "@/store/useAgentActivityStore";
 import {
 	parseServerSessionMessage,
 	useSessionStore,
 } from "@/store/useSessionStore";
-import type { DiagramRouteState } from "@/lib/draftPersistence";
 import type {
 	ServerSessionMessage,
 	SessionSeed,
@@ -32,6 +30,7 @@ const truncateSnippet = (source: string, max = 32): string => {
 };
 
 interface SessionConnectionOptions {
+	readonly getCurrentSeed: () => SessionSeed;
 	readonly applySnapshot: (snapshot: SessionSnapshot) => void;
 	readonly applyPatch: (patch: Partial<SessionSnapshot>) => void;
 	readonly onFocusTables: (tableIds: readonly string[]) => void;
@@ -40,6 +39,7 @@ interface SessionConnectionOptions {
 }
 
 export function useSessionConnection({
+	getCurrentSeed,
 	applySnapshot,
 	applyPatch,
 	onFocusTables,
@@ -49,12 +49,14 @@ export function useSessionConnection({
 	const reconnectAttemptRef = useRef(0);
 	const reconnectTimerRef = useRef<number | null>(null);
 	const seedRef = useRef<SessionSeed | null>(null);
+	const seedUpdatedAtRef = useRef<number>(0);
 	const intentionalCloseRef = useRef(false);
 	const reconnectingRef = useRef(false);
-	const connectRef = useRef<(sessionId: string, mode: "init" | "reconnect") => void>(
+	const connectRef = useRef<(sessionId: string) => void>(
 		() => {},
 	);
 	const callbacksRef = useRef({
+		getCurrentSeed,
 		applySnapshot,
 		applyPatch,
 		onFocusTables,
@@ -64,13 +66,14 @@ export function useSessionConnection({
 
 	useEffect(() => {
 		callbacksRef.current = {
+			getCurrentSeed,
 			applySnapshot,
 			applyPatch,
 			onFocusTables,
 			onShareResult,
 			onExpired,
 		};
-	}, [applyPatch, applySnapshot, onExpired, onFocusTables, onShareResult]);
+	}, [applyPatch, applySnapshot, getCurrentSeed, onExpired, onFocusTables, onShareResult]);
 
 	const clearReconnectTimer = useCallback(() => {
 		if (reconnectTimerRef.current !== null) {
@@ -87,6 +90,7 @@ export function useSessionConnection({
 			case "state-ack":
 				reconnectAttemptRef.current = 0;
 				reconnectingRef.current = false;
+				seedUpdatedAtRef.current = message.state.updatedAt ?? seedUpdatedAtRef.current;
 				store.setLive();
 				activity.setReconnect(null);
 				activity.logActivity({
@@ -97,6 +101,7 @@ export function useSessionConnection({
 				callbacksRef.current.applySnapshot(message.state);
 				return;
 			case "state-update":
+				seedUpdatedAtRef.current = Date.now();
 				if (typeof message.patch.source === "string") {
 					store.lockEditorForAgent();
 					activity.startAgentWriting({
@@ -172,23 +177,20 @@ export function useSessionConnection({
 		}
 	}, []);
 
-	const connect = useCallback((sessionId: string, mode: "init" | "reconnect") => {
+	const connect = useCallback((sessionId: string) => {
 		const socket = new WebSocket(makeSessionWebSocketUrl(sessionId));
 		useSessionStore.getState().setSocket(socket);
 
 		socket.addEventListener("open", () => {
 			const store = useSessionStore.getState();
-			if (mode === "init") {
-				const seed = seedRef.current;
-				if (!seed) {
-					store.setError("Missing session seed.");
-					socket.close();
-					return;
-				}
-				store.send({ type: "init", state: seed });
+			const seed = callbacksRef.current.getCurrentSeed();
+			seedRef.current = seed;
+			if (!seed) {
+				store.setError("Missing workspace seed.");
+				socket.close();
 				return;
 			}
-			store.send({ type: "reconnect" });
+			store.send({ type: "attach", state: seed, updatedAt: seedUpdatedAtRef.current });
 		});
 
 		socket.addEventListener("message", (event) => {
@@ -206,7 +208,6 @@ export function useSessionConnection({
 
 			const attempt = reconnectAttemptRef.current;
 			if (attempt >= MAX_RECONNECT_ATTEMPTS) {
-				clearSessionPointer(session.sessionId);
 				session.setError("Session connection lost.");
 				session.reset();
 				activity.setReconnect(null);
@@ -224,7 +225,7 @@ export function useSessionConnection({
 				maxAttempts: MAX_RECONNECT_ATTEMPTS,
 			});
 			reconnectTimerRef.current = window.setTimeout(() => {
-				connectRef.current(session.sessionId!, "reconnect");
+				connectRef.current(session.sessionId!);
 			}, delay);
 		});
 
@@ -236,32 +237,25 @@ export function useSessionConnection({
 		connectRef.current = connect;
 	}, [connect]);
 
-	const startSession = useCallback((seed: SessionSeed, route: DiagramRouteState) => {
+	const startSession = useCallback((seed: SessionSeed) => {
 		const existing = useSessionStore.getState();
 		if (existing.status !== "offline") return;
 
-		const sessionId = nanoid(16);
-		const pairingUrl = makeSessionMcpUrl(sessionId);
+		const sessionId = getOrCreateDeviceId();
 		seedRef.current = seed;
+		seedUpdatedAtRef.current = Date.now();
 		intentionalCloseRef.current = false;
 		reconnectAttemptRef.current = 0;
 		clearReconnectTimer();
-		writeSessionPointer({
-			sessionId,
-			routeShareId: route.shareId,
-			routeIsDirty: route.isDirty,
-			createdAt: Date.now(),
-		});
 		useAgentActivityStore.getState().reset();
-		existing.setConnecting(sessionId, pairingUrl);
-		connect(sessionId, "init");
+		existing.setConnecting(sessionId);
+		connect(sessionId);
 	}, [clearReconnectTimer, connect]);
 
 	const endSession = useCallback(() => {
-		const { sessionId, socket } = useSessionStore.getState();
+		const { socket } = useSessionStore.getState();
 		intentionalCloseRef.current = true;
 		clearReconnectTimer();
-		if (sessionId) clearSessionPointer(sessionId);
 		if (socket && socket.readyState < WebSocket.CLOSING) {
 			socket.close(1000, "Session ended");
 		}
@@ -270,8 +264,13 @@ export function useSessionConnection({
 		seedRef.current = null;
 	}, [clearReconnectTimer]);
 
+	const markLocalWorkspaceChanged = useCallback(() => {
+		seedUpdatedAtRef.current = Date.now();
+	}, []);
+
 	return {
 		startSession,
 		endSession,
+		markLocalWorkspaceChanged,
 	};
 }

@@ -15,12 +15,13 @@ export const makeSnapshot = (s: SessionState): SessionSnapshot => ({
 	tableCount: s.parsedTableCount,
 	refCount: s.parsedRefCount,
 	baseline: s.baseline ? { shareId: s.baseline.shareId } : null,
+	updatedAt: s.updatedAt,
 });
 
 const STORAGE_KEYS = [
 	"source", "positions", "notes", "diagnostics",
 	"parsedTableCount", "parsedRefCount", "baseline",
-	"createdAt", "lastActivityAt",
+	"createdAt", "updatedAt", "lastActivityAt",
 ] as const;
 
 export class SessionStorage {
@@ -49,6 +50,7 @@ export class SessionStorage {
 			parsedRefCount: (values.get("parsedRefCount") as number) ?? 0,
 			baseline: (values.get("baseline") as SessionBaseline | null) ?? null,
 			createdAt,
+			updatedAt: (values.get("updatedAt") as number) ?? createdAt,
 			lastActivityAt: (values.get("lastActivityAt") as number) ?? createdAt,
 		};
 
@@ -59,13 +61,25 @@ export class SessionStorage {
 		if (!this.cache) return;
 
 		Object.assign(this.cache, partial);
-		this.cache.lastActivityAt = Date.now();
+		const now = Date.now();
+		this.cache.updatedAt = now;
+		this.cache.lastActivityAt = now;
 
-		const entries: Record<string, unknown> = { lastActivityAt: this.cache.lastActivityAt };
+		const entries: Record<string, unknown> = {
+			updatedAt: this.cache.updatedAt,
+			lastActivityAt: this.cache.lastActivityAt,
+		};
 		for (const key of Object.keys(partial) as (keyof SessionState)[]) {
 			entries[key] = this.cache[key];
 		}
 		await this.storage.put(entries);
+	}
+
+	async touch(): Promise<void> {
+		if (!this.cache) return;
+
+		this.cache.lastActivityAt = Date.now();
+		await this.storage.put({ lastActivityAt: this.cache.lastActivityAt });
 	}
 
 	async init(seed: {
@@ -73,7 +87,7 @@ export class SessionStorage {
 		positions: DiagramPositions;
 		notes: readonly SharedStickyNote[];
 		baseline: SessionBaseline | null;
-	}): Promise<SessionState> {
+	}, updatedAt = Date.now()): Promise<SessionState> {
 		const now = Date.now();
 		this.cache = {
 			source: seed.source,
@@ -84,6 +98,7 @@ export class SessionStorage {
 			parsedRefCount: 0,
 			baseline: seed.baseline,
 			createdAt: now,
+			updatedAt,
 			lastActivityAt: now,
 		};
 
@@ -96,6 +111,45 @@ export class SessionStorage {
 			parsedRefCount: 0,
 			baseline: this.cache.baseline,
 			createdAt: now,
+			updatedAt: this.cache.updatedAt,
+			lastActivityAt: now,
+		});
+
+		return this.cache;
+	}
+
+	async replaceFromBrowser(seed: {
+		source: string;
+		positions: DiagramPositions;
+		notes: readonly SharedStickyNote[];
+		baseline: SessionBaseline | null;
+	}, updatedAt: number): Promise<SessionState> {
+		const existing = await this.load();
+		if (!existing) return this.init(seed, updatedAt);
+
+		const now = Date.now();
+		this.cache = {
+			...existing,
+			source: seed.source,
+			positions: seed.positions,
+			notes: [...seed.notes],
+			diagnostics: [],
+			parsedTableCount: 0,
+			parsedRefCount: 0,
+			baseline: seed.baseline,
+			updatedAt,
+			lastActivityAt: now,
+		};
+
+		await this.storage.put({
+			source: this.cache.source,
+			positions: this.cache.positions,
+			notes: this.cache.notes,
+			diagnostics: this.cache.diagnostics,
+			parsedTableCount: this.cache.parsedTableCount,
+			parsedRefCount: this.cache.parsedRefCount,
+			baseline: this.cache.baseline,
+			updatedAt,
 			lastActivityAt: now,
 		});
 

@@ -1,9 +1,9 @@
 import { create } from "zustand";
 
+import { makeSessionMcpUrl } from "@/lib/session-url";
 import type {
 	ClientSessionMessage,
 	ServerSessionMessage,
-	SessionSeed,
 	SessionStatus,
 } from "@/types/session";
 
@@ -15,7 +15,7 @@ interface SessionRuntimeState {
 	readonly agentEditorLocked: boolean;
 	readonly isSharing: boolean;
 	readonly lastError: string | null;
-	readonly setConnecting: (sessionId: string, pairingUrl: string) => void;
+	readonly setConnecting: (sessionId: string) => void;
 	readonly setSocket: (socket: WebSocket | null) => void;
 	readonly setStatus: (status: SessionStatus) => void;
 	readonly setLive: () => void;
@@ -38,18 +38,25 @@ export const useSessionStore = create<SessionRuntimeState>((set, get) => ({
 	agentEditorLocked: false,
 	isSharing: false,
 	lastError: null,
-	setConnecting: (sessionId, pairingUrl) => {
+	setConnecting: (sessionId) => {
 		set({
 			status: "connecting",
 			sessionId,
-			pairingUrl,
+			pairingUrl: null,
 			lastError: null,
 			agentEditorLocked: false,
 		});
 	},
 	setSocket: (socket) => set({ socket }),
 	setStatus: (status) => set({ status }),
-	setLive: () => set({ status: "live", lastError: null }),
+	setLive: () => {
+		const sessionId = get().sessionId;
+		set({
+			status: "live",
+			pairingUrl: sessionId ? makeSessionMcpUrl(sessionId) : null,
+			lastError: null,
+		});
+	},
 	setError: (message) => set({ lastError: message }),
 	lockEditorForAgent: () => set({ agentEditorLocked: true }),
 	unlockEditor: () => set({ agentEditorLocked: false }),
@@ -89,6 +96,3 @@ export const parseServerSessionMessage = (
 		return null;
 	}
 };
-
-export const sendSessionInit = (seed: SessionSeed): boolean =>
-	useSessionStore.getState().send({ type: "init", state: seed });

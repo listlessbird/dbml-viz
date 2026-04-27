@@ -45,6 +45,7 @@ export interface SessionState {
 	parsedRefCount: number;
 	baseline: SessionBaseline | null;
 	createdAt: number;
+	updatedAt: number;
 	lastActivityAt: number;
 }
 
@@ -56,6 +57,7 @@ export interface SessionSnapshot {
 	readonly tableCount: number;
 	readonly refCount: number;
 	readonly baseline: { readonly shareId: string } | null;
+	readonly updatedAt: number;
 }
 
 export interface SessionSeed {
@@ -66,8 +68,7 @@ export interface SessionSeed {
 }
 
 export type ClientMessage =
-	| { readonly type: "init"; readonly state: SessionSeed }
-	| { readonly type: "reconnect" }
+	| { readonly type: "attach"; readonly state: SessionSeed; readonly updatedAt: number }
 	| { readonly type: "set-source"; readonly source: string }
 	| { readonly type: "set-positions"; readonly positions: DiagramPositions }
 	| { readonly type: "set-notes"; readonly notes: readonly SharedStickyNote[] }
@@ -90,5 +91,5 @@ export type ServerMessage =
 	| { readonly type: "pong" };
 
 export const MAX_SCHEMA_SOURCE_LENGTH = 500_000;
-export const SESSION_EVICTION_MS = 60 * 60 * 1000;
+export const SESSION_EVICTION_MS = 30 * 24 * 60 * 60 * 1000;
 export const SHARE_TTL_SECONDS = 60 * 60 * 24 * 90;

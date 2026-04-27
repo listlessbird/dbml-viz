@@ -28,6 +28,7 @@ export function createSessionMcpServer(
 				isError: true as const,
 			};
 		}
+		await storage.touch();
 		return null;
 	};
 

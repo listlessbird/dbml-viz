@@ -235,18 +235,18 @@ describe("useCanvasSession state machine", () => {
 
 		const socket = MockWebSocket.instances[0]!;
 		expect(useSessionStore.getState().status).toBe("connecting");
-		expect(useSessionStore.getState().pairingUrl).toContain("/api/session/");
-		expect(window.localStorage.getItem("dbml-viz:session-pointer")).toContain(
-			'"routeShareId":"share-old"',
+		expect(useSessionStore.getState().pairingUrl).toBeNull();
+		expect(window.localStorage.getItem("dbml-viz:device-id")).toBe(
+			useSessionStore.getState().sessionId,
 		);
 
 		act(() => {
 			socket.open();
 		});
 
-		const init = JSON.parse(socket.sent[0]!);
-		expect(init).toMatchObject({
-			type: "init",
+		const attach = JSON.parse(socket.sent[0]!);
+		expect(attach).toMatchObject({
+			type: "attach",
 			state: {
 				source: SOURCE,
 				positions: { users: { x: 42, y: 84 } },
@@ -256,6 +256,7 @@ describe("useCanvasSession state machine", () => {
 				},
 			},
 		});
+		expect(typeof attach.updatedAt).toBe("number");
 
 		act(() => {
 			socket.serverMessage({
@@ -273,6 +274,8 @@ describe("useCanvasSession state machine", () => {
 		});
 
 		expect(useSessionStore.getState().status).toBe("live");
+		expect(useSessionStore.getState().pairingUrl).toContain("/api/agent/");
+		expect(useSessionStore.getState().pairingUrl).toContain("/mcp");
 	});
 
 	it("locks editor and applies remote source patches without echoing set-source", () => {
@@ -609,7 +612,7 @@ describe("useCanvasSession state machine", () => {
 		});
 	});
 
-	it("transitions live to reconnecting on unexpected close and sends reconnect on retry", () => {
+	it("transitions live to reconnecting on unexpected close and re-attaches on retry", () => {
 		vi.useFakeTimers();
 		const rendered = renderHarness();
 		activeRoot = rendered.root;
@@ -644,6 +647,14 @@ describe("useCanvasSession state machine", () => {
 			reconnectSocket.open();
 		});
 
-		expect(JSON.parse(reconnectSocket.sent[0]!)).toEqual({ type: "reconnect" });
+		const attach = JSON.parse(reconnectSocket.sent[0]!);
+		expect(attach).toMatchObject({
+			type: "attach",
+			state: {
+				source: SOURCE,
+				positions: { users: { x: 42, y: 84 } },
+			},
+		});
+		expect(typeof attach.updatedAt).toBe("number");
 	});
 });
