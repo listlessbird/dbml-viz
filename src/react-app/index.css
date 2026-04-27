@@ -4,6 +4,7 @@
 @import "@fontsource-variable/noto-sans";
 @import "./styles/schema-canvas.css";
 @import "./styles/sticky-note.css";
+@import "./styles/agent-connectivity.css";
 
 @custom-variant dark (&:is(.dark *));
 

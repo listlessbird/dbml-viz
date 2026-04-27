@@ -57,6 +57,7 @@ export function useCanvasSession({
 	handleRegularShare,
 }: CanvasSessionOptions) {
 	const status = useSessionStore((state) => state.status);
+	const sessionId = useSessionStore((state) => state.sessionId);
 	const pairingUrl = useSessionStore((state) => state.pairingUrl);
 	const agentEditorLocked = useSessionStore((state) => state.agentEditorLocked);
 	const isSharing = useSessionStore((state) => state.isSharing);
@@ -126,10 +127,19 @@ export function useCanvasSession({
 			notes: getSharedStickyNotes().filter((note) => note.text.trim().length > 0),
 		});
 		const nextUrl = new URL(`/s/${id}`, window.location.origin).toString();
+		const isLiveSession = useSessionStore.getState().status === "live";
 
 		void navigator.clipboard
 			.writeText(nextUrl)
-			.then(() => toast.success("Share link copied to clipboard."))
+			.then(() => {
+				if (isLiveSession) {
+					toast.success(`Snapshot saved · /s/${id}`, {
+						description: "Session continues. Future edits diverge from this baseline.",
+					});
+				} else {
+					toast.success("Share link copied to clipboard.");
+				}
+			})
 			.catch(() => toast.success("Share created.", { description: nextUrl }));
 
 		if (latest.viewedRoute.shareId !== null) clearDraft(latest.viewedRoute.shareId);
@@ -151,8 +161,11 @@ export function useCanvasSession({
 		onFocusTables: requestFitView,
 		onShareResult: handleShareResult,
 		onExpired: () => {
+			const expiredId = useSessionStore.getState().sessionId;
 			useSessionStore.getState().reset();
-			toast.error("Your previous session expired. Local draft persistence resumed.");
+			toast.error("Session expired", {
+				description: `${expiredId ?? "session"} ended after 1h idle. Your local changes were restored.`,
+			});
 		},
 	});
 
@@ -260,6 +273,7 @@ export function useCanvasSession({
 
 	return {
 		status,
+		sessionId,
 		pairingUrl,
 		agentEditorLocked,
 		isSharing,
