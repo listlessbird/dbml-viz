@@ -2,8 +2,10 @@ import { nanoid } from "nanoid";
 import { useCallback, useEffect, useRef } from "react";
 import { toast } from "sonner";
 
+import { pluralize, summary } from "@/lib/agent-activity-summary";
 import { clearSessionPointer, writeSessionPointer } from "@/lib/session-pointer";
 import { makeSessionMcpUrl, makeSessionWebSocketUrl } from "@/lib/session-url";
+import { useAgentActivityStore } from "@/store/useAgentActivityStore";
 import {
 	parseServerSessionMessage,
 	useSessionStore,
@@ -17,6 +19,17 @@ import type {
 
 const MAX_RECONNECT_ATTEMPTS = 5;
 const RECONNECT_DELAYS_MS = [1_000, 2_000, 4_000, 8_000, 16_000] as const;
+
+const formatPositionsSummary = (positions: Record<string, unknown> | undefined) => {
+	if (!positions) return "0 nodes";
+	return pluralize(Object.keys(positions).length, "node");
+};
+
+const truncateSnippet = (source: string, max = 32): string => {
+	const firstLine = source.split("\n").find((line) => line.trim().length > 0) ?? "";
+	const trimmed = firstLine.trim();
+	return trimmed.length > max ? `${trimmed.slice(0, max - 1)}…` : trimmed;
+};
 
 interface SessionConnectionOptions {
 	readonly applySnapshot: (snapshot: SessionSnapshot) => void;
@@ -68,29 +81,77 @@ export function useSessionConnection({
 
 	const handleMessage = useCallback((message: ServerSessionMessage) => {
 		const store = useSessionStore.getState();
+		const activity = useAgentActivityStore.getState();
 
 		switch (message.type) {
 			case "state-ack":
 				reconnectAttemptRef.current = 0;
 				reconnectingRef.current = false;
 				store.setLive();
+				activity.setReconnect(null);
+				activity.logActivity({
+					direction: "out",
+					tool: "session attached",
+					parts: [summary.text("browser ready"), summary.code(message.state.tableCount + " tables")],
+				});
 				callbacksRef.current.applySnapshot(message.state);
 				return;
 			case "state-update":
 				if (typeof message.patch.source === "string") {
 					store.lockEditorForAgent();
+					activity.startAgentWriting({
+						source: message.patch.source,
+						tool: "set_schema",
+						startedAt: Date.now(),
+					});
+					activity.logActivity({
+						direction: "in",
+						tool: "set_schema",
+						parts: [summary.code(truncateSnippet(message.patch.source))],
+					});
+				}
+				if (message.patch.positions) {
+					activity.logActivity({
+						direction: "in",
+						tool: "set_positions",
+						parts: [
+							summary.text(formatPositionsSummary(message.patch.positions)),
+						],
+					});
+				}
+				if (message.patch.notes) {
+					activity.logActivity({
+						direction: "in",
+						tool: "set_notes",
+						parts: [summary.text(pluralize(message.patch.notes.length, "note"))],
+					});
 				}
 				callbacksRef.current.applyPatch(message.patch);
 				return;
 			case "focus":
+				activity.logActivity({
+					direction: "in",
+					tool: "focus_tables",
+					parts: message.tableIds.slice(0, 3).map((id) => summary.code(id)),
+				});
 				callbacksRef.current.onFocusTables(message.tableIds);
 				return;
 			case "share-result":
 				store.setSharing(false);
+				activity.logActivity({
+					direction: "out",
+					tool: "snapshot saved",
+					parts: [summary.code(`/s/${message.id}`)],
+				});
 				callbacksRef.current.onShareResult(message.id);
 				return;
 			case "share-error":
 				store.setSharing(false);
+				activity.logActivity({
+					direction: "err",
+					tool: "share_error",
+					parts: [summary.text(message.error)],
+				});
 				toast.error(message.error);
 				return;
 			case "error":
@@ -98,6 +159,11 @@ export function useSessionConnection({
 				if (message.message === "session-expired") {
 					callbacksRef.current.onExpired();
 				} else {
+					activity.logActivity({
+						direction: "err",
+						tool: "error",
+						parts: [summary.text(message.message)],
+					});
 					toast.error(message.message);
 				}
 				return;
@@ -135,6 +201,7 @@ export function useSessionConnection({
 			useSessionStore.getState().setSocket(null);
 			if (intentionalCloseRef.current) return;
 			const session = useSessionStore.getState();
+			const activity = useAgentActivityStore.getState();
 			if (!session.sessionId) return;
 
 			const attempt = reconnectAttemptRef.current;
@@ -142,6 +209,7 @@ export function useSessionConnection({
 				clearSessionPointer(session.sessionId);
 				session.setError("Session connection lost.");
 				session.reset();
+				activity.setReconnect(null);
 				toast.error("Session connection lost. Local draft persistence resumed.");
 				return;
 			}
@@ -150,6 +218,11 @@ export function useSessionConnection({
 			session.setStatus("reconnecting");
 			const delay = RECONNECT_DELAYS_MS[Math.min(attempt, RECONNECT_DELAYS_MS.length - 1)];
 			reconnectAttemptRef.current = attempt + 1;
+			activity.setReconnect({
+				attempt: reconnectAttemptRef.current,
+				nextDelayMs: delay,
+				maxAttempts: MAX_RECONNECT_ATTEMPTS,
+			});
 			reconnectTimerRef.current = window.setTimeout(() => {
 				connectRef.current(session.sessionId!, "reconnect");
 			}, delay);
@@ -179,6 +252,7 @@ export function useSessionConnection({
 			routeIsDirty: route.isDirty,
 			createdAt: Date.now(),
 		});
+		useAgentActivityStore.getState().reset();
 		existing.setConnecting(sessionId, pairingUrl);
 		connect(sessionId, "init");
 	}, [clearReconnectTimer, connect]);
@@ -192,6 +266,7 @@ export function useSessionConnection({
 			socket.close(1000, "Session ended");
 		}
 		useSessionStore.getState().reset();
+		useAgentActivityStore.getState().reset();
 		seedRef.current = null;
 	}, [clearReconnectTimer]);
 

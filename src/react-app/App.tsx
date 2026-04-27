@@ -16,7 +16,7 @@ import {
 } from "react";
 
 import { Canvas } from "@/components/Canvas";
-import { ConnectAgentModal } from "@/components/ConnectAgentModal";
+import { ConnectAgentModal } from "@/components/agent-connectivity/ConnectAgentModal";
 import { EditorBootstrapShell } from "@/components/EditorBootstrapShell";
 import { Toolbar } from "@/components/Toolbar";
 import { useCanvasViewport } from "@/hooks/useCanvasViewport";
@@ -243,15 +243,14 @@ function App() {
 	});
 	const {
 		status: sessionStatus,
+		sessionId,
 		pairingUrl: sessionPairingUrl,
-		agentEditorLocked,
 		isSharing: isSessionSharing,
 		isEditorReadOnly,
 		handleConnect: handleSessionConnect,
 		handleDisconnect: handleSessionDisconnect,
 		handleShare: handleSessionShare,
 		handleSourceChange,
-		unlockEditor: unlockSessionEditor,
 	} = useCanvasSession({
 		source,
 		nodes,
@@ -293,6 +292,10 @@ function App() {
 		handleSessionConnect();
 	}, [handleSessionConnect]);
 
+	const handleShowSession = useCallback(() => {
+		setIsConnectModalOpen(true);
+	}, []);
+
 	const handleDisconnectAgent = useCallback(() => {
 		handleSessionDisconnect();
 		setIsConnectModalOpen(false);
@@ -332,7 +335,6 @@ function App() {
 			value={source}
 			isParsing={isParsing}
 			readOnly={isEditorReadOnly}
-			onUnlock={unlockSessionEditor}
 			onChange={handleSourceChange}
 			onHide={handleToggleEditor}
 			onActivate={bootstrapEditor}
@@ -347,23 +349,20 @@ function App() {
 					relationCount={parsed.refs.length}
 					isSharing={isSharing || isSessionSharing}
 					sessionStatus={sessionStatus}
-					agentEditorLocked={agentEditorLocked}
+					sessionId={sessionId}
 					shareId={viewedRoute.shareId}
 					isDirty={viewedRoute.isDirty}
 					onShare={handleSessionShare}
 					onConnectAgent={handleConnectAgent}
-					onDisconnectAgent={handleDisconnectAgent}
-					onUnlockEditor={unlockSessionEditor}
+					onShowSession={handleShowSession}
 				/>
 
 				<ConnectAgentModal
 					open={isConnectModalOpen}
 					status={sessionStatus}
 					pairingUrl={sessionPairingUrl}
-					agentEditorLocked={agentEditorLocked}
 					onOpenChange={setIsConnectModalOpen}
 					onDisconnect={handleDisconnectAgent}
-					onUnlockEditor={unlockSessionEditor}
 				/>
 
 				{shareLoadError ? (
@@ -397,7 +396,6 @@ function App() {
 									isParsing={isParsing}
 									sourceMetadata={metadata}
 									readOnly={isEditorReadOnly}
-									onUnlock={unlockSessionEditor}
 									onChange={handleSourceChange}
 									onHide={handleToggleEditor}
 								/>
