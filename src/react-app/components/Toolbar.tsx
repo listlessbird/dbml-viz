@@ -1,7 +1,8 @@
-import { IconCheck, IconCopy, IconLoader2, IconPlug, IconPlugConnected, IconLockOpen } from "@tabler/icons-react";
+import { IconCheck, IconCopy } from "@tabler/icons-react";
 import { useState } from "react";
 
 import { ShareButton } from "@/components/ShareButton";
+import { ToolbarSessionSlot } from "@/components/agent-connectivity/ToolbarSessionSlot";
 import type { SessionStatus } from "@/types/session";
 
 interface ToolbarProps {
@@ -11,23 +12,30 @@ interface ToolbarProps {
 	readonly shareId: string | null;
 	readonly isDirty: boolean;
 	readonly sessionStatus: SessionStatus;
-	readonly agentEditorLocked: boolean;
+	readonly sessionId: string | null;
 	readonly onShare: () => void;
 	readonly onConnectAgent: () => void;
-	readonly onDisconnectAgent: () => void;
-	readonly onUnlockEditor: () => void;
+	readonly onShowSession: () => void;
 }
 
 function StatusDot() {
 	return (
 		<span
 			className="size-1.5 shrink-0 rounded-full bg-sidebar-primary"
-			style={{ boxShadow: "0 0 0 2px color-mix(in oklab, var(--sidebar-primary) 20%, transparent)" }}
+			style={{
+				boxShadow:
+					"0 0 0 2px color-mix(in oklab, var(--sidebar-primary) 20%, transparent)",
+			}}
 		/>
 	);
 }
 
-function ShareStatus({ shareId, isDirty }: { shareId: string | null; isDirty: boolean }) {
+interface ShareStatusProps {
+	readonly shareId: string | null;
+	readonly isDirty: boolean;
+}
+
+function ShareStatus({ shareId, isDirty }: ShareStatusProps) {
 	const [copied, setCopied] = useState(false);
 
 	if (shareId === null) {
@@ -48,9 +56,9 @@ function ShareStatus({ shareId, isDirty }: { shareId: string | null; isDirty: bo
 		try {
 			await navigator.clipboard.writeText(shareUrl);
 			setCopied(true);
-			setTimeout(() => setCopied(false), 2000);
+			window.setTimeout(() => setCopied(false), 2000);
 		} catch {
-			// clipboard unavailable — no-op, toast in useShareSchema covers the error path
+			// clipboard unavailable — toast in useShareSchema covers the error path
 		}
 	};
 
@@ -94,16 +102,10 @@ export function Toolbar({
 	isDirty,
 	onShare,
 	sessionStatus,
-	agentEditorLocked,
+	sessionId,
 	onConnectAgent,
-	onDisconnectAgent,
-	onUnlockEditor,
+	onShowSession,
 }: ToolbarProps) {
-	const isSessionActive =
-		sessionStatus === "connecting" ||
-		sessionStatus === "live" ||
-		sessionStatus === "reconnecting";
-
 	return (
 		<div className="dark flex min-h-12 items-stretch border-b border-border bg-sidebar text-sidebar-foreground">
 			<div className="flex min-w-0 flex-1 items-center gap-[18px] overflow-x-auto px-4">
@@ -117,51 +119,15 @@ export function Toolbar({
 					{relationCount} {relationCount === 1 ? "relationship" : "relationships"}
 				</span>
 				<ShareStatus shareId={shareId} isDirty={isDirty} />
-				{isSessionActive ? (
-					<span className="inline-flex shrink-0 items-center gap-1.5 border border-emerald-400/25 px-2 py-1 text-[11px] text-emerald-200">
-						{sessionStatus === "reconnecting" || sessionStatus === "connecting" ? (
-							<IconLoader2 className="size-3 animate-spin" />
-						) : (
-							<IconPlugConnected className="size-3" />
-						)}
-						{sessionStatus === "reconnecting"
-							? "Reconnecting"
-							: sessionStatus === "connecting"
-								? "Connecting"
-								: "Agent session live"}
-					</span>
-				) : null}
-				{agentEditorLocked ? (
-					<button
-						type="button"
-						className="inline-flex shrink-0 items-center gap-1.5 border border-amber-400/30 px-2 py-1 text-[11px] text-amber-100 transition-colors hover:bg-amber-400/10"
-						onClick={onUnlockEditor}
-					>
-						<IconLockOpen className="size-3" />
-						Unlock editor
-					</button>
-				) : null}
 			</div>
 
-			<div className="flex shrink-0 items-stretch border-l border-border">
-				{isSessionActive ? (
-					<button
-						type="button"
-						className="inline-flex items-center gap-2 border-l border-border px-3 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent"
-						onClick={onDisconnectAgent}
-					>
-						Disconnect
-					</button>
-				) : (
-					<button
-						type="button"
-						className="inline-flex items-center gap-2 border-l border-border px-3 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent"
-						onClick={onConnectAgent}
-					>
-						<IconPlug className="size-4" />
-						Connect Canvas
-					</button>
-				)}
+			<div className="flex shrink-0 items-center gap-2 border-l border-border px-3">
+				<ToolbarSessionSlot
+					status={sessionStatus}
+					sessionId={sessionId}
+					onConnect={onConnectAgent}
+					onShowSession={onShowSession}
+				/>
 				<ShareButton isSharing={isSharing} onShare={onShare} />
 			</div>
 		</div>

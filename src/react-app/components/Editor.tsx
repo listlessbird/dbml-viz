@@ -20,6 +20,8 @@ import {
 import { useEffectEvent } from "react";
 import { useEffect, useRef } from "react";
 
+import { EditorOverlays } from "@/components/agent-connectivity/EditorOverlays";
+import { EditorTitleStatus } from "@/components/agent-connectivity/EditorTitleStatus";
 import { buildDiagnosticDecorations } from "@/lib/editor-diagnostics";
 import { vesperTheme } from "@/lib/vesper-theme";
 import type {
@@ -33,7 +35,6 @@ interface EditorProps {
 	readonly isParsing: boolean;
 	readonly sourceMetadata: SchemaSourceMetadata;
 	readonly readOnly?: boolean;
-	readonly onUnlock?: () => void;
 	readonly onChange: (value: string) => void;
 	readonly onHide: () => void;
 }
@@ -83,7 +84,6 @@ export function Editor({
 	isParsing,
 	sourceMetadata,
 	readOnly = false,
-	onUnlock,
 	onChange,
 	onHide,
 }: EditorProps) {
@@ -241,10 +241,13 @@ export function Editor({
 			className="dark flex h-full min-h-0 flex-col overflow-hidden bg-sidebar text-sidebar-foreground"
 			aria-busy={isParsing}
 		>
-			<div className="flex min-h-10 items-center justify-between border-b border-sidebar-border/80 px-3">
-				<span className="inline-flex items-center gap-0 text-[11px] font-medium bg-[var(--gray-800)] border border-white/10 text-[var(--gray-100)] px-2.5 py-1 leading-none">
-					schema.dbml
-				</span>
+			<div className="flex min-h-10 items-center justify-between gap-3 border-b border-sidebar-border/80 px-3">
+				<div className="flex min-w-0 items-center gap-3">
+					<span className="inline-flex items-center gap-0 text-[11px] font-medium bg-[var(--gray-800)] border border-white/10 text-[var(--gray-100)] px-2.5 py-1 leading-none">
+						schema.dbml
+					</span>
+					<EditorTitleStatus />
+				</div>
 				<button
 					type="button"
 					className="inline-flex size-[26px] items-center justify-center border border-white/[0.14] bg-transparent text-[var(--gray-400)] transition-[border-color,color] duration-[120ms] ease-[cubic-bezier(0.215,0.61,0.355,1)] hover:border-white/[0.28] hover:text-[var(--gray-0)] focus-visible:outline-none"
@@ -282,22 +285,9 @@ export function Editor({
 					</div>
 				</div>
 			) : null}
-			{readOnly ? (
-				<div className="flex items-center justify-between gap-3 border-b border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
-					<span>Agent is editing this schema. User edits are locked to prevent conflicts.</span>
-					{onUnlock ? (
-						<button
-							type="button"
-							className="border border-amber-400/40 px-2 py-1 text-[11px] font-medium text-amber-100 transition-colors hover:bg-amber-400/10"
-							onClick={onUnlock}
-						>
-							Unlock
-						</button>
-					) : null}
-				</div>
-			) : null}
-			<div className="min-h-0 flex-1">
+			<div className="relative min-h-0 flex-1">
 				<div ref={containerRef} className="h-full" />
+				<EditorOverlays />
 			</div>
 			<div
 				className="flex shrink-0 items-center gap-3.5 border-t border-white/10 px-3.5 py-1.5 text-[10px] uppercase tracking-[0.12em] text-[var(--gray-400)]"

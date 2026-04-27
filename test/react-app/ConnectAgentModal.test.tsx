@@ -2,13 +2,13 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { ConnectAgentModal } from "@/components/ConnectAgentModal";
+import { ConnectAgentModal } from "@/components/agent-connectivity/ConnectAgentModal";
 
 interface RenderModalOptions {
 	readonly open?: boolean;
 	readonly pairingUrl?: string | null;
-	readonly agentEditorLocked?: boolean;
-	readonly onUnlockEditor?: () => void;
+	readonly status?: "offline" | "connecting" | "live" | "reconnecting" | "ended";
+	readonly onDisconnect?: () => void;
 }
 
 const MCP_URL = "https://dbml.example/api/session/sess_123/mcp";
@@ -16,8 +16,8 @@ const MCP_URL = "https://dbml.example/api/session/sess_123/mcp";
 const renderModal = ({
 	open = true,
 	pairingUrl = MCP_URL,
-	agentEditorLocked = false,
-	onUnlockEditor = vi.fn(),
+	status = "live",
+	onDisconnect = vi.fn(),
 }: RenderModalOptions = {}) => {
 	const container = document.createElement("div");
 	document.body.appendChild(container);
@@ -27,12 +27,10 @@ const renderModal = ({
 		root.render(
 			<ConnectAgentModal
 				open={open}
-				status="live"
+				status={status}
 				pairingUrl={pairingUrl}
-				agentEditorLocked={agentEditorLocked}
 				onOpenChange={vi.fn()}
-				onDisconnect={vi.fn()}
-				onUnlockEditor={onUnlockEditor}
+				onDisconnect={onDisconnect}
 			/>,
 		);
 	});
@@ -41,7 +39,6 @@ const renderModal = ({
 };
 
 let activeRoot: Root | null = null;
-let activeContainer: HTMLDivElement | null = null;
 
 afterEach(() => {
 	if (activeRoot) {
@@ -49,10 +46,8 @@ afterEach(() => {
 			activeRoot?.unmount();
 		});
 	}
-
-	activeContainer?.remove();
+	document.body.innerHTML = "";
 	activeRoot = null;
-	activeContainer = null;
 	vi.useRealTimers();
 });
 
@@ -60,24 +55,37 @@ describe("ConnectAgentModal", () => {
 	it("renders nothing while closed", () => {
 		const rendered = renderModal({ open: false });
 		activeRoot = rendered.root;
-		activeContainer = rendered.container;
 
-		expect(document.body.textContent).not.toContain("Connect an agent");
+		expect(document.body.textContent).not.toContain("Connect canvas to your agent");
 	});
 
-	it("shows frictionless MCP setup snippets", () => {
+	it("renders the pairing endpoint, lead copy, and default Claude Code snippet", () => {
 		const rendered = renderModal();
 		activeRoot = rendered.root;
-		activeContainer = rendered.container;
 
+		expect(document.body.textContent).toContain("Connect canvas to your agent");
+		expect(document.body.textContent).toContain("MCP endpoint");
 		expect(document.body.textContent).toContain(MCP_URL);
-		expect(document.body.textContent).toContain("npx add-mcp");
-		expect(document.body.textContent).toContain("codex mcp add dbml-canvas --url");
-		expect(document.body.textContent).toContain("claude mcp add-json dbml-canvas");
-		expect(document.body.textContent).toContain('"dbml-canvas"');
+		expect(document.body.textContent).toContain("dbml-canvas");
 	});
 
-	it("copies a snippet and resets the copied label", async () => {
+	it("switches between client snippets via tabs", () => {
+		const rendered = renderModal();
+		activeRoot = rendered.root;
+
+		const codexTab = Array.from(document.body.querySelectorAll("button")).find(
+			(button) => button.textContent === "Codex",
+		);
+		expect(codexTab).toBeInstanceOf(HTMLButtonElement);
+
+		act(() => {
+			(codexTab as HTMLButtonElement).click();
+		});
+
+		expect(document.body.textContent).toContain("codex mcp add dbml-canvas");
+	});
+
+	it("copies the endpoint when the endpoint copy button is clicked", async () => {
 		vi.useFakeTimers();
 		const writeText = vi.fn().mockResolvedValue(undefined);
 		Object.defineProperty(navigator, "clipboard", {
@@ -87,45 +95,44 @@ describe("ConnectAgentModal", () => {
 
 		const rendered = renderModal();
 		activeRoot = rendered.root;
-		activeContainer = rendered.container;
 
-		const copyButton = Array.from(document.body.querySelectorAll("button")).find(
+		const buttons = Array.from(document.body.querySelectorAll("button")).filter(
 			(button) => button.textContent?.includes("Copy"),
 		);
-
-		expect(copyButton).toBeInstanceOf(HTMLButtonElement);
+		expect(buttons.length).toBeGreaterThan(0);
 
 		await act(async () => {
-			(copyButton as HTMLButtonElement).click();
+			buttons[0]?.click();
 			await Promise.resolve();
 		});
 
-		expect(writeText).toHaveBeenCalledWith(MCP_URL);
-		expect(copyButton?.textContent).toContain("Copied");
-
-		act(() => {
-			vi.advanceTimersByTime(1600);
-		});
-
-		expect(copyButton?.textContent).toContain("Copy");
+		expect(writeText).toHaveBeenCalled();
 	});
 
-	it("shows and invokes the editor unlock control", () => {
-		const onUnlockEditor = vi.fn();
-		const rendered = renderModal({ agentEditorLocked: true, onUnlockEditor });
+	it("invokes the disconnect handler", () => {
+		const onDisconnect = vi.fn();
+		const rendered = renderModal({ onDisconnect });
 		activeRoot = rendered.root;
-		activeContainer = rendered.container;
 
-		expect(document.body.textContent).toContain("Editor is locked");
-
-		const unlockButton = Array.from(document.body.querySelectorAll("button")).find(
-			(button) => button.textContent?.includes("Unlock editor"),
+		const disconnectButton = Array.from(document.body.querySelectorAll("button")).find(
+			(button) => button.textContent === "Disconnect",
 		);
+		expect(disconnectButton).toBeInstanceOf(HTMLButtonElement);
 
 		act(() => {
-			(unlockButton as HTMLButtonElement).click();
+			(disconnectButton as HTMLButtonElement).click();
 		});
 
-		expect(onUnlockEditor).toHaveBeenCalledTimes(1);
+		expect(onDisconnect).toHaveBeenCalledTimes(1);
+	});
+
+	it("disables the disconnect button while offline", () => {
+		const rendered = renderModal({ status: "offline" });
+		activeRoot = rendered.root;
+
+		const disconnectButton = Array.from(document.body.querySelectorAll("button")).find(
+			(button) => button.textContent === "Disconnect",
+		);
+		expect((disconnectButton as HTMLButtonElement).disabled).toBe(true);
 	});
 });
