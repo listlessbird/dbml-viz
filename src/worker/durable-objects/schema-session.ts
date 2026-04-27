@@ -78,11 +78,8 @@ export class SchemaSessionDO extends DurableObject<Env> {
 			case "ping":
 				return void ws.send(JSON.stringify({ type: "pong" } satisfies ServerMessage));
 
-			case "init":
-				return void await this.handleInit(ws, msg);
-
-			case "reconnect":
-				return void await this.handleReconnect(ws);
+			case "attach":
+				return void await this.handleAttach(ws, msg);
 
 			case "set-source":
 				return void await this.handleSetSource(ws, msg.source);
@@ -116,22 +113,15 @@ export class SchemaSessionDO extends DurableObject<Env> {
 	}
 
 
-	private async handleInit(ws: WebSocket, msg: Extract<ClientMessage, { type: "init" }>): Promise<void> {
-		let session = await this.store.load();
-		if (!session) {
-			session = await this.store.init(msg.state);
-		}
-		ws.send(JSON.stringify({ type: "state-ack", state: makeSnapshot(session) } satisfies ServerMessage));
-	}
-
-	private async handleReconnect(ws: WebSocket): Promise<void> {
+	private async handleAttach(ws: WebSocket, msg: Extract<ClientMessage, { type: "attach" }>): Promise<void> {
 		const session = await this.store.load();
-		if (!session) {
-			ws.send(JSON.stringify({ type: "error", message: "session-expired" } satisfies ServerMessage));
-			ws.close(4000, "Session expired");
+		if (session && session.updatedAt > msg.updatedAt) {
+			ws.send(JSON.stringify({ type: "state-ack", state: makeSnapshot(session) } satisfies ServerMessage));
 			return;
 		}
-		ws.send(JSON.stringify({ type: "state-ack", state: makeSnapshot(session) } satisfies ServerMessage));
+
+		const nextSession = await this.store.replaceFromBrowser(msg.state, msg.updatedAt);
+		ws.send(JSON.stringify({ type: "state-ack", state: makeSnapshot(nextSession) } satisfies ServerMessage));
 	}
 
 	private async handleSetSource(ws: WebSocket, source: string): Promise<void> {

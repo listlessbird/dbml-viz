@@ -29,11 +29,11 @@ export interface SessionSnapshot {
 	readonly tableCount: number;
 	readonly refCount: number;
 	readonly baseline: { readonly shareId: string } | null;
+	readonly updatedAt?: number;
 }
 
 export type ClientSessionMessage =
-	| { readonly type: "init"; readonly state: SessionSeed }
-	| { readonly type: "reconnect" }
+	| { readonly type: "attach"; readonly state: SessionSeed; readonly updatedAt: number }
 	| { readonly type: "set-source"; readonly source: string }
 	| { readonly type: "set-positions"; readonly positions: DiagramPositions }
 	| { readonly type: "set-notes"; readonly notes: readonly SharedStickyNote[] }
@@ -54,10 +54,3 @@ export type ServerSessionMessage =
 	| { readonly type: "share-error"; readonly error: string }
 	| { readonly type: "error"; readonly message: string }
 	| { readonly type: "pong" };
-
-export interface SessionPointer {
-	readonly sessionId: string;
-	readonly routeShareId: string | null;
-	readonly routeIsDirty: boolean;
-	readonly createdAt: number;
-}

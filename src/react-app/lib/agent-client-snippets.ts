@@ -69,7 +69,7 @@ export const findAgentClient = (id: AgentClientId): AgentClient => {
 	return match;
 };
 
-const PLACEHOLDER_ENDPOINT = "https://dbml-viz.dev/api/session/sess_xxxx/mcp";
+const PLACEHOLDER_ENDPOINT = "https://dbml-viz.dev/api/agent/device-id/mcp";
 
 export const getDisplayEndpoint = (endpoint: string | null): string =>
 	endpoint && endpoint.length > 0 ? endpoint : PLACEHOLDER_ENDPOINT;

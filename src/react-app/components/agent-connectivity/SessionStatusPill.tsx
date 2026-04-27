@@ -17,7 +17,7 @@ interface SessionStatusPillProps
 }
 
 const baseClasses =
-	"shrink-0 inline-flex h-6 items-center gap-1.5 border px-2 text-[11px] font-medium leading-none whitespace-nowrap select-none transition-[background-color,border-color,color] duration-[120ms]";
+	"shrink-0 inline-flex h-6 items-center justify-center gap-1.5 border px-2 text-[11px] font-medium leading-none whitespace-nowrap select-none transition-[background-color,border-color,color] duration-[120ms]";
 
 const lightTones: Record<SessionStatus, string> = {
 	offline:
@@ -118,16 +118,18 @@ export const SessionStatusPill = forwardRef<
 					dotAnimationClass[status],
 				)}
 			/>
-			<span className="inline-flex items-center gap-1.5">
-				<span>{label}</span>
+			<span className="inline-flex items-baseline gap-1.5 leading-none">
+				<span className="leading-none">{label}</span>
 				{hint ? (
-					<span className="font-mono text-[10.5px] opacity-80">{hint}</span>
+					<span className="font-mono text-[10.5px] leading-none opacity-80">
+						{hint}
+					</span>
 				) : null}
 			</span>
 			{kbd ? (
 				<span
 					className={cn(
-						"ml-1 inline-flex h-4 items-center border px-1 font-mono text-[10px] tracking-tight",
+						"ml-1 inline-flex h-4 items-center justify-center border px-1 font-mono text-[10px] leading-none tracking-tight",
 						tone === "dark"
 							? "border-white/15 bg-black/30 text-[var(--gray-300)]"
 							: "border-[var(--gray-200)] bg-[var(--gray-100)] text-[var(--gray-500)]",
