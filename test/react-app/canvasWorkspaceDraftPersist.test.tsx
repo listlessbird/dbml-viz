@@ -11,7 +11,6 @@ import { getInitialDraftState, type DiagramRouteState } from "@/lib/draftPersist
 import type {
 	DiagramNode,
 	ParsedSchema,
-	SchemaPayload,
 } from "@/types";
 import type { ServerWorkspaceMessage } from "@/types/workspace";
 
@@ -94,6 +93,7 @@ function Harness({ initialSource, onReady }: HarnessProps) {
 		setNodes: vi.fn(),
 		setShareSeedPositions: vi.fn(),
 		clearDraft,
+		setDraft,
 		pushViewedRoute: vi.fn(),
 		setShareBaseline: vi.fn(),
 		setShareLoadError: vi.fn(),

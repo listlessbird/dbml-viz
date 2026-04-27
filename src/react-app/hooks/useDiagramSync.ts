@@ -10,7 +10,7 @@ import type { Dispatch, SetStateAction } from "react";
 import { toast } from "sonner";
 
 import { getPositionsFromNodes } from "@/lib/draftPersistence";
-import { doDiagramNodesOverlap } from "@/lib/layout";
+import { doDiagramNodesOverlap } from "@/lib/layout-overlap";
 import {
 	createDiagramSearchContext,
 	type DiagramSearchState,
