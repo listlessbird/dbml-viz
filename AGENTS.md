@@ -49,4 +49,4 @@ Never guess at Effect patterns - check the guide first.
 
 ## Effect Scope
 
-Use Effect only in backend Worker code under `src/worker`. Do not introduce Effect into `src/react-app` unless explicitly requested.
+Use Effect only in backend Worker code under `src/worker` and `src/parser-worker`. Do not introduce Effect into `src/react-app` unless explicitly requested.

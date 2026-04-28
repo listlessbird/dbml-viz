@@ -10,6 +10,11 @@ export const EMPTY_SCHEMA: ParsedSchema = {
 	errors: [],
 };
 
+export interface ParsedSourceResult {
+	readonly parsed: ParsedSchema;
+	readonly metadata: SchemaSourceMetadata;
+}
+
 export class SchemaParseError extends Error {
 	readonly diagnostics: readonly ParseDiagnostic[];
 

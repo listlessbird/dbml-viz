@@ -1,81 +1,60 @@
+import { hc } from "hono/client";
+
 import {
 	SchemaParseError,
 	EMPTY_SCHEMA,
-	type SchemaParserResponse,
+	type ParsedSourceResult,
 } from "@/lib/parser-shared";
-import type { ParsedSourceResult } from "@/lib/schema-source-parser";
+import type { AppType } from "../../parser-worker";
 
 export { SchemaParseError } from "@/lib/parser-shared";
 
+const client = hc<AppType>("/");
+
 let nextRequestId = 0;
 
-const isParserSuccess = (
-	payload: Partial<SchemaParserResponse>,
-	requestId: number,
-): payload is Extract<SchemaParserResponse, { ok: true }> =>
-	payload.id === requestId &&
-	payload.ok === true &&
-	payload.parsed !== undefined &&
-	payload.metadata !== undefined;
-
-const isParserError = (
-	payload: Partial<SchemaParserResponse>,
-	requestId: number,
-): payload is Extract<SchemaParserResponse, { ok: false }> =>
-	payload.id === requestId &&
-	payload.ok === false &&
-	payload.diagnostics !== undefined;
-
-export const parseSchema = (source: string): Promise<ParsedSourceResult> => {
+export const parseSchema = async (source: string): Promise<ParsedSourceResult> => {
 	if (source.trim().length === 0) {
-		return Promise.resolve({
+		return {
 			parsed: EMPTY_SCHEMA,
-			metadata: {
-				format: "dbml",
-			},
-		});
+			metadata: { format: "dbml" },
+		};
 	}
 
 	const requestId = ++nextRequestId;
 
-	return fetch("/api/parse", {
-		method: "POST",
-		headers: {
-			"content-type": "application/json",
-		},
-		body: JSON.stringify({ id: requestId, source }),
-	})
-		.then(async (response) => {
-			const payload = (await response.json()) as Partial<SchemaParserResponse>;
-			return { response, payload };
-		})
-		.then(({ response, payload }) => {
-			if (isParserSuccess(payload, requestId)) {
-				return {
-					parsed: payload.parsed,
-					metadata: payload.metadata,
-				};
-			}
-
-			if (isParserError(payload, requestId)) {
-				throw new SchemaParseError(payload.diagnostics);
-			}
-
-			throw new Error(
-				payload.id !== requestId
-					? "Schema parser returned a mismatched response."
-					: response.ok
-					? "Schema parser returned an invalid response."
-					: "Schema parser request failed.",
-			);
-		})
-		.catch((error) => {
-			if (error instanceof SchemaParseError) {
-				throw error;
-			}
-
-			throw new Error(
-				error instanceof Error ? error.message : "Unable to reach schema parser.",
-			);
+	let response: Awaited<ReturnType<typeof client.api.parse.$post>>;
+	try {
+		response = await client.api.parse.$post({
+			json: { id: requestId, source },
 		});
+	} catch (error) {
+		throw new Error(
+			error instanceof Error ? error.message : "Unable to reach schema parser.",
+		);
+	}
+
+	if (response.status === 200) {
+		const payload = await response.json();
+		if (payload.id !== requestId) {
+			throw new Error("Schema parser returned a mismatched response.");
+		}
+		return {
+			parsed: payload.parsed,
+			metadata: payload.metadata,
+		};
+	}
+
+	if (response.status === 400) {
+		const payload = await response.json();
+		if (payload.id !== requestId) {
+			throw new Error("Schema parser returned a mismatched response.");
+		}
+		if ("ok" in payload && payload.ok === false) {
+			throw new SchemaParseError(payload.diagnostics);
+		}
+		throw new Error("Schema parser returned an invalid response.");
+	}
+
+	throw new Error("Schema parser request failed.");
 };

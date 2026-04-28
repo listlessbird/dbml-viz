@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
 	getSchemaParseCandidates,
 	parseSchemaSource,
-} from "@/lib/schema-source-parser";
+} from "../../src/parser-worker/schema-source-parser";
 
 describe("schema-source-parser", () => {
 	it("detects DBML first when the source uses DBML syntax", () => {

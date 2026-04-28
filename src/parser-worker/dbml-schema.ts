@@ -1,12 +1,13 @@
 import { Parser, type Database as DbmlDatabase } from "@dbml/core";
 
+import { EMPTY_SCHEMA } from "@/lib/parser-shared";
+import type { ParsedSchema, RefData, RefType, TableData } from "@/types";
+
 import {
 	buildTableColumns,
 	buildTableIndexes,
 	collectForeignKeyColumns,
-} from "@/lib/dbml-schema-indexes";
-import { EMPTY_SCHEMA } from "@/lib/parser-shared";
-import type { ParsedSchema, RefData, RefType, TableData } from "@/types";
+} from "./dbml-schema-indexes";
 
 type ExportedDatabase = ReturnType<DbmlDatabase["export"]>;
 type ExportedSchema = ExportedDatabase["schemas"][number];

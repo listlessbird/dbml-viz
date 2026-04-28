@@ -4,9 +4,9 @@ import { describe, expect, it } from "vitest";
 import {
 	buildParsedSchemaFromDatabase,
 	parseDbmlSource,
-} from "@/lib/dbml-schema";
+} from "../../src/parser-worker/dbml-schema";
+import { parseSchemaSource } from "../../src/parser-worker/schema-source-parser";
 import { SAMPLE_SCHEMA_SOURCE } from "@/lib/sample-dbml";
-import { parseSchemaSource } from "@/lib/schema-source-parser";
 import { getColumnConstraintBadges } from "@/lib/table-constraints";
 
 describe("buildParsedSchemaFromDatabase", () => {
