@@ -14,7 +14,7 @@ import {
   type Viewport,
   ReactFlow,
 } from "@xyflow/react";
-import { useCallback, useMemo, useRef } from "react";
+import { memo, useCallback, useMemo, useRef, type MouseEvent } from "react";
 
 import { CanvasDock } from "@/components/CanvasDock";
 import { CanvasZoomToolbar } from "@/components/CanvasZoomToolbar";
@@ -73,6 +73,14 @@ const edgeTypes: EdgeTypes = {
   relationship: RelationshipEdge,
   stickyLink: StickyLinkEdge,
 };
+const PRO_OPTIONS = { hideAttribution: true } as const;
+const FIT_VIEW_OPTIONS = { padding: 0.2 } as const;
+const DEFAULT_EDGE_OPTIONS = {
+  type: "smoothstep",
+  animated: false,
+} as const;
+const minimapNodeColor = () => "var(--primary)";
+
 type GridPattern = Pick<
   BackgroundProps,
   "variant" | "gap" | "size" | "lineWidth" | "color"
@@ -116,7 +124,7 @@ interface CanvasProps {
   readonly onZoomOut: () => void;
 }
 
-export function Canvas({
+export const Canvas = memo(function Canvas({
   nodes,
   edges,
   gridMode,
@@ -226,6 +234,35 @@ export function Canvas({
     [onEdgesChange],
   );
 
+  const handleNodeMouseEnter = useCallback(
+    (event: MouseEvent, node: CanvasNode) => {
+      if (node.type === "table") {
+        handlers.onNodeMouseEnter(event, node as DiagramNode);
+      }
+    },
+    [handlers],
+  );
+
+  const handleNodeMouseLeave = useCallback(
+    (event: MouseEvent, node: CanvasNode) => {
+      if (node.type === "table") {
+        handlers.onNodeMouseLeave(event, node as DiagramNode);
+      }
+    },
+    [handlers],
+  );
+
+  const handleSelectionChange = useCallback(
+    ({ nodes: selectedNodes }: { nodes: CanvasNode[] }) => {
+      handlers.onSelectionChange({
+        nodes: selectedNodes.filter(
+          (node): node is DiagramNode => node.type === "table",
+        ),
+      });
+    },
+    [handlers],
+  );
+
   return (
     <div
       className="relative h-full min-h-0 overflow-hidden bg-background"
@@ -244,23 +281,10 @@ export function Canvas({
         onPaneMouseMove={spawner.onPaneMouseMove}
         onPaneMouseLeave={spawner.onPaneMouseLeave}
         onViewportChange={onViewportChange}
-        onNodeMouseEnter={(event, node) => {
-          if (node.type === "table") {
-            handlers.onNodeMouseEnter(event, node as DiagramNode);
-          }
-        }}
-        onNodeMouseLeave={(event, node) => {
-          if (node.type === "table") {
-            handlers.onNodeMouseLeave(event, node as DiagramNode);
-          }
-        }}
-        onSelectionChange={({ nodes: selectedNodes }) => {
-          handlers.onSelectionChange({
-            nodes: selectedNodes.filter(
-              (node): node is DiagramNode => node.type === "table",
-            ),
-          });
-        }}
+        onNodeMouseEnter={handleNodeMouseEnter}
+        onNodeMouseLeave={handleNodeMouseLeave}
+        onSelectionChange={handleSelectionChange}
+        onlyRenderVisibleElements
         nodesConnectable={false}
         panOnDrag={isPanModeEnabled}
         panOnScroll
@@ -270,12 +294,9 @@ export function Canvas({
         minZoom={0.25}
         maxZoom={1.8}
         zoomOnScroll={false}
-        proOptions={{ hideAttribution: true }}
-        fitViewOptions={{ padding: 0.2 }}
-        defaultEdgeOptions={{
-          type: "smoothstep",
-          animated: false,
-        }}
+        proOptions={PRO_OPTIONS}
+        fitViewOptions={FIT_VIEW_OPTIONS}
+        defaultEdgeOptions={DEFAULT_EDGE_OPTIONS}
       >
         {gridMode === "none" ? null : (
           <Background {...GRID_PATTERNS[gridMode]} />
@@ -291,7 +312,7 @@ export function Canvas({
               : "pointer-events-none! translate-y-2! opacity-0!",
           )}
           maskColor="color-mix(in oklab, var(--muted) 84%, transparent)"
-          nodeColor={() => "var(--primary)"}
+          nodeColor={minimapNodeColor}
         />
       </ReactFlow>
 
@@ -346,4 +367,4 @@ export function Canvas({
       ) : null}
     </div>
   );
-}
+});
