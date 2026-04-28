@@ -8,6 +8,10 @@
 		"noImplicitOverride": true,
 		"rewriteRelativeImportExtensions": true,
 		"verbatimModuleSyntax": true,
+		"baseUrl": ".",
+		"paths": {
+			"@/*": ["./src/react-app/*"]
+		},
 		"types": ["vite/client", "./worker-configuration.d.ts"],
 		"plugins": [
 			{
@@ -15,5 +19,5 @@
 			}
 		]
 	},
-	"include": ["src/worker"]
+	"include": ["src/worker", "src/parser-worker"]
 }

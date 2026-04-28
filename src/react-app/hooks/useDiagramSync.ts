@@ -164,13 +164,7 @@ export function useDiagramSync({
 			hasSavedPositions || (hasStableNodePositions && hasPreferredPositions);
 		const hasOverlappingSavedPositions =
 			hasSavedPositions && doDiagramNodesOverlap(diagram.nodes);
-		const needsInitialAutoLayout = diagram.nodes.length > 0 && !hasKnownStablePositions;
-		const needsRevisionAutoLayout =
-			!hasSavedPositions &&
-			diagram.nodes.length > 0 &&
-			autoLayoutRevisionRef.current !== layoutRevision;
 		const needsRecoveryAutoLayout = hasOverlappingSavedPositions;
-		const hasTransientFallbackPositions = diagram.nodes.length > 0 && !hasKnownStablePositions;
 
 		console.info("[layout] useDiagramSync effect", {
 			layoutAlgorithm,
@@ -179,8 +173,6 @@ export function useDiagramSync({
 			hasPreferredPositions,
 			hasKnownStablePositions,
 			hasOverlappingSavedPositions,
-			needsInitialAutoLayout,
-			needsRevisionAutoLayout,
 			needsRecoveryAutoLayout,
 			isLayouting,
 		});
@@ -188,12 +180,10 @@ export function useDiagramSync({
 		if (hasSavedPositions) {
 			hasStableNodePositionsRef.current = true;
 		} else if (!hasPreferredPositions) {
-			hasStableNodePositionsRef.current = false;
+			hasStableNodePositionsRef.current = true;
 		}
 
-		setCanPersistNodePositions(
-			!(hasTransientFallbackPositions || hasOverlappingSavedPositions),
-		);
+		setCanPersistNodePositions(!hasOverlappingSavedPositions);
 
 		startTransition(() => {
 			setNodes(diagram.nodes);
@@ -201,9 +191,7 @@ export function useDiagramSync({
 		});
 
 		if (
-			(!needsInitialAutoLayout &&
-				!needsRevisionAutoLayout &&
-				!needsRecoveryAutoLayout) ||
+			!needsRecoveryAutoLayout ||
 			isLayouting
 		) {
 			console.info("[layout] useDiagramSync effect skip auto-layout", {

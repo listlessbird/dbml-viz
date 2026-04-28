@@ -103,7 +103,7 @@ const readDiagnosticLocation = (
 			line: diagnostic.location.start.line,
 			column: diagnostic.location.start.column,
 		},
-		end,
+		...(end !== undefined ? { end } : {}),
 	};
 };
 
@@ -113,11 +113,16 @@ const readDiagnosticLocation = (
  */
 export const extractDiagnostics = (error: unknown): ParseDiagnostic[] => {
 	if (hasDiagnosticsArray(error)) {
-		return error.diags.map((diagnostic) => ({
-			message: readDiagnosticMessage(diagnostic),
-			code: readDiagnosticCode(diagnostic),
-			location: readDiagnosticLocation(diagnostic),
-		}));
+		return error.diags.map((diagnostic) => {
+			const code = readDiagnosticCode(diagnostic);
+			const location = readDiagnosticLocation(diagnostic);
+
+			return {
+				message: readDiagnosticMessage(diagnostic),
+				...(code !== undefined ? { code } : {}),
+				...(location !== undefined ? { location } : {}),
+			};
+		});
 	}
 
 	return [

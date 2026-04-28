@@ -335,18 +335,7 @@ export function Canvas({
 
       {!hasDiagram ? (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-6">
-          <div className="max-w-sm text-center">
-            <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
-              Dbml Viz
-            </p>
-            <h2 className="mt-2 text-lg font-medium tracking-tight text-foreground">
-              Supports dbml/sql
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              Tables and relationships will appear here. Drag them to arrange
-              the layout, then share the snapshot when it is ready.
-            </p>
-          </div>
+          
         </div>
       ) : null}
 

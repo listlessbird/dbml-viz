@@ -84,19 +84,23 @@ export const buildTableIndexes = (tableId: string, table: ExportedTable): TableI
 			id: createIndexId(tableId, kind, columns, name, index),
 			kind,
 			columns,
-			name,
-			method,
-			note,
+			...(name !== undefined ? { name } : {}),
+			...(method !== undefined ? { method } : {}),
+			...(note !== undefined ? { note } : {}),
 		});
 	};
 
 	table.indexes.forEach((index, indexPosition) => {
+		const name = isNonEmptyString(index.name) ? index.name : undefined;
+		const method = isNonEmptyString(index.type) ? index.type : undefined;
+		const note = isNonEmptyString(index.note) ? index.note : undefined;
+
 		pushIndex({
 			kind: getIndexKind(index),
 			columns: extractIndexColumns(index),
-			name: isNonEmptyString(index.name) ? index.name : undefined,
-			method: isNonEmptyString(index.type) ? index.type : undefined,
-			note: isNonEmptyString(index.note) ? index.note : undefined,
+			...(name !== undefined ? { name } : {}),
+			...(method !== undefined ? { method } : {}),
+			...(note !== undefined ? { note } : {}),
 			index: indexPosition,
 		});
 	});
@@ -172,6 +176,6 @@ export const buildTableColumns = ({
 		unique: uniqueColumns.has(field.name),
 		isForeignKey: tableForeignKeys?.has(field.name) ?? false,
 		isIndexed: indexedColumns.has(field.name),
-		note: field.note ?? undefined,
+		...(field.note !== undefined && field.note !== null ? { note: field.note } : {}),
 	}));
 };

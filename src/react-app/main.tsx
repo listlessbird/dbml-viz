@@ -1,13 +1,23 @@
 import { StrictMode, lazy, Suspense } from "react";
+import type { ComponentType } from "react";
 import { createRoot } from "react-dom/client";
 import { HotkeysProvider } from "@tanstack/react-hotkeys";
 import "@xyflow/react/dist/style.css";
 import "./index.css";
 import App from "./App.tsx";
 import { Toaster } from "@/components/ui/sonner";
-import { Agentation } from "agentation";
 
-const HotkeysDevtools = import.meta.env.DEV
+const enableDevOverlays = import.meta.env.DEV && import.meta.env.VITE_ENABLE_DEV_OVERLAYS === "true";
+
+const Agentation = enableDevOverlays
+  ? lazy(() =>
+      import("agentation").then((module) => ({
+        default: module.Agentation as ComponentType,
+      }))
+    )
+  : null;
+
+const HotkeysDevtools = enableDevOverlays
   ? lazy(() =>
       Promise.all([
         import("@tanstack/react-devtools"),
@@ -23,9 +33,13 @@ createRoot(document.getElementById("root")!).render(
     <HotkeysProvider>
       <App />
       <Toaster position="top-right" />
-      {import.meta.env.DEV && (
+      {enableDevOverlays && (
         <>
-          <Agentation />
+          {Agentation && (
+            <Suspense>
+              <Agentation />
+            </Suspense>
+          )}
           {HotkeysDevtools && (
             <Suspense>
               <HotkeysDevtools />
