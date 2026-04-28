@@ -23,7 +23,16 @@ export default defineConfig({
 			),
 		},
 	},
-	plugins: isTest ? [react(), tailwindcss()] : [react(), tailwindcss(), cloudflare()],
+	plugins: isTest
+		? [react(), tailwindcss()]
+		: [
+				react(),
+				tailwindcss(),
+				cloudflare({
+					configPath: "./wrangler.json",
+					auxiliaryWorkers: [{ configPath: "./wrangler.parser.json" }],
+				}),
+			],
 	build: {
 		rollupOptions: {
 			output: {
