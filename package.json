@@ -78,6 +78,7 @@
 		"check": "tsc && vite build && wrangler deploy --dry-run",
 		"deploy": "wrangler deploy",
 		"dev": "vite",
+		"dev:p": "wrangler dev -c wrangler.parser.json --port 8788 --ip 127.0.0.1",
 		"lint": "eslint .",
 		"prepare": "effect-language-service patch",
 		"preview": "npm run build && vite preview",

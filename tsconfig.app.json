@@ -23,7 +23,8 @@
 		"noUncheckedSideEffectImports": true,
 		"baseUrl": ".",
 		"paths": {
-			"@/*": ["./src/react-app/*"]
+			"@/*": ["./src/react-app/*"],
+			"@tabler/icons-react": ["./src/react-app/lib/tabler-icons.ts"]
 		}
 	},
 	"include": ["src/react-app"]

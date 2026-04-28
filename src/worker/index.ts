@@ -100,6 +100,10 @@ const SESSION_PATH_PATTERN = /^\/api\/agent\/([A-Za-z0-9_-]+)\/(ws|mcp.*)$/;
 export default {
 	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
 		const url = new URL(request.url);
+		if (url.pathname === "/api/parse") {
+			return env.SCHEMA_PARSER.fetch(request);
+		}
+
 		const match = SESSION_PATH_PATTERN.exec(url.pathname);
 
 		if (match) {
