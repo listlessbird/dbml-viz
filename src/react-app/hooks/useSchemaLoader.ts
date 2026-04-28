@@ -1,5 +1,6 @@
-import { startTransition, useCallback, useEffect, useReducer } from "react";
+import { startTransition, useCallback, useEffect, useMemo, useReducer } from "react";
 import type { Dispatch, SetStateAction } from "react";
+import { useQuery } from "@tanstack/react-query";
 
 import {
 	getDraftHydrationResult,
@@ -11,7 +12,7 @@ import {
 	createInitialSchemaLoaderState,
 	schemaLoaderReducer,
 } from "@/lib/schemaLoaderState";
-import { loadSharedSchema } from "@/lib/sharing";
+import { loadSharedSchema, sharedSchemaQueryKey } from "@/lib/sharing";
 import { useStickyNotesStore } from "@/store/useStickyNotesStore";
 import type {
 	DiagramEdge,
@@ -62,20 +63,35 @@ export function useSchemaLoader({
 		createInitialSchemaLoaderState,
 	);
 
-	useEffect(() => {
-		let cancelled = false;
+	const hydration = useMemo(() => {
 		const localDraft = getDraft(viewedRoute.shareId);
-		const hydration = getDraftHydrationResult({
+		return getDraftHydrationResult({
 			route: viewedRoute,
 			draft: localDraft,
 			sampleSource: SAMPLE_SCHEMA_SOURCE,
 		});
+	}, [getDraft, viewedRoute]);
 
+	const shouldLoadSharedSchema =
+		viewedRoute.shareId !== null &&
+		currentShareBaseline === null &&
+		hydration.remoteLoadMode !== "none";
+
+	const sharedSchemaQuery = useQuery({
+		queryKey: sharedSchemaQueryKey(viewedRoute.shareId ?? ""),
+		queryFn: () => {
+			if (viewedRoute.shareId === null) {
+				throw new Error("A shared schema id is required.");
+			}
+			return loadSharedSchema(viewedRoute.shareId);
+		},
+		enabled: shouldLoadSharedSchema,
+	});
+
+	useEffect(() => {
 		if (!isSameDiagramRoute(hydration.canonicalRoute, viewedRoute)) {
 			replaceViewedRoute(hydration.canonicalRoute);
-			return () => {
-				cancelled = true;
-			};
+			return;
 		}
 
 		const replaceSchema = (
@@ -97,33 +113,24 @@ export function useSchemaLoader({
 
 		if (hydration.remoteLoadMode === "none") {
 			replaceSchema(hydration.source, hydration.positions, hydration.notes);
-			return () => {
-				cancelled = true;
-			};
+			return;
 		}
 
 		if (hydration.remoteLoadMode === "background") {
 			replaceSchema(hydration.source, hydration.positions, hydration.notes);
 
 			if (viewedRoute.shareId !== null && currentShareBaseline === null) {
-				const sharedId = viewedRoute.shareId;
-
-				void loadSharedSchema(sharedId)
-					.then((payload) => {
-						if (!cancelled) {
-							setShareBaseline({ shareId: sharedId, payload });
-						}
-					})
-					.catch((error) => {
-						if (!cancelled) {
-							console.error(error);
-						}
+				if (sharedSchemaQuery.data) {
+					setShareBaseline({
+						shareId: viewedRoute.shareId,
+						payload: sharedSchemaQuery.data,
 					});
+				} else if (sharedSchemaQuery.error) {
+					console.error(sharedSchemaQuery.error);
+				}
 			}
 
-			return () => {
-				cancelled = true;
-			};
+			return;
 		}
 
 		if (viewedRoute.shareId !== null && currentShareBaseline !== null) {
@@ -136,9 +143,7 @@ export function useSchemaLoader({
 				currentShareBaseline.positions,
 				currentShareBaseline.notes,
 			);
-			return () => {
-				cancelled = true;
-			};
+			return;
 		}
 
 		startTransition(() => {
@@ -150,55 +155,56 @@ export function useSchemaLoader({
 
 		const sharedId = viewedRoute.shareId;
 		if (sharedId === null) {
-			return () => {
-				cancelled = true;
-			};
+			return;
 		}
 
-		void loadSharedSchema(sharedId)
-			.then((payload) => {
-				if (cancelled) {
-					return;
-				}
+		if (sharedSchemaQuery.isPending || sharedSchemaQuery.isFetching) {
+			return;
+		}
 
-				setShareBaseline({ shareId: sharedId, payload });
-				if (hydration.clearLocalDraftOnRemoteLoad) {
-					clearDraft(sharedId);
-				}
-				replaceSchema(payload.source, payload.positions, payload.notes);
-				requestFitView();
-			})
-			.catch((error) => {
-				if (cancelled) {
-					return;
-				}
+		if (sharedSchemaQuery.data) {
+			setShareBaseline({ shareId: sharedId, payload: sharedSchemaQuery.data });
+			if (hydration.clearLocalDraftOnRemoteLoad) {
+				clearDraft(sharedId);
+			}
+			replaceSchema(
+				sharedSchemaQuery.data.source,
+				sharedSchemaQuery.data.positions,
+				sharedSchemaQuery.data.notes,
+			);
+			requestFitView();
+			return;
+		}
 
-				console.error(error);
+		if (sharedSchemaQuery.error) {
+			console.error(sharedSchemaQuery.error);
 
-				startTransition(() => {
-					dispatch({
-						type: "finish-blocking-load-error",
-						message:
-							error instanceof Error
-								? error.message
-								: "Unable to load the shared schema.",
-					});
+			startTransition(() => {
+				dispatch({
+					type: "finish-blocking-load-error",
+					message:
+						sharedSchemaQuery.error instanceof Error
+							? sharedSchemaQuery.error.message
+							: "Unable to load the shared schema.",
 				});
-				setShareBaseline(null);
 			});
+			setShareBaseline(null);
+		}
 
-		return () => {
-			cancelled = true;
-		};
+		return;
 	}, [
 		clearDraft,
 		currentShareBaseline,
-		getDraft,
+		hydration,
 		requestFitView,
 		replaceViewedRoute,
 		setEdges,
 		setNodes,
 		setShareBaseline,
+		sharedSchemaQuery.data,
+		sharedSchemaQuery.error,
+		sharedSchemaQuery.isFetching,
+		sharedSchemaQuery.isPending,
 		viewedRoute,
 	]);
 

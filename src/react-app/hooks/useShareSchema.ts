@@ -1,12 +1,13 @@
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import type { Dispatch, SetStateAction } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import {
 	buildDraftPayload,
 	type DiagramRouteState,
 } from "@/lib/draftPersistence";
-import { saveSharedSchema } from "@/lib/sharing";
+import { saveSharedSchema, sharedSchemaQueryKey } from "@/lib/sharing";
 import { getSharedStickyNotes } from "@/store/useStickyNotesStore";
 import type { DiagramNode, DiagramPositions, SchemaPayload } from "@/types";
 
@@ -35,11 +36,12 @@ export function useShareSchema({
 	setShareBaseline,
 	setShareLoadError,
 }: ShareSchemaOptions) {
-	const [isSharing, setIsSharing] = useState(false);
+	const queryClient = useQueryClient();
+	const { isPending: isSharing, mutateAsync: saveSharedSchemaMutation } = useMutation({
+		mutationFn: saveSharedSchema,
+	});
 
 	const handleShare = useCallback(async () => {
-		setIsSharing(true);
-
 		try {
 			const payload = buildDraftPayload({
 				source,
@@ -49,7 +51,7 @@ export function useShareSchema({
 					(note) => note.text.trim().length > 0,
 				),
 			});
-			const result = await saveSharedSchema(payload);
+			const result = await saveSharedSchemaMutation(payload);
 			const nextUrl = new URL(`/s/${result.id}`, window.location.origin).toString();
 
 			const copyAction = {
@@ -82,6 +84,7 @@ export function useShareSchema({
 				shareId: result.id,
 				payload,
 			});
+			queryClient.setQueryData(sharedSchemaQueryKey(result.id), payload);
 			setShareLoadError(null);
 		} catch (error) {
 			console.error(error);
@@ -89,12 +92,12 @@ export function useShareSchema({
 			toast.error(
 				error instanceof Error ? error.message : "Unable to share this schema.",
 			);
-		} finally {
-			setIsSharing(false);
 		}
 	}, [
 		clearDraft,
 		nodes,
+		queryClient,
+		saveSharedSchemaMutation,
 		source,
 		pushViewedRoute,
 		setShareBaseline,
