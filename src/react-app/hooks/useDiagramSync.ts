@@ -165,6 +165,7 @@ export function useDiagramSync({
 		const hasOverlappingSavedPositions =
 			hasSavedPositions && doDiagramNodesOverlap(diagram.nodes);
 		const needsRecoveryAutoLayout = hasOverlappingSavedPositions;
+		const needsInitialAutoLayout = !hasKnownStablePositions;
 
 		console.info("[layout] useDiagramSync effect", {
 			layoutAlgorithm,
@@ -174,6 +175,7 @@ export function useDiagramSync({
 			hasKnownStablePositions,
 			hasOverlappingSavedPositions,
 			needsRecoveryAutoLayout,
+			needsInitialAutoLayout,
 			isLayouting,
 		});
 
@@ -191,7 +193,7 @@ export function useDiagramSync({
 		});
 
 		if (
-			!needsRecoveryAutoLayout ||
+			(!needsRecoveryAutoLayout && !needsInitialAutoLayout) ||
 			isLayouting
 		) {
 			console.info("[layout] useDiagramSync effect skip auto-layout", {
