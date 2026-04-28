@@ -78,9 +78,10 @@
 	"private": true,
 	"scripts": {
 		"build": "tsc -b && vite build",
-		"cf-typegen": "wrangler types",
+		"cf-typegen": "wrangler types -c wrangler.json -c wrangler.parser.json",
 		"check": "tsc && vite build && wrangler deploy --dry-run",
-		"deploy": "wrangler deploy",
+		"deploy": "bun run build && wrangler deploy",
+		"deploy:p": "wrangler deploy -c wrangler.parser.json",
 		"dev": "vite",
 		"dev:p": "wrangler dev -c wrangler.parser.json --port 8788 --ip 127.0.0.1",
 		"lint": "eslint .",
