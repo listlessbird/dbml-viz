@@ -15,6 +15,7 @@ import {
 } from "@codemirror/view";
 import {
 	IconAlertTriangle,
+	IconBrandGithub,
 	IconLayoutSidebarLeftCollapse,
 	IconLock,
 	IconLockOpen,
@@ -323,6 +324,15 @@ export function Editor({
 			>
 				<span>{formatLabel}</span>
 				<span>{lineCount} {lineCount === 1 ? "line" : "lines"}</span>
+				<a
+					href="https://github.com/listlessbird/dbml-viz"
+					target="_blank"
+					rel="noopener noreferrer"
+					title="View source on GitHub"
+					className="ml-auto inline-flex items-center justify-center text-[var(--gray-500)] transition-colors normal-case hover:text-[var(--gray-200)]"
+				>
+					<IconBrandGithub className="size-3.5" />
+				</a>
 			</div>
 		</div>
 	);

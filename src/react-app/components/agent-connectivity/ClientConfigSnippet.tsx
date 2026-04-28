@@ -75,7 +75,7 @@ export function ClientConfigSnippet({ endpoint }: ClientConfigSnippetProps) {
 	return (
 		<div className="flex flex-col gap-1.5">
 			<label className="font-mono text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--gray-500)]">
-				Client config
+				Add to your agent
 			</label>
 			<div className="flex gap-0.5 border-b border-[var(--gray-200)]">
 				{AGENT_CLIENTS.map((client) => {

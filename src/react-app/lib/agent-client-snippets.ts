@@ -9,14 +9,7 @@ export interface AgentClient {
 }
 
 const buildClaudeCode = (endpoint: string): string =>
-	`// ~/.claude/mcp.json
-{
-  "mcpServers": {
-    "dbml-canvas": {
-      "url": "${endpoint}"
-    }
-  }
-}`;
+	`claude mcp add --transport http dbml-canvas ${endpoint}`;
 
 const buildCodex = (endpoint: string): string =>
 	`# add to your shell once
@@ -41,7 +34,7 @@ export const AGENT_CLIENTS: readonly AgentClient[] = [
 		id: "claude-code",
 		label: "Claude Code",
 		buildSnippet: buildClaudeCode,
-		snippetLanguage: "json",
+		snippetLanguage: "shell",
 	},
 	{
 		id: "codex",

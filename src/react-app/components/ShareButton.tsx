@@ -9,7 +9,7 @@ export function ShareButton({ isSharing, onShare }: ShareButtonProps) {
 	return (
 		<button
 			type="button"
-			className="inline-flex items-center gap-2 border-l border-border bg-sidebar-primary px-3 text-sm font-medium text-sidebar-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
+			className="inline-flex items-center gap-2 border-l border-border bg-sidebar-primary px-3 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
 			onClick={onShare}
 			disabled={isSharing}
 		>

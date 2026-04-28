@@ -77,11 +77,7 @@ export function ConnectAgentModal({
 
 					<div className="space-y-3 px-4 pb-4 pt-3.5">
 						<DialogPrimitive.Description className="text-[12px] leading-[1.55] text-[var(--gray-600)]">
-							Your agent connects via{" "}
-							<code className="rounded-none bg-[var(--gray-100)] px-1 font-mono text-[11px] text-[var(--gray-800)]">
-								MCP
-							</code>
-							. The workspace URL appears after the browser syncs with the remote workspace.
+							Run the command below in your terminal to connect your agent to this canvas.
 						</DialogPrimitive.Description>
 
 						{endpoint ? (
