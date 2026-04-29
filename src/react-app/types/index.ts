@@ -165,5 +165,21 @@ export type StickyNoteData = Record<string, never>;
 
 export type StickyNoteNode = Node<StickyNoteData, "sticky">;
 
-export type CanvasNode = DiagramNode | StickyNoteNode;
-export type CanvasEdge = DiagramEdge | StickyLinkEdge;
+export type TemporaryCursorNodeData = Record<string, never>;
+export type TemporaryCursorNode = Node<
+	TemporaryCursorNodeData,
+	"temporaryCursor"
+>;
+
+export interface TemporaryRelationshipEdgeData extends Record<string, unknown> {
+	readonly sourceTableId: string;
+	readonly targetTableId?: string;
+}
+
+export type TemporaryRelationshipEdge = Edge<
+	TemporaryRelationshipEdgeData,
+	"temporaryRelationship"
+>;
+
+export type CanvasNode = DiagramNode | StickyNoteNode | TemporaryCursorNode;
+export type CanvasEdge = DiagramEdge | StickyLinkEdge | TemporaryRelationshipEdge;

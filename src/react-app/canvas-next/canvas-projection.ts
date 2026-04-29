@@ -4,7 +4,11 @@ import {
 	getCompositeHandleOffsets,
 	getTableNodeLayout,
 } from "@/components/table-node/layout";
-import type { ProjectionRuntimeState } from "@/canvas-next/canvas-runtime-store";
+import {
+	TEMPORARY_CURSOR_NODE_ID,
+	TEMPORARY_RELATIONSHIP_EDGE_ID,
+	type ProjectionRuntimeState,
+} from "@/canvas-next/canvas-runtime-store";
 import { buildSchemaIndexes, type SchemaIndexes } from "@/schema-model/schema-indexes";
 import type { ResolvedRelationship } from "@/schema-model/relation-anchors";
 import type {
@@ -17,6 +21,8 @@ import type {
 	RefType,
 	RelationAnchorData,
 	TableData,
+	TemporaryCursorNode,
+	TemporaryRelationshipEdge,
 } from "@/types";
 
 export interface CanvasProjectionInput {
@@ -277,6 +283,63 @@ const isResolvedReachable = (
 	tablesById.has(resolved.from.tableId) &&
 	tablesById.has(resolved.to.tableId);
 
+const buildTemporaryProjection = (
+	runtime: ProjectionRuntimeState,
+	tablesById: ReadonlyMap<string, TableData>,
+): {
+	readonly nodes: readonly TemporaryCursorNode[];
+	readonly edges: readonly TemporaryRelationshipEdge[];
+} => {
+	const preview = runtime.temporaryRelationship;
+	if (!preview || !tablesById.has(preview.sourceTableId)) {
+		return { nodes: [], edges: [] };
+	}
+
+	const targetTableId =
+		preview.targetTableId && tablesById.has(preview.targetTableId)
+			? preview.targetTableId
+			: null;
+	const shouldUseCursor = targetTableId === null && preview.cursorPosition !== null;
+	const nodes: TemporaryCursorNode[] = shouldUseCursor
+		? [
+				{
+					id: TEMPORARY_CURSOR_NODE_ID,
+					type: "temporaryCursor",
+					position: preview.cursorPosition!,
+					data: {},
+					draggable: false,
+					selectable: false,
+				},
+			]
+		: [];
+	const target = targetTableId ?? (shouldUseCursor ? TEMPORARY_CURSOR_NODE_ID : null);
+	if (!target) {
+		return { nodes, edges: [] };
+	}
+
+	return {
+		nodes,
+		edges: [
+			{
+				id: TEMPORARY_RELATIONSHIP_EDGE_ID,
+				type: "temporaryRelationship",
+				source: preview.sourceTableId,
+				target,
+				data: {
+					sourceTableId: preview.sourceTableId,
+					...(targetTableId !== null ? { targetTableId } : {}),
+				},
+				selectable: false,
+				animated: true,
+				style: {
+					stroke: "var(--muted-foreground)",
+					strokeDasharray: "6 4",
+				},
+			},
+		],
+	};
+};
+
 export function buildCanvasProjection(
 	diagram: CanvasProjectionInput,
 	runtime: ProjectionRuntimeState,
@@ -334,10 +397,14 @@ export function buildCanvasProjection(
 		if (!isResolvedReachable(resolved, indexes.tablesById)) continue;
 		edges.push(buildRelationshipEdge(resolved, activeTableIds));
 	}
+	const temporaryProjection = buildTemporaryProjection(
+		runtime,
+		indexes.tablesById,
+	);
 
 	return {
-		nodes,
-		edges,
+		nodes: [...nodes, ...temporaryProjection.nodes],
+		edges: [...edges, ...temporaryProjection.edges],
 		missingPositionIds,
 	};
 }
