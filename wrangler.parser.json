@@ -1,0 +1,13 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "dbml-viz-parser",
+	"main": "./src/parser-worker/index.ts",
+	"compatibility_date": "2026-04-02",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"observability": {
+		"enabled": true
+	},
+	"upload_source_maps": false
+}

@@ -1,48 +1,56 @@
-import { parseSchemaPayload } from "@/lib/schema-payload";
+import { hc } from "hono/client";
+import type { InferRequestType, InferResponseType } from "hono/client";
+
+import type { AppType } from "../../worker/app";
 import type { SchemaPayload } from "@/types";
 
-interface ShareResponse {
-	readonly id: string;
-}
+const api = hc<AppType>("/");
 
-const readErrorMessage = async (response: Response) => {
+const loadSharedSchemaRequest = api.api.load[":id"].$get;
+const saveSharedSchemaRequest = api.api.save.$post;
+
+type LoadSharedSchemaResponse = InferResponseType<typeof loadSharedSchemaRequest, 200>;
+type SaveSharedSchemaRequest = InferRequestType<typeof saveSharedSchemaRequest>["json"];
+type SaveSharedSchemaResponse = InferResponseType<typeof saveSharedSchemaRequest, 201>;
+type ShareErrorResponse = { readonly error?: string };
+type JsonErrorResponse = Pick<Response, "json" | "status">;
+
+const readErrorMessage = async (response: JsonErrorResponse) => {
 	try {
-		const json = (await response.json()) as { error?: string };
+		const json = (await response.json()) as ShareErrorResponse;
 		return json.error ?? `Request failed with status ${response.status}`;
 	} catch {
 		return `Request failed with status ${response.status}`;
 	}
 };
 
+export const sharedSchemaQueryKey = (id: string) => ["shared-schema", id] as const;
+
 export const loadSharedSchema = async (id: string): Promise<SchemaPayload> => {
-	const response = await fetch(`/api/load/${id}`);
+	const response = await loadSharedSchemaRequest({ param: { id } });
 
 	if (!response.ok) {
 		throw new Error(await readErrorMessage(response));
 	}
 
-	const payload = parseSchemaPayload(await response.json());
-	if (payload === null) {
-		throw new Error("Shared schema payload is invalid.");
-	}
-
+	const payload = (await response.json()) satisfies LoadSharedSchemaResponse;
 	return payload;
 };
 
 export const saveSharedSchema = async (
 	payload: SchemaPayload,
-): Promise<ShareResponse> => {
-	const response = await fetch("/api/save", {
-		method: "POST",
-		headers: {
-			"content-type": "application/json",
-		},
-		body: JSON.stringify(payload),
+): Promise<SaveSharedSchemaResponse> => {
+	const requestPayload: SaveSharedSchemaRequest = {
+		...payload,
+		notes: [...payload.notes],
+	};
+	const response = await saveSharedSchemaRequest({
+		json: requestPayload,
 	});
 
 	if (!response.ok) {
 		throw new Error(await readErrorMessage(response));
 	}
 
-	return (await response.json()) as ShareResponse;
+	return await response.json();
 };

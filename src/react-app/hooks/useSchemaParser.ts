@@ -1,150 +1,50 @@
-import { useEffect, useReducer } from "react";
+import { useEffect, useState } from "react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
-import {
-	getPreferredSourceMetadata,
-	hasSameSourceMetadata,
-} from "@/lib/schema-source-detection";
+import { getPreferredSourceMetadata } from "@/lib/schema-source-detection";
 import { parseSchema, SchemaParseError } from "@/lib/parser";
-import type {
-	ParseDiagnostic,
-	ParsedSchema,
-	SchemaSourceMetadata,
-} from "@/types";
+import { EMPTY_SCHEMA } from "@/lib/parser-shared";
+import type { ParseDiagnostic } from "@/types";
 
-const EMPTY_SCHEMA: ParsedSchema = {
-	tables: [],
-	refs: [],
-	errors: [],
+const useDebouncedValue = <T>(value: T, delay: number): T => {
+	const [debounced, setDebounced] = useState(value);
+
+	useEffect(() => {
+		const id = window.setTimeout(() => setDebounced(value), delay);
+		return () => window.clearTimeout(id);
+	}, [value, delay]);
+
+	return debounced;
 };
 
-interface ParsedMetadataState {
-	readonly source: string;
-	readonly metadata: SchemaSourceMetadata;
-}
-
-interface SchemaParserState {
-	readonly parsed: ParsedSchema;
-	readonly diagnostics: readonly ParseDiagnostic[];
-	readonly isParsing: boolean;
-	readonly parsedMetadata: ParsedMetadataState | null;
-}
-
-type SchemaParserAction =
-	| { readonly type: "start-parse" }
-	| {
-			readonly type: "parse-success";
-			readonly source: string;
-			readonly parsed: ParsedSchema;
-			readonly metadata: SchemaSourceMetadata;
-	  }
-	| {
-			readonly type: "parse-error";
-			readonly diagnostics: readonly ParseDiagnostic[];
-	  };
-
-const INITIAL_SCHEMA_PARSER_STATE: SchemaParserState = {
-	parsed: EMPTY_SCHEMA,
-	diagnostics: [],
-	isParsing: false,
-	parsedMetadata: null,
-};
-
-const schemaParserReducer = (
-	state: SchemaParserState,
-	action: SchemaParserAction,
-): SchemaParserState => {
-	switch (action.type) {
-		case "start-parse":
-			return state.isParsing ? state : { ...state, isParsing: true };
-		case "parse-success":
-			return {
-				parsed: action.parsed,
-				diagnostics: [],
-				isParsing: false,
-				parsedMetadata:
-					state.parsedMetadata !== null &&
-					state.parsedMetadata.source === action.source &&
-					hasSameSourceMetadata(state.parsedMetadata.metadata, action.metadata)
-						? state.parsedMetadata
-						: {
-								source: action.source,
-								metadata: action.metadata,
-							},
-			};
-		case "parse-error":
-			return {
-				...state,
-				diagnostics: action.diagnostics,
-				isParsing: false,
-			};
+const errorToDiagnostics = (error: unknown): readonly ParseDiagnostic[] => {
+	if (error instanceof SchemaParseError) {
+		return [...error.diagnostics];
 	}
+	return [
+		{
+			message: error instanceof Error ? error.message : "Unable to parse schema source.",
+		},
+	];
 };
 
 export const useSchemaParser = (source: string, delay = 300) => {
-	const [state, dispatch] = useReducer(
-		schemaParserReducer,
-		INITIAL_SCHEMA_PARSER_STATE,
-	);
+	const debouncedSource = useDebouncedValue(source, delay);
 	const heuristicMetadata = getPreferredSourceMetadata(source);
+
+	const query = useQuery({
+		queryKey: ["parse-schema", debouncedSource] as const,
+		queryFn: () => parseSchema(debouncedSource),
+		placeholderData: keepPreviousData,
+	});
+
+	const parsed = query.data?.parsed ?? EMPTY_SCHEMA;
+	const diagnostics = query.error ? errorToDiagnostics(query.error) : [];
+	const isParsing = query.isFetching || debouncedSource !== source;
 	const metadata =
-		state.parsedMetadata !== null && state.parsedMetadata.source === source
-			? state.parsedMetadata.metadata
+		query.data && !query.isPlaceholderData && debouncedSource === source
+			? query.data.metadata
 			: heuristicMetadata;
 
-	useEffect(() => {
-		let cancelled = false;
-
-		const timeoutId = window.setTimeout(() => {
-			dispatch({ type: "start-parse" });
-			void parseSchema(source)
-				.then(({ parsed: nextParsed, metadata: nextMetadata }) => {
-					if (cancelled) {
-						return;
-					}
-
-					dispatch({
-						type: "parse-success",
-						source,
-						parsed: nextParsed,
-						metadata: nextMetadata,
-					});
-				})
-				.catch((error) => {
-					if (cancelled) {
-						return;
-					}
-
-					console.error(error);
-
-					const diagnostics =
-						error instanceof SchemaParseError
-							? [...error.diagnostics]
-							: [
-									{
-										message:
-											error instanceof Error
-												? error.message
-												: "Unable to parse schema source.",
-									},
-								];
-
-					dispatch({
-						type: "parse-error",
-						diagnostics,
-					});
-				});
-			}, delay);
-
-		return () => {
-			cancelled = true;
-			window.clearTimeout(timeoutId);
-		};
-	}, [source, delay]);
-
-	return {
-		parsed: state.parsed,
-		diagnostics: state.diagnostics,
-		isParsing: state.isParsing,
-		metadata,
-	};
+	return { parsed, diagnostics, isParsing, metadata };
 };

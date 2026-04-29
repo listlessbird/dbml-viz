@@ -10,6 +10,7 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/react-app/*"],
+      "@tabler/icons-react": ["./src/react-app/lib/tabler-icons.ts"],
     },
   },
 }

@@ -1,5 +1,4 @@
 {
-	"$schema": "https://raw.githubusercontent.com/Effect-TS/language-service/refs/heads/main/schema.json",
 	"extends": "./tsconfig.node.json",
 	"compilerOptions": {
 		"tsBuildInfoFile": "./node_modules/.tmp/tsconfig.worker.tsbuildinfo",
@@ -8,12 +7,11 @@
 		"noImplicitOverride": true,
 		"rewriteRelativeImportExtensions": true,
 		"verbatimModuleSyntax": true,
-		"types": ["vite/client", "./worker-configuration.d.ts"],
-		"plugins": [
-			{
-				"name": "@effect/language-service"
-			}
-		]
+		"baseUrl": ".",
+		"paths": {
+			"@/*": ["./src/react-app/*"]
+		},
+		"types": ["vite/client", "./worker-configuration.d.ts"]
 	},
-	"include": ["src/worker"]
+	"include": ["src/worker", "src/parser-worker"]
 }

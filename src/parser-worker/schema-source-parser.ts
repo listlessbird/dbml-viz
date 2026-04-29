@@ -1,28 +1,24 @@
 import { Parser } from "@dbml/core";
 
-import { buildParsedSchemaFromDatabase, parseDbmlSource } from "@/lib/dbml-schema";
-import { EMPTY_SCHEMA, extractDiagnostics } from "@/lib/parser-shared";
+import {
+	EMPTY_SCHEMA,
+	extractDiagnostics,
+	type ParsedSourceResult,
+} from "@/lib/parser-shared";
 import {
 	getPreferredSourceMetadata,
 	getSchemaParseCandidates,
 	toSchemaSourceMetadata,
 	type SchemaParseCandidate,
 } from "@/lib/schema-source-detection";
-import type {
-	ParsedSchema,
-	ParseDiagnostic,
-	SchemaSourceMetadata,
-} from "@/types";
+import type { ParseDiagnostic } from "@/types";
+
+import { buildParsedSchemaFromDatabase, parseDbmlSource } from "./dbml-schema";
 
 interface FailedParseAttempt {
 	readonly candidate: SchemaParseCandidate;
 	readonly diagnostics: readonly ParseDiagnostic[];
 	readonly error: unknown;
-}
-
-export interface ParsedSourceResult {
-	readonly parsed: ParsedSchema;
-	readonly metadata: SchemaSourceMetadata;
 }
 
 const parseWithCandidate = (

@@ -10,6 +10,12 @@
 		"enabled": true
 	},
 	"upload_source_maps": true,
+	"services": [
+		{
+			"binding": "SCHEMA_PARSER",
+			"service": "dbml-viz-parser"
+		}
+	],
 	"kv_namespaces": [
 		{
 			"binding": "SCHEMAS",

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactFlowInstance, Viewport } from "@xyflow/react";
 
 import type { DiagramEdge, DiagramNode } from "@/types";
@@ -7,6 +7,8 @@ export function useCanvasViewport() {
 	const reactFlowRef = useRef<ReactFlowInstance<DiagramNode, DiagramEdge> | null>(
 		null,
 	);
+	const zoomFrameRef = useRef<number | null>(null);
+	const pendingZoomRef = useRef(1);
 	const [viewportZoom, setViewportZoom] = useState(1);
 
 	const requestFitView = useCallback((nodeIds?: readonly string[]) => {
@@ -30,13 +32,26 @@ export function useCanvasViewport() {
 	const handleCanvasInit = useCallback(
 		(instance: ReactFlowInstance<DiagramNode, DiagramEdge>) => {
 			reactFlowRef.current = instance;
-			setViewportZoom(instance.getZoom());
+			const zoom = instance.getZoom();
+			pendingZoomRef.current = zoom;
+			setViewportZoom(zoom);
 		},
 		[],
 	);
 
 	const handleViewportChange = useCallback((viewport: Viewport) => {
-		setViewportZoom(viewport.zoom);
+		pendingZoomRef.current = viewport.zoom;
+		if (zoomFrameRef.current !== null) {
+			return;
+		}
+
+		zoomFrameRef.current = requestAnimationFrame(() => {
+			zoomFrameRef.current = null;
+			const nextZoom = pendingZoomRef.current;
+			setViewportZoom((currentZoom) =>
+				Math.abs(currentZoom - nextZoom) < 0.005 ? currentZoom : nextZoom,
+			);
+		});
 	}, []);
 
 	const handleZoomIn = useCallback(() => {
@@ -46,6 +61,15 @@ export function useCanvasViewport() {
 	const handleZoomOut = useCallback(() => {
 		void reactFlowRef.current?.zoomOut({ duration: 180 });
 	}, []);
+
+	useEffect(
+		() => () => {
+			if (zoomFrameRef.current !== null) {
+				cancelAnimationFrame(zoomFrameRef.current);
+			}
+		},
+		[],
+	);
 
 	return {
 		viewportZoom,

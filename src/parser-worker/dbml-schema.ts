@@ -1,12 +1,13 @@
 import { Parser, type Database as DbmlDatabase } from "@dbml/core";
 
+import { EMPTY_SCHEMA } from "@/lib/parser-shared";
+import type { ParsedSchema, RefData, RefType, TableData } from "@/types";
+
 import {
 	buildTableColumns,
 	buildTableIndexes,
 	collectForeignKeyColumns,
-} from "@/lib/dbml-schema-indexes";
-import { EMPTY_SCHEMA } from "@/lib/parser-shared";
-import type { ParsedSchema, RefData, RefType, TableData } from "@/types";
+} from "./dbml-schema-indexes";
 
 type ExportedDatabase = ReturnType<DbmlDatabase["export"]>;
 type ExportedSchema = ExportedDatabase["schemas"][number];
@@ -57,6 +58,8 @@ const buildRefs = (schemas: readonly ExportedSchema[]): RefData[] => {
 				toEndpoint.schemaName ?? schema.name,
 				toEndpoint.tableName,
 			);
+			const onDelete = normalizeRefAction(ref.onDelete);
+			const onUpdate = normalizeRefAction(ref.onUpdate);
 
 			refs.push({
 				id: `${ref.name ?? `${fromTableId}:${fromColumns.join(",")}->${toTableId}:${toColumns.join(",")}`}:${refs.length}`,
@@ -69,9 +72,9 @@ const buildRefs = (schemas: readonly ExportedSchema[]): RefData[] => {
 					columns: toColumns,
 				},
 				type: relationPairToType(fromEndpoint.relation, toEndpoint.relation),
-				name: isNonEmptyString(ref.name) ? ref.name : undefined,
-				onDelete: normalizeRefAction(ref.onDelete),
-				onUpdate: normalizeRefAction(ref.onUpdate),
+				...(isNonEmptyString(ref.name) ? { name: ref.name } : {}),
+				...(onDelete !== undefined ? { onDelete } : {}),
+				...(onUpdate !== undefined ? { onUpdate } : {}),
 			});
 		}
 	}
@@ -93,8 +96,8 @@ const buildTables = (
 			return {
 				id: tableId,
 				name: table.name,
-				schema: schema.name === "public" ? undefined : schema.name,
-				note: table.note ?? undefined,
+				...(schema.name === "public" ? {} : { schema: schema.name }),
+				...(table.note !== undefined && table.note !== null ? { note: table.note } : {}),
 				columns: buildTableColumns({
 					tableId,
 					fields: table.fields,
