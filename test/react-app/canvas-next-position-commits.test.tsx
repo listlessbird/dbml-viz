@@ -80,6 +80,7 @@ afterEach(() => {
 	capturedOnNodesChange = undefined;
 	capturedOnViewportChange = undefined;
 	reactFlowRenderCount = 0;
+	vi.unstubAllGlobals();
 });
 
 const renderCanvasNext = () => {
@@ -155,6 +156,22 @@ describe("canvas-next Table Position commits", () => {
 			diagramStore.getState().setSchemaSource("Table users { id int [pk] }");
 		});
 
+		expect(reactFlowRenderCount).toBe(renderCount);
+	});
+
+	it("does not rerender React Flow for Focus commands without visual projection output", () => {
+		vi.stubGlobal("requestAnimationFrame", vi.fn(() => 1));
+		vi.stubGlobal("cancelAnimationFrame", vi.fn());
+		const { diagramStore, runtimeStore } = renderCanvasNext();
+		const before = diagramStore.getState().toSchemaPayload();
+		const renderCount = reactFlowRenderCount;
+
+		act(() => {
+			runtimeStore.getState().requestFocus(["users", "users"]);
+		});
+
+		expect(runtimeStore.getState().focusTableIds).toEqual(["users"]);
+		expect(diagramStore.getState().toSchemaPayload()).toEqual(before);
 		expect(reactFlowRenderCount).toBe(renderCount);
 	});
 });

@@ -58,8 +58,8 @@ const buildDiagram = (parsedSchema: ParsedSchema, tablePositions = {}): Diagram 
 });
 
 const projectionRuntime = {
-	focusTableIds: [] as readonly string[],
 	activeRelationTableIds: [] as readonly string[],
+	temporaryRelationship: null,
 };
 
 describe("Canvas Projection table nodes", () => {
@@ -362,7 +362,10 @@ describe("Canvas Projection relation hover input", () => {
 	it("marks edges connected to Canvas Runtime active Relation tables as active", () => {
 		const projection = buildCanvasProjection(
 			buildDiagram(usersWithOrders),
-			{ focusTableIds: [], activeRelationTableIds: ["orders"] },
+			{
+				activeRelationTableIds: ["orders"],
+				temporaryRelationship: null,
+			},
 		);
 
 		const [edge] = projection.edges.filter(isDiagramEdge);
@@ -374,7 +377,10 @@ describe("Canvas Projection relation hover input", () => {
 	it("populates active Relation Columns on connected Table nodes from Canvas Runtime input", () => {
 		const projection = buildCanvasProjection(
 			buildDiagram(usersWithOrders),
-			{ focusTableIds: [], activeRelationTableIds: ["orders"] },
+			{
+				activeRelationTableIds: ["orders"],
+				temporaryRelationship: null,
+			},
 		);
 
 		const ordersNode = projection.nodes.find((node) => node.id === "orders");
@@ -405,10 +411,45 @@ describe("Canvas Projection relation hover input", () => {
 		const snapshot = JSON.stringify(diagram);
 
 		buildCanvasProjection(diagram, {
-			focusTableIds: [],
 			activeRelationTableIds: ["orders"],
+			temporaryRelationship: null,
 		});
 
 		expect(JSON.stringify(diagram)).toBe(snapshot);
+	});
+});
+
+describe("Canvas Projection temporary runtime objects", () => {
+	it("projects only whitelisted temporary relationship preview objects", () => {
+		const projection = buildCanvasProjection(buildDiagram(usersWithOrders), {
+			activeRelationTableIds: [],
+			temporaryRelationship: {
+				kind: "relationship-preview",
+				sourceTableId: "orders",
+				targetTableId: null,
+				cursorPosition: { x: 360, y: 120 },
+			},
+		});
+
+		expect(projection.nodes.map((node) => node.type)).toContain(
+			"temporaryCursor",
+		);
+		expect(projection.edges.map((edge) => edge.type)).toContain(
+			"temporaryRelationship",
+		);
+	});
+
+	it("removes temporary relationship preview objects when runtime clears them", () => {
+		const projection = buildCanvasProjection(buildDiagram(usersWithOrders), {
+			activeRelationTableIds: [],
+			temporaryRelationship: null,
+		});
+
+		expect(projection.nodes.map((node) => node.type)).not.toContain(
+			"temporaryCursor",
+		);
+		expect(projection.edges.map((edge) => edge.type)).not.toContain(
+			"temporaryRelationship",
+		);
 	});
 });

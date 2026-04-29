@@ -26,9 +26,11 @@ function SchemaParseFlowBridge() {
 export function CanvasNextCanvas() {
 	const parsedSchema = useDiagramSession((state) => state.diagram.parsedSchema);
 	const tablePositions = useDiagramSession((state) => state.diagram.tablePositions);
-	const focusTableIds = useCanvasRuntime((state) => state.focusTableIds);
 	const activeRelationTableIds = useCanvasRuntime(
 		(state) => state.activeRelationTableIds,
+	);
+	const temporaryRelationship = useCanvasRuntime(
+		(state) => state.temporaryRelationship,
 	);
 	const attachReactFlowInstance = useCanvasRuntime(
 		(state) => state.attachReactFlowInstance,
@@ -46,11 +48,16 @@ export function CanvasNextCanvas() {
 			buildCanvasProjection(
 				{ parsedSchema, tablePositions },
 				{
-					focusTableIds,
 					activeRelationTableIds,
+					temporaryRelationship,
 				},
 			),
-		[parsedSchema, tablePositions, focusTableIds, activeRelationTableIds],
+		[
+			parsedSchema,
+			tablePositions,
+			activeRelationTableIds,
+			temporaryRelationship,
+		],
 	);
 	const handleNodesChange = useCallback<OnNodesChange<CanvasNode>>(
 		(changes) => {
