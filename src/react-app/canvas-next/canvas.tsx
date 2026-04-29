@@ -7,13 +7,14 @@ import {
 	type OnNodesChange,
 	type ReactFlowInstance,
 } from "@xyflow/react";
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 
 import { useCanvasRuntime } from "@/canvas-next/canvas-runtime-context";
 import { buildCanvasProjection } from "@/canvas-next/canvas-projection";
 import { collectTablePositionChanges } from "@/canvas-next/table-position-changes";
 import { useSchemaParseFlow } from "@/canvas-next/use-schema-parse-flow";
 import { useDiagramSession } from "@/diagram-session/diagram-session-context";
+import { placeMissingTablePositions } from "@/diagram-layout/fallback-placement";
 import type { CanvasEdge, CanvasNode } from "@/types";
 
 const proOptions = { hideAttribution: true } as const;
@@ -39,6 +40,10 @@ export function CanvasNextCanvas() {
 	const commitTablePositions = useDiagramSession(
 		(state) => state.commitTablePositions,
 	);
+	const tablePlacement = useMemo(
+		() => placeMissingTablePositions(parsedSchema, tablePositions),
+		[parsedSchema, tablePositions],
+	);
 	const tableIds = useMemo(
 		() => new Set(parsedSchema.tables.map((table) => table.id)),
 		[parsedSchema],
@@ -46,7 +51,7 @@ export function CanvasNextCanvas() {
 	const projection = useMemo(
 		() =>
 			buildCanvasProjection(
-				{ parsedSchema, tablePositions },
+				{ parsedSchema, tablePositions: tablePlacement.tablePositions },
 				{
 					activeRelationTableIds,
 					temporaryRelationship,
@@ -54,11 +59,15 @@ export function CanvasNextCanvas() {
 			),
 		[
 			parsedSchema,
-			tablePositions,
+			tablePlacement.tablePositions,
 			activeRelationTableIds,
 			temporaryRelationship,
 		],
 	);
+	useEffect(() => {
+		if (tablePlacement.missingTableIds.length === 0) return;
+		commitTablePositions(tablePlacement.missingTablePositions);
+	}, [commitTablePositions, tablePlacement]);
 	const handleNodesChange = useCallback<OnNodesChange<CanvasNode>>(
 		(changes) => {
 			const positions = collectTablePositionChanges(changes, tableIds);
