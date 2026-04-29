@@ -10,6 +10,7 @@ import {
 	type ProjectionRuntimeState,
 } from "@/canvas-next/canvas-runtime-store";
 import { buildSchemaIndexes, type SchemaIndexes } from "@/schema-model/schema-indexes";
+import { placeMissingTablePositions } from "@/diagram-layout/fallback-placement";
 import type { ResolvedRelationship } from "@/schema-model/relation-anchors";
 import type {
 	CanvasEdge,
@@ -35,9 +36,6 @@ export interface CanvasProjection {
 	readonly edges: CanvasEdge[];
 	readonly missingPositionIds: readonly string[];
 }
-
-const FALLBACK_LAYOUT_GAP = 48;
-const FALLBACK_LAYOUT_START = Object.freeze({ x: 80, y: 80 });
 
 const chartAccents = [
 	"var(--chart-1)",
@@ -80,41 +78,6 @@ const relationText = (type: RefType) => {
 		default:
 			return "many to one";
 	}
-};
-
-const computeFallbackAnchor = (
-	parsed: ParsedSchema,
-	positions: DiagramPositions,
-	tableLayoutById: ReadonlyMap<string, ReturnType<typeof getTableNodeLayout>>,
-) => {
-	let rightmostEdge = 0;
-	let topmostY = 0;
-	let hasPositionedNodes = false;
-
-	for (const table of parsed.tables) {
-		const position = positions[table.id];
-		const layout = tableLayoutById.get(table.id);
-		if (!position || !layout) continue;
-
-		if (!hasPositionedNodes) {
-			rightmostEdge = position.x + layout.width;
-			topmostY = position.y;
-			hasPositionedNodes = true;
-			continue;
-		}
-
-		rightmostEdge = Math.max(rightmostEdge, position.x + layout.width);
-		topmostY = Math.min(topmostY, position.y);
-	}
-
-	if (!hasPositionedNodes) {
-		return FALLBACK_LAYOUT_START;
-	}
-
-	return {
-		x: rightmostEdge + FALLBACK_LAYOUT_GAP,
-		y: topmostY,
-	};
 };
 
 const collectCompositeAnchors = (
@@ -345,6 +308,7 @@ export function buildCanvasProjection(
 	runtime: ProjectionRuntimeState,
 ): CanvasProjection {
 	const { parsedSchema, tablePositions } = diagram;
+	const placement = placeMissingTablePositions(parsedSchema, tablePositions);
 	const indexes = buildSchemaIndexes(parsedSchema);
 	const tableLayoutById = new Map(
 		parsedSchema.tables.map(
@@ -360,25 +324,9 @@ export function buildCanvasProjection(
 		activeTableIds,
 	);
 
-	const fallbackAnchor = computeFallbackAnchor(
-		parsedSchema,
-		tablePositions,
-		tableLayoutById,
-	);
-	let nextFallbackY = fallbackAnchor.y;
-	const missingPositionIds: string[] = [];
-
 	const nodes: CanvasNode[] = parsedSchema.tables.map((table) => {
 		const layout = tableLayoutById.get(table.id)!;
-		const committed = tablePositions[table.id];
-		const position = committed ?? {
-			x: fallbackAnchor.x,
-			y: nextFallbackY,
-		};
-		if (!committed) {
-			missingPositionIds.push(table.id);
-			nextFallbackY += layout.height + FALLBACK_LAYOUT_GAP;
-		}
+		const position = placement.tablePositions[table.id]!;
 
 		const activeColumns = activeColumnsByTable.get(table.id);
 		return buildTableNode(table, {
@@ -405,6 +353,6 @@ export function buildCanvasProjection(
 	return {
 		nodes: [...nodes, ...temporaryProjection.nodes],
 		edges: [...edges, ...temporaryProjection.edges],
-		missingPositionIds,
+		missingPositionIds: placement.missingTableIds,
 	};
 }

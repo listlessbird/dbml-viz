@@ -64,6 +64,15 @@ const usersOnly: ParsedSchema = {
 	errors: [],
 };
 
+const usersAndOrders: ParsedSchema = {
+	tables: [
+		{ id: "users", name: "users", columns: [], indexes: [] },
+		{ id: "orders", name: "orders", columns: [], indexes: [] },
+	],
+	refs: [],
+	errors: [],
+};
+
 let activeRoot: Root | null = null;
 let activeContainer: HTMLDivElement | null = null;
 
@@ -83,11 +92,16 @@ afterEach(() => {
 	vi.unstubAllGlobals();
 });
 
-const renderCanvasNext = () => {
+const renderCanvasNext = (
+	initial: {
+		readonly parsedSchema?: ParsedSchema;
+		readonly tablePositions?: Record<string, { readonly x: number; readonly y: number }>;
+	} = {},
+) => {
 	const diagramStore = createDiagramSessionStore({
 		source: "",
-		parsedSchema: usersOnly,
-		tablePositions: { users: { x: 0, y: 0 } },
+		parsedSchema: initial.parsedSchema ?? usersOnly,
+		tablePositions: initial.tablePositions ?? { users: { x: 0, y: 0 } },
 		stickyNotes: [],
 	});
 	const runtimeStore = createCanvasRuntimeStore();
@@ -129,6 +143,18 @@ describe("canvas-next Table Position commits", () => {
 		expect(diagramStore.getState().diagram.tablePositions).toEqual({
 			users: { x: 112, y: 244 },
 		});
+	});
+
+	it("commits deterministic fallback Table Positions for newly added Tables", () => {
+		const { diagramStore } = renderCanvasNext({
+			parsedSchema: usersAndOrders,
+			tablePositions: { users: { x: 0, y: 0 } },
+		});
+
+		const positions = diagramStore.getState().diagram.tablePositions;
+		expect(positions.users).toEqual({ x: 0, y: 0 });
+		expect(positions.orders?.x).toBeGreaterThan(0);
+		expect(positions.orders?.y).toBe(0);
 	});
 
 	it("keeps Viewport and Selection changes out of durable Diagram state", () => {
