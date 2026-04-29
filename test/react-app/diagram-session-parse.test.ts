@@ -46,7 +46,23 @@ describe("Diagram Session parse-result commands", () => {
 		});
 
 		expect(store.getState().diagram.parsedSchema).toBe(usersAndOrders);
+		expect(store.getState().sourceMetadata).toEqual({ format: "dbml" });
 		expect(store.getState().parseDiagnostics).toEqual([]);
+	});
+
+	it("preserves SQL Source metadata from parse success", () => {
+		const store = createDiagramSessionStore();
+
+		store.getState().applyParseResult({
+			ok: true,
+			parsedSchema: usersOnly,
+			metadata: { format: "sql", dialect: "mysql" },
+		});
+
+		expect(store.getState().sourceMetadata).toEqual({
+			format: "sql",
+			dialect: "mysql",
+		});
 	});
 
 	it("prunes Table Positions for Tables removed from the new Parsed Schema", () => {
