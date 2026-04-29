@@ -30,6 +30,12 @@ export interface DiagramSessionState extends DiagramSession {
 	readonly setSchemaSource: (source: string) => void;
 	readonly replaceParsedSchema: (parsedSchema: ParsedSchema) => void;
 	readonly applyParseResult: (result: ParseResult) => void;
+	readonly addStickyNote: (note: SharedStickyNote) => void;
+	readonly updateStickyNote: (
+		id: string,
+		patch: Partial<Omit<SharedStickyNote, "id">>,
+	) => void;
+	readonly deleteStickyNote: (id: string) => void;
 	readonly replaceStickyNotes: (notes: readonly SharedStickyNote[]) => void;
 }
 
@@ -127,6 +133,59 @@ export function createDiagramSessionStore(
 							...state.diagram.tablePositions,
 							...committed,
 						},
+					},
+				};
+			});
+		},
+		addStickyNote: (note) => {
+			set((state) => {
+				if (
+					state.diagram.stickyNotes.some((existing) => existing.id === note.id)
+				) {
+					return state;
+				}
+				return {
+					diagram: {
+						...state.diagram,
+						stickyNotes: [...state.diagram.stickyNotes, note],
+					},
+				};
+			});
+		},
+		updateStickyNote: (id, patch) => {
+			set((state) => {
+				let changed = false;
+				const stickyNotes = state.diagram.stickyNotes.map((note) => {
+					if (note.id !== id) return note;
+					const next = { ...note, ...patch };
+					changed = Object.keys(patch).some(
+						(key) =>
+							next[key as keyof SharedStickyNote] !==
+							note[key as keyof SharedStickyNote],
+					);
+					return next;
+				});
+				if (!changed) return state;
+				return {
+					diagram: {
+						...state.diagram,
+						stickyNotes,
+					},
+				};
+			});
+		},
+		deleteStickyNote: (id) => {
+			set((state) => {
+				const stickyNotes = state.diagram.stickyNotes.filter(
+					(note) => note.id !== id,
+				);
+				if (stickyNotes.length === state.diagram.stickyNotes.length) {
+					return state;
+				}
+				return {
+					diagram: {
+						...state.diagram,
+						stickyNotes,
 					},
 				};
 			});

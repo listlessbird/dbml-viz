@@ -2,7 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import { buildCanvasProjection } from "@/canvas-next/canvas-projection";
 import type { Diagram } from "@/diagram-session/diagram-session-context";
-import type { DiagramEdge, ParsedSchema, RefData, TableData } from "@/types";
+import type {
+	DiagramEdge,
+	DiagramNode,
+	ParsedSchema,
+	RefData,
+	SharedStickyNote,
+	TableData,
+} from "@/types";
 
 const tableUsers = {
 	id: "users",
@@ -50,11 +57,15 @@ const usersOnly: ParsedSchema = {
 	errors: [],
 };
 
-const buildDiagram = (parsedSchema: ParsedSchema, tablePositions = {}): Diagram => ({
+const buildDiagram = (
+	parsedSchema: ParsedSchema,
+	tablePositions = {},
+	stickyNotes: readonly SharedStickyNote[] = [],
+): Diagram => ({
 	source: "",
 	parsedSchema,
 	tablePositions,
-	stickyNotes: [],
+	stickyNotes,
 });
 
 const projectionRuntime = {
@@ -233,6 +244,8 @@ const compositeSchema: ParsedSchema = {
 
 const isDiagramEdge = (edge: { type?: string }): edge is DiagramEdge =>
 	edge.type === "relationship";
+const isDiagramNode = (node: { type?: string }): node is DiagramNode =>
+	node.type === "table";
 
 describe("Canvas Projection relationship edges", () => {
 	it("projects one React Flow edge per Relationship in the Parsed Schema", () => {
@@ -277,8 +290,12 @@ describe("Canvas Projection relationship edges", () => {
 			projectionRuntime,
 		);
 
-		const childNode = projection.nodes.find((node) => node.id === "child");
-		const parentNode = projection.nodes.find((node) => node.id === "parent");
+		const childNode = projection.nodes.find(
+			(node): node is DiagramNode => node.id === "child" && isDiagramNode(node),
+		);
+		const parentNode = projection.nodes.find(
+			(node): node is DiagramNode => node.id === "parent" && isDiagramNode(node),
+		);
 
 		expect(childNode?.data.relationAnchors).toEqual([
 			{
@@ -451,5 +468,96 @@ describe("Canvas Projection temporary runtime objects", () => {
 		expect(projection.edges.map((edge) => edge.type)).not.toContain(
 			"temporaryRelationship",
 		);
+	});
+});
+
+describe("Canvas Projection Sticky Notes", () => {
+	it("projects durable Sticky Notes as Canvas nodes", () => {
+		const note: SharedStickyNote = {
+			id: "sticky-1",
+			x: 40,
+			y: 80,
+			width: 220,
+			height: 180,
+			color: "yellow",
+			text: "Review users",
+		};
+		const projection = buildCanvasProjection(
+			buildDiagram(usersOnly, {}, [note]),
+			projectionRuntime,
+		);
+
+		const stickyNode = projection.nodes.find((node) => node.id === "sticky-1");
+		expect(stickyNode).toMatchObject({
+			id: "sticky-1",
+			type: "sticky",
+			position: { x: 40, y: 80 },
+			width: 220,
+			height: 180,
+			data: { note },
+		});
+	});
+
+	it("derives sticky link edges from Sticky Note text and Tables", () => {
+		const note: SharedStickyNote = {
+			id: "sticky-1",
+			x: 40,
+			y: 80,
+			width: 220,
+			height: 180,
+			color: "blue",
+			text: "Review #users.id and #missing",
+		};
+		const projection = buildCanvasProjection(
+			buildDiagram(usersOnly, {}, [note]),
+			projectionRuntime,
+		);
+
+		const stickyLink = projection.edges.find(
+			(edge) => edge.type === "stickyLink",
+		);
+		expect(stickyLink).toMatchObject({
+			id: "sticky-link-sticky-1-users-id",
+			source: "sticky-1",
+			target: "users",
+			targetHandle: "users-id-target",
+			type: "stickyLink",
+			selectable: false,
+			focusable: false,
+			data: {
+				color: "blue",
+				tableName: "users",
+				columnName: "id",
+			},
+		});
+		expect(projection.edges.filter((edge) => edge.type === "stickyLink")).toHaveLength(
+			1,
+		);
+	});
+
+	it("removes derived sticky link edges when the Sticky Note is absent", () => {
+		const note: SharedStickyNote = {
+			id: "sticky-1",
+			x: 40,
+			y: 80,
+			width: 220,
+			height: 180,
+			color: "green",
+			text: "Review #users",
+		};
+		const before = buildCanvasProjection(
+			buildDiagram(usersOnly, {}, [note]),
+			projectionRuntime,
+		);
+		expect(before.edges.filter((edge) => edge.type === "stickyLink")).toHaveLength(
+			1,
+		);
+
+		const after = buildCanvasProjection(
+			buildDiagram(usersOnly, {}, []),
+			projectionRuntime,
+		);
+		expect(after.nodes.map((node) => node.id)).not.toContain("sticky-1");
+		expect(after.edges.filter((edge) => edge.type === "stickyLink")).toEqual([]);
 	});
 });

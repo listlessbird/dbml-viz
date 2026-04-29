@@ -146,6 +146,7 @@ export const runDiagramAutoLayout = async (
 		{
 			parsedSchema: request.parsedSchema,
 			tablePositions: placement.tablePositions,
+			stickyNotes: [],
 		},
 		{
 			activeRelationTableIds: [],

@@ -161,7 +161,9 @@ export type StickyLinkEdge = Edge<StickyLinkEdgeData, "stickyLink">;
 export const STICKY_NOTE_COLORS = ["yellow", "pink", "blue", "green"] as const;
 export type StickyNoteColor = (typeof STICKY_NOTE_COLORS)[number];
 
-export type StickyNoteData = Record<string, never>;
+export interface StickyNoteData extends Record<string, unknown> {
+	readonly note?: SharedStickyNote;
+}
 
 export type StickyNoteNode = Node<StickyNoteData, "sticky">;
 

@@ -9,6 +9,7 @@ import {
 	TEMPORARY_RELATIONSHIP_EDGE_ID,
 	type ProjectionRuntimeState,
 } from "@/canvas-next/canvas-runtime-store";
+import { parseLinksFromText } from "@/components/sticky-note/linkHelpers";
 import { buildSchemaIndexes, type SchemaIndexes } from "@/schema-model/schema-indexes";
 import { placeMissingTablePositions } from "@/diagram-layout/fallback-placement";
 import type { ResolvedRelationship } from "@/schema-model/relation-anchors";
@@ -21,6 +22,9 @@ import type {
 	ParsedSchema,
 	RefType,
 	RelationAnchorData,
+	SharedStickyNote,
+	StickyLinkEdge,
+	StickyNoteNode,
 	TableData,
 	TemporaryCursorNode,
 	TemporaryRelationshipEdge,
@@ -29,6 +33,7 @@ import type {
 export interface CanvasProjectionInput {
 	readonly parsedSchema: ParsedSchema;
 	readonly tablePositions: DiagramPositions;
+	readonly stickyNotes: readonly SharedStickyNote[];
 }
 
 export interface CanvasProjection {
@@ -205,6 +210,63 @@ const buildRelationshipEdge = (
 	};
 };
 
+const buildStickyNoteNode = (note: SharedStickyNote): StickyNoteNode => ({
+	id: note.id,
+	type: "sticky",
+	position: { x: note.x, y: note.y },
+	data: { note },
+	width: note.width,
+	height: note.height,
+	draggable: true,
+	selectable: true,
+});
+
+const buildStickyLinkEdges = (
+	notes: readonly SharedStickyNote[],
+	indexes: SchemaIndexes,
+): StickyLinkEdge[] => {
+	if (notes.length === 0 || indexes.tablesById.size === 0) return [];
+
+	const tableByName = new Map<string, TableData>();
+	for (const table of indexes.tablesById.values()) {
+		tableByName.set(table.name, table);
+	}
+	const isValid = (tableName: string, columnName?: string) => {
+		const table = tableByName.get(tableName);
+		if (!table) return false;
+		if (columnName === undefined) return true;
+		return indexes.columnsByTableAndName.has(`${table.id}:${columnName}`);
+	};
+	const edges: StickyLinkEdge[] = [];
+	for (const note of notes) {
+		if (note.text.trim().length === 0) continue;
+		for (const link of parseLinksFromText(note.text, isValid)) {
+			const table = tableByName.get(link.table);
+			if (!table) continue;
+			edges.push({
+				id: link.column
+					? `sticky-link-${note.id}-${table.id}-${link.column}`
+					: `sticky-link-${note.id}-${table.id}`,
+				source: note.id,
+				target: table.id,
+				targetHandle:
+					link.column !== undefined
+						? `${table.id}-${link.column}-target`
+						: undefined,
+				type: "stickyLink",
+				selectable: false,
+				focusable: false,
+				data: {
+					color: note.color,
+					tableName: link.table,
+					...(link.column !== undefined ? { columnName: link.column } : {}),
+				},
+			});
+		}
+	}
+	return edges;
+};
+
 const collectActiveRelationColumns = (
 	resolvedRelationships: readonly ResolvedRelationship[],
 	activeTableIds: ReadonlySet<string>,
@@ -339,20 +401,22 @@ export function buildCanvasProjection(
 				: {}),
 		});
 	});
+	const stickyNodes = diagram.stickyNotes.map(buildStickyNoteNode);
 
 	const edges: CanvasEdge[] = [];
 	for (const resolved of indexes.relationships) {
 		if (!isResolvedReachable(resolved, indexes.tablesById)) continue;
 		edges.push(buildRelationshipEdge(resolved, activeTableIds));
 	}
+	const stickyLinkEdges = buildStickyLinkEdges(diagram.stickyNotes, indexes);
 	const temporaryProjection = buildTemporaryProjection(
 		runtime,
 		indexes.tablesById,
 	);
 
 	return {
-		nodes: [...nodes, ...temporaryProjection.nodes],
-		edges: [...edges, ...temporaryProjection.edges],
+		nodes: [...nodes, ...stickyNodes, ...temporaryProjection.nodes],
+		edges: [...edges, ...stickyLinkEdges, ...temporaryProjection.edges],
 		missingPositionIds: placement.missingTableIds,
 	};
 }
