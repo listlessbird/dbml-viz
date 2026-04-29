@@ -56,7 +56,7 @@ import { createCanvasRuntimeStore } from "@/canvas-next/canvas-runtime-store";
 import { CanvasNextCanvas } from "@/canvas-next/canvas";
 import { DiagramSessionContext } from "@/diagram-session/diagram-session-context";
 import { createDiagramSessionStore } from "@/diagram-session/diagram-session-store";
-import type { ParsedSchema } from "@/types";
+import type { ParsedSchema, SharedStickyNote } from "@/types";
 
 const usersOnly: ParsedSchema = {
 	tables: [{ id: "users", name: "users", columns: [], indexes: [] }],
@@ -71,6 +71,16 @@ const usersAndOrders: ParsedSchema = {
 	],
 	refs: [],
 	errors: [],
+};
+
+const stickyNote: SharedStickyNote = {
+	id: "sticky-1",
+	x: 20,
+	y: 30,
+	width: 220,
+	height: 180,
+	color: "yellow",
+	text: "Review #users",
 };
 
 let activeRoot: Root | null = null;
@@ -96,13 +106,14 @@ const renderCanvasNext = (
 	initial: {
 		readonly parsedSchema?: ParsedSchema;
 		readonly tablePositions?: Record<string, { readonly x: number; readonly y: number }>;
+		readonly stickyNotes?: readonly SharedStickyNote[];
 	} = {},
 ) => {
 	const diagramStore = createDiagramSessionStore({
 		source: "",
 		parsedSchema: initial.parsedSchema ?? usersOnly,
 		tablePositions: initial.tablePositions ?? { users: { x: 0, y: 0 } },
-		stickyNotes: [],
+		stickyNotes: initial.stickyNotes ?? [],
 	});
 	const runtimeStore = createCanvasRuntimeStore();
 	const container = document.createElement("div");
@@ -143,6 +154,31 @@ describe("canvas-next Table Position commits", () => {
 		expect(diagramStore.getState().diagram.tablePositions).toEqual({
 			users: { x: 112, y: 244 },
 		});
+	});
+
+	it("commits React Flow Sticky Note position changes through Diagram Session", () => {
+		const { diagramStore } = renderCanvasNext({
+			stickyNotes: [stickyNote],
+		});
+
+		act(() => {
+			capturedOnNodesChange?.([
+				{
+					id: "sticky-1",
+					type: "position",
+					position: { x: 144, y: 288 },
+					dragging: false,
+				},
+			]);
+		});
+
+		expect(diagramStore.getState().diagram.stickyNotes).toEqual([
+			{
+				...stickyNote,
+				x: 144,
+				y: 288,
+			},
+		]);
 	});
 
 	it("commits deterministic fallback Table Positions for newly added Tables", () => {

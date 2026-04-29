@@ -66,6 +66,7 @@ const usersNode = (): DiagramNode => {
 				errors: [],
 			},
 			tablePositions: { users: { x: 0, y: 0 } },
+			stickyNotes: [],
 		},
 		{
 			activeRelationTableIds: [],

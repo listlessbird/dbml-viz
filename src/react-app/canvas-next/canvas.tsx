@@ -27,6 +27,7 @@ function SchemaParseFlowBridge() {
 export function CanvasNextCanvas() {
 	const parsedSchema = useDiagramSession((state) => state.diagram.parsedSchema);
 	const tablePositions = useDiagramSession((state) => state.diagram.tablePositions);
+	const stickyNotes = useDiagramSession((state) => state.diagram.stickyNotes);
 	const activeRelationTableIds = useCanvasRuntime(
 		(state) => state.activeRelationTableIds,
 	);
@@ -40,6 +41,7 @@ export function CanvasNextCanvas() {
 	const commitTablePositions = useDiagramSession(
 		(state) => state.commitTablePositions,
 	);
+	const updateStickyNote = useDiagramSession((state) => state.updateStickyNote);
 	const tablePlacement = useMemo(
 		() => placeMissingTablePositions(parsedSchema, tablePositions),
 		[parsedSchema, tablePositions],
@@ -48,10 +50,18 @@ export function CanvasNextCanvas() {
 		() => new Set(parsedSchema.tables.map((table) => table.id)),
 		[parsedSchema],
 	);
+	const stickyNoteIds = useMemo(
+		() => new Set(stickyNotes.map((note) => note.id)),
+		[stickyNotes],
+	);
 	const projection = useMemo(
 		() =>
 			buildCanvasProjection(
-				{ parsedSchema, tablePositions: tablePlacement.tablePositions },
+				{
+					parsedSchema,
+					tablePositions: tablePlacement.tablePositions,
+					stickyNotes,
+				},
 				{
 					activeRelationTableIds,
 					temporaryRelationship,
@@ -60,6 +70,7 @@ export function CanvasNextCanvas() {
 		[
 			parsedSchema,
 			tablePlacement.tablePositions,
+			stickyNotes,
 			activeRelationTableIds,
 			temporaryRelationship,
 		],
@@ -71,10 +82,24 @@ export function CanvasNextCanvas() {
 	const handleNodesChange = useCallback<OnNodesChange<CanvasNode>>(
 		(changes) => {
 			const positions = collectTablePositionChanges(changes, tableIds);
-			if (Object.keys(positions).length === 0) return;
-			commitTablePositions(positions);
+			if (Object.keys(positions).length > 0) {
+				commitTablePositions(positions);
+			}
+			for (const change of changes) {
+				if (
+					change.type !== "position" ||
+					change.position === undefined ||
+					!stickyNoteIds.has(change.id)
+				) {
+					continue;
+				}
+				updateStickyNote(change.id, {
+					x: change.position.x,
+					y: change.position.y,
+				});
+			}
 		},
-		[commitTablePositions, tableIds],
+		[commitTablePositions, stickyNoteIds, tableIds, updateStickyNote],
 	);
 
 	return (
