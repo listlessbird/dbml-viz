@@ -9,6 +9,7 @@ import type {
 	DiagramPositions,
 	ParseDiagnostic,
 	ParsedSchema,
+	SchemaSourceMetadata,
 	SharedStickyNote,
 } from "@/types";
 
@@ -26,6 +27,7 @@ export const emptyDiagram: Diagram = Object.freeze({
 });
 
 export interface DiagramSessionState extends DiagramSession {
+	readonly sourceMetadata: SchemaSourceMetadata;
 	readonly hydrateDiagram: (diagram: Diagram) => void;
 	readonly setSchemaSource: (source: string) => void;
 	readonly replaceParsedSchema: (parsedSchema: ParsedSchema) => void;
@@ -70,15 +72,21 @@ const commitPositionsForTables = (
 };
 
 const noDiagnostics: readonly ParseDiagnostic[] = Object.freeze([]);
+const defaultSourceMetadata: SchemaSourceMetadata = Object.freeze({ format: "dbml" });
 
 export function createDiagramSessionStore(
 	initialDiagram: Diagram = emptyDiagram,
 ): DiagramSessionStore {
 	return createStore<DiagramSessionState>()((set, get) => ({
 		diagram: initialDiagram,
+		sourceMetadata: defaultSourceMetadata,
 		parseDiagnostics: noDiagnostics,
 		hydrateDiagram: (diagram) => {
-			set({ diagram, parseDiagnostics: noDiagnostics });
+			set({
+				diagram,
+				sourceMetadata: defaultSourceMetadata,
+				parseDiagnostics: noDiagnostics,
+			});
 		},
 		setSchemaSource: (source) => {
 			set((state) => ({
@@ -111,6 +119,7 @@ export function createDiagramSessionStore(
 							result.parsedSchema,
 						),
 					},
+					sourceMetadata: result.metadata,
 					parseDiagnostics: noDiagnostics,
 				}));
 				return;
