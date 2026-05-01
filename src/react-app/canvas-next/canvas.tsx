@@ -4,6 +4,8 @@ import {
 	Controls,
 	MiniMap,
 	ReactFlow,
+	type EdgeTypes,
+	type NodeTypes,
 	type OnNodesChange,
 	type ReactFlowInstance,
 } from "@xyflow/react";
@@ -12,13 +14,25 @@ import { useCallback, useEffect, useMemo } from "react";
 import { useCanvasRuntime } from "@/canvas-next/canvas-runtime-context";
 import { buildCanvasProjection } from "@/canvas-next/canvas-projection";
 import { collectTablePositionChanges } from "@/canvas-next/table-position-changes";
+import { CanvasNextStickyNoteNode } from "@/canvas-next/sticky-note-node";
 import { useSchemaParseFlow } from "@/canvas-next/use-schema-parse-flow";
 import { useRelationHoverHandlers } from "@/canvas-next/use-relation-hover";
+import { RelationshipEdge } from "@/components/RelationshipEdge";
+import { StickyLinkEdge } from "@/components/StickyLinkEdge";
+import { TableNode } from "@/components/TableNode";
 import { useDiagramSession } from "@/diagram-session/diagram-session-context";
 import { placeMissingTablePositions } from "@/diagram-layout/fallback-placement";
 import type { CanvasEdge, CanvasNode } from "@/types";
 
 const proOptions = { hideAttribution: true } as const;
+const nodeTypes: NodeTypes = {
+	table: TableNode,
+	sticky: CanvasNextStickyNoteNode,
+};
+const edgeTypes: EdgeTypes = {
+	relationship: RelationshipEdge,
+	stickyLink: StickyLinkEdge,
+};
 
 function SchemaParseFlowBridge() {
 	useSchemaParseFlow();
@@ -120,6 +134,8 @@ export function CanvasNextCanvas() {
 				onViewportChange={setViewport}
 				onNodeMouseEnter={relationHoverHandlers.onNodeMouseEnter}
 				onNodeMouseLeave={relationHoverHandlers.onNodeMouseLeave}
+				nodeTypes={nodeTypes}
+				edgeTypes={edgeTypes}
 				nodesConnectable={false}
 				proOptions={proOptions}
 			>

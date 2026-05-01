@@ -5,6 +5,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 let capturedOnNodesChange: OnNodesChange | undefined;
 let capturedOnViewportChange: ((viewport: Viewport) => void) | undefined;
+let capturedNodeTypes: Record<string, unknown> | undefined;
+let capturedEdgeTypes: Record<string, unknown> | undefined;
 let reactFlowRenderCount = 0;
 
 vi.mock("@/schema-source/parse-schema-source", () => ({
@@ -28,16 +30,22 @@ vi.mock("@xyflow/react", async () => {
 			edges,
 			onNodesChange,
 			onViewportChange,
+			nodeTypes,
+			edgeTypes,
 		}: {
 			children: React.ReactNode;
 			nodes: readonly unknown[];
 			edges: readonly unknown[];
 			onNodesChange?: OnNodesChange;
 			onViewportChange?: (viewport: Viewport) => void;
+			nodeTypes?: Record<string, unknown>;
+			edgeTypes?: Record<string, unknown>;
 		}) => {
 			reactFlowRenderCount += 1;
 			capturedOnNodesChange = onNodesChange;
 			capturedOnViewportChange = onViewportChange;
+			capturedNodeTypes = nodeTypes;
+			capturedEdgeTypes = edgeTypes;
 			return React.createElement(
 				"div",
 				{
@@ -98,6 +106,8 @@ afterEach(() => {
 	activeContainer = null;
 	capturedOnNodesChange = undefined;
 	capturedOnViewportChange = undefined;
+	capturedNodeTypes = undefined;
+	capturedEdgeTypes = undefined;
 	reactFlowRenderCount = 0;
 	vi.unstubAllGlobals();
 });
@@ -137,6 +147,23 @@ const renderCanvasNext = (
 };
 
 describe("canvas-next Table Position commits", () => {
+	it("registers custom Canvas Projection renderers with React Flow", () => {
+		renderCanvasNext();
+
+		expect(capturedNodeTypes).toEqual(
+			expect.objectContaining({
+				table: expect.anything(),
+				sticky: expect.anything(),
+			}),
+		);
+		expect(capturedEdgeTypes).toEqual(
+			expect.objectContaining({
+				relationship: expect.anything(),
+				stickyLink: expect.anything(),
+			}),
+		);
+	});
+
 	it("commits React Flow Table position changes through Diagram Session", () => {
 		const { diagramStore } = renderCanvasNext();
 
