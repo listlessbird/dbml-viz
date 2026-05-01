@@ -1,5 +1,6 @@
 import { CanvasRuntimeProvider } from "@/canvas-next/canvas-runtime-provider";
 import { CanvasNextCanvas } from "@/canvas-next/canvas";
+import { CanvasSearchDock } from "@/canvas-next/canvas-search-popover";
 import { DiagramSessionProvider } from "@/diagram-session/diagram-session-provider";
 
 export function CanvasNextPage() {
@@ -18,8 +19,9 @@ export function CanvasNextPage() {
 							</p>
 						</div>
 					</header>
-					<section className="min-h-0 flex-1">
+					<section className="relative min-h-0 flex-1">
 						<CanvasNextCanvas />
+						<CanvasSearchDock />
 					</section>
 				</main>
 			</CanvasRuntimeProvider>

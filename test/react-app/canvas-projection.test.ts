@@ -71,6 +71,7 @@ const buildDiagram = (
 const projectionRuntime = {
 	activeRelationTableIds: [] as readonly string[],
 	temporaryRelationship: null,
+	searchHighlight: null,
 };
 
 describe("Canvas Projection table nodes", () => {

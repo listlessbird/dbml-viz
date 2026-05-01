@@ -1,6 +1,7 @@
 import type { ReactFlowInstance, Viewport } from "@xyflow/react";
 import { createStore, type StoreApi } from "zustand/vanilla";
 
+import type { SchemaSearchResult } from "@/schema-model/schema-search";
 import type { CanvasEdge, CanvasNode } from "@/types";
 
 export const defaultViewport: Viewport = Object.freeze({ x: 0, y: 0, zoom: 1 });
@@ -26,6 +27,7 @@ export interface TemporaryRelationshipPreview {
 export interface ProjectionRuntimeState {
 	readonly activeRelationTableIds: readonly string[];
 	readonly temporaryRelationship: TemporaryRelationshipPreview | null;
+	readonly searchHighlight?: SchemaSearchResult | null;
 }
 
 export interface CanvasRuntimeState extends ProjectionRuntimeState {
@@ -43,6 +45,8 @@ export interface CanvasRuntimeState extends ProjectionRuntimeState {
 	readonly cancelFitView: () => void;
 	readonly setActiveRelationTableIds: (tableIds: readonly string[]) => void;
 	readonly clearActiveRelationTableIds: () => void;
+	readonly setSearchHighlight: (highlight: SchemaSearchResult | null) => void;
+	readonly clearSearchHighlight: () => void;
 	readonly startTemporaryRelationship: (input: {
 		readonly sourceTableId: string;
 	}) => void;
@@ -73,6 +77,7 @@ export function createCanvasRuntimeStore(): CanvasRuntimeStore {
 		focusTableIds: [],
 		activeRelationTableIds: [],
 		temporaryRelationship: null,
+		searchHighlight: null,
 		attachReactFlowInstance: (flowInstance) => {
 			set({ flowInstance });
 		},
@@ -115,6 +120,12 @@ export function createCanvasRuntimeStore(): CanvasRuntimeStore {
 		},
 		clearActiveRelationTableIds: () => {
 			set({ activeRelationTableIds: [] });
+		},
+		setSearchHighlight: (highlight) => {
+			set({ searchHighlight: highlight });
+		},
+		clearSearchHighlight: () => {
+			set({ searchHighlight: null });
 		},
 		startTemporaryRelationship: ({ sourceTableId }) => {
 			set({
@@ -162,6 +173,7 @@ export function createCanvasRuntimeStore(): CanvasRuntimeStore {
 				focusTableIds: [],
 				activeRelationTableIds: [],
 				temporaryRelationship: null,
+				searchHighlight: null,
 			});
 		},
 	}));
