@@ -1,34 +1,47 @@
 import { createContext, useContext, useRef, type PropsWithChildren } from "react";
 
 import {
-	createDefaultDraftPersistenceAdapter,
+	type DiagramPersistenceAdapter,
 	type DraftPersistenceAdapter,
+	withSharePersistenceAdapter,
 } from "@/canvas-next/diagram-persistence-adapter";
 
-const DraftPersistenceContext = createContext<DraftPersistenceAdapter | null>(null);
+const DiagramPersistenceContext =
+	createContext<DiagramPersistenceAdapter | null>(null);
 
 export interface DraftPersistenceProviderProps extends PropsWithChildren {
-	readonly adapter?: DraftPersistenceAdapter;
+	readonly adapter?: DraftPersistenceAdapter | DiagramPersistenceAdapter;
 }
 
 export function DraftPersistenceProvider({
 	adapter,
 	children,
 }: DraftPersistenceProviderProps) {
-	const fallbackRef = useRef<DraftPersistenceAdapter | null>(null);
-	const value =
-		adapter ?? (fallbackRef.current ??= createDefaultDraftPersistenceAdapter());
+	const valueRef = useRef<DiagramPersistenceAdapter | null>(null);
+	valueRef.current ??= withSharePersistenceAdapter(adapter);
 
 	return (
-		<DraftPersistenceContext value={value}>{children}</DraftPersistenceContext>
+		<DiagramPersistenceContext value={valueRef.current}>
+			{children}
+		</DiagramPersistenceContext>
 	);
 }
 
 export function useDraftPersistenceAdapter(): DraftPersistenceAdapter {
-	const adapter = useContext(DraftPersistenceContext);
+	const adapter = useContext(DiagramPersistenceContext);
 	if (!adapter) {
 		throw new Error(
 			"useDraftPersistenceAdapter must be used inside DraftPersistenceProvider",
+		);
+	}
+	return adapter;
+}
+
+export function useDiagramPersistenceAdapter(): DiagramPersistenceAdapter {
+	const adapter = useContext(DiagramPersistenceContext);
+	if (!adapter) {
+		throw new Error(
+			"useDiagramPersistenceAdapter must be used inside DraftPersistenceProvider",
 		);
 	}
 	return adapter;

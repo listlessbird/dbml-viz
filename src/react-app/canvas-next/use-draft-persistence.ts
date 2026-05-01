@@ -2,8 +2,13 @@ import { useContext, useEffect } from "react";
 
 import { useDraftPersistenceAdapter } from "@/canvas-next/diagram-persistence-context";
 import { DiagramSessionContext } from "@/diagram-session/diagram-session-context";
-import { resolveDraftPersistence } from "@/lib/draftPersistence";
+import {
+	isSameDiagramRoute,
+	resolveDraftPersistence,
+	type DiagramRouteState,
+} from "@/lib/draftPersistence";
 import { SAMPLE_SCHEMA_SOURCE } from "@/lib/sample-dbml";
+import type { SchemaPayload } from "@/types";
 
 const DRAFT_DEBOUNCE_MS = 180;
 
@@ -11,10 +16,16 @@ const ROOT_ROUTE = Object.freeze({ shareId: null, isDirty: false });
 
 export interface UseDraftPersistenceOptions {
 	readonly debounceMs?: number;
+	readonly route?: DiagramRouteState;
+	readonly currentShareBaseline?: SchemaPayload | null;
+	readonly onRouteDecision?: (route: DiagramRouteState) => void;
 }
 
 export function useDraftPersistence({
 	debounceMs = DRAFT_DEBOUNCE_MS,
+	route = ROOT_ROUTE,
+	currentShareBaseline = null,
+	onRouteDecision,
 }: UseDraftPersistenceOptions = {}) {
 	const adapter = useDraftPersistenceAdapter();
 	const sessionStore = useContext(DiagramSessionContext);
@@ -30,18 +41,21 @@ export function useDraftPersistence({
 		const flush = () => {
 			const payload = sessionStore.getState().toSchemaPayload();
 			const decision = resolveDraftPersistence({
-				route: ROOT_ROUTE,
+				route,
 				payload,
 				sampleSource: SAMPLE_SCHEMA_SOURCE,
-				baseline: null,
+				baseline: currentShareBaseline,
 				rootBaseline: null,
 			});
 
 			if (decision.shouldClearDraft) {
-				adapter.clearDraft(ROOT_ROUTE.shareId);
+				adapter.clearDraft(route.shareId);
 			}
 			if (decision.shouldStoreDraft) {
-				adapter.setDraft(ROOT_ROUTE.shareId, payload);
+				adapter.setDraft(route.shareId, payload);
+			}
+			if (!isSameDiagramRoute(decision.nextRoute, route)) {
+				onRouteDecision?.(decision.nextRoute);
 			}
 		};
 
@@ -63,5 +77,12 @@ export function useDraftPersistence({
 			}
 			unsubscribe();
 		};
-	}, [adapter, sessionStore, debounceMs]);
+	}, [
+		adapter,
+		sessionStore,
+		debounceMs,
+		route,
+		currentShareBaseline,
+		onRouteDecision,
+	]);
 }

@@ -15,6 +15,7 @@ import {
 } from "@/diagram-session/diagram-session-store";
 import { SAMPLE_SCHEMA_SOURCE } from "@/lib/sample-dbml";
 import type { SchemaPayload } from "@/types";
+import type { UseDraftPersistenceOptions } from "@/canvas-next/use-draft-persistence";
 
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;
@@ -40,12 +41,16 @@ function createFakeAdapter(): DraftPersistenceAdapter & {
 	};
 }
 
-function Bridge() {
-	useDraftPersistence();
+function Bridge({ options }: { readonly options?: UseDraftPersistenceOptions }) {
+	useDraftPersistence(options);
 	return null;
 }
 
-function renderWith(store: DiagramSessionStore, adapter: DraftPersistenceAdapter) {
+function renderWith(
+	store: DiagramSessionStore,
+	adapter: DraftPersistenceAdapter,
+	options?: UseDraftPersistenceOptions,
+) {
 	container = document.createElement("div");
 	document.body.appendChild(container);
 	root = createRoot(container);
@@ -53,7 +58,7 @@ function renderWith(store: DiagramSessionStore, adapter: DraftPersistenceAdapter
 		root?.render(
 			<DiagramSessionContext value={store}>
 				<DraftPersistenceProvider adapter={adapter}>
-					<Bridge />
+					<Bridge options={options} />
 				</DraftPersistenceProvider>
 			</DiagramSessionContext>,
 		);
@@ -132,5 +137,42 @@ describe("useDraftPersistence", () => {
 
 		expect(adapter.cleared.has("root")).toBe(true);
 		expect(adapter.drafts.has("root")).toBe(false);
+	});
+
+	it("stores a shared draft and marks the shared route dirty when it diverges from the Share Baseline", () => {
+		const baseline: SchemaPayload = {
+			source: "Table shared { id int }",
+			positions: {},
+			notes: [],
+			version: 3,
+		};
+		const store = createDiagramSessionStore({
+			source: baseline.source,
+			parsedSchema: { tables: [], refs: [], errors: [] },
+			tablePositions: {},
+			stickyNotes: [],
+		});
+		const adapter = createFakeAdapter();
+		const onRouteDecision = vi.fn();
+		renderWith(store, adapter, {
+			route: { shareId: "share-1", isDirty: false },
+			currentShareBaseline: baseline,
+			onRouteDecision,
+		});
+
+		act(() => {
+			store.getState().setSchemaSource("Table edited_shared { id int }");
+		});
+		act(() => {
+			vi.advanceTimersByTime(500);
+		});
+
+		expect(adapter.drafts.get("share-1")?.source).toBe(
+			"Table edited_shared { id int }",
+		);
+		expect(onRouteDecision).toHaveBeenCalledWith({
+			shareId: "share-1",
+			isDirty: true,
+		});
 	});
 });
