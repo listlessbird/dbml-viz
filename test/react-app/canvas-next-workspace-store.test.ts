@@ -6,6 +6,7 @@ import {
 	emptyDiagram,
 } from "@/diagram-session/diagram-session-store";
 import {
+	createDiagramSessionWorkspacePatchApplier,
 	createWorkspaceStore,
 	diagramFromWorkspaceSnapshot,
 	type WorkspaceTransport,
@@ -91,6 +92,7 @@ class FakeTransport implements WorkspaceTransport {
 
 const createHarness = () => {
 	const transports: FakeTransport[] = [];
+	const shareResults: string[] = [];
 	const diagramStore = createDiagramSessionStore({
 		source: "Table stale_table { id int }",
 		parsedSchema,
@@ -120,13 +122,17 @@ const createHarness = () => {
 				.getState()
 				.hydrateDiagram(diagramFromWorkspaceSnapshot(nextSnapshot));
 		},
+		applyPatch: createDiagramSessionWorkspacePatchApplier(diagramStore),
 		requestFocus: (tableIds) =>
 			runtimeStore.getState().requestFocus(tableIds),
+		handleShareResult: (shareId) => {
+			shareResults.push(shareId);
+		},
 		createWorkspaceId: () => "workspace-1",
 		getLastUpdatedAt: () => 77,
 		reconnectDelayMs: 25,
 	});
-	return { store, diagramStore, runtimeStore, transports };
+	return { store, diagramStore, runtimeStore, transports, shareResults };
 };
 
 afterEach(() => {
@@ -170,6 +176,7 @@ describe("canvas-next Workspace Module Store", () => {
 		transports[0]!.open();
 		transports[0]!.serverMessage({ type: "state-ack", state: snapshot });
 		const beforeDiagram = diagramStore.getState().diagram;
+		const beforePayload = diagramStore.getState().toSchemaPayload();
 
 		transports[0]!.serverMessage({
 			type: "focus",
@@ -178,6 +185,108 @@ describe("canvas-next Workspace Module Store", () => {
 
 		expect(runtimeStore.getState().focusTableIds).toEqual(["remote_table"]);
 		expect(diagramStore.getState().diagram).toBe(beforeDiagram);
+		expect(diagramStore.getState().toSchemaPayload()).toEqual(beforePayload);
+	});
+
+	it("applies source patches through Diagram Session without replacing Table Positions or Sticky Notes", () => {
+		const { store, diagramStore, transports } = createHarness();
+		store.getState().attach();
+		transports[0]!.open();
+		transports[0]!.serverMessage({ type: "state-ack", state: snapshot });
+		const beforeParsedSchema = diagramStore.getState().diagram.parsedSchema;
+		const beforePayload = diagramStore.getState().toSchemaPayload();
+
+		transports[0]!.serverMessage({
+			type: "state-update",
+			patch: {
+				source: "Table patched_source { id int }",
+				updatedAt: 456,
+			},
+		});
+
+		expect(diagramStore.getState().diagram.source).toBe(
+			"Table patched_source { id int }",
+		);
+		expect(diagramStore.getState().diagram.parsedSchema).toBe(beforeParsedSchema);
+		expect(diagramStore.getState().diagram.tablePositions).toEqual(
+			beforePayload.positions,
+		);
+		expect(diagramStore.getState().diagram.stickyNotes).toEqual(
+			beforePayload.notes,
+		);
+	});
+
+	it("applies position patches without reparsing Schema Source", () => {
+		const { store, diagramStore, transports } = createHarness();
+		store.getState().attach();
+		transports[0]!.open();
+		transports[0]!.serverMessage({ type: "state-ack", state: snapshot });
+		diagramStore.getState().replaceParsedSchema({
+			tables: [
+				{ id: "remote_table", name: "remote_table", columns: [], indexes: [] },
+			],
+			refs: [],
+			errors: [],
+		});
+		const beforeSource = diagramStore.getState().diagram.source;
+		const beforeParsedSchema = diagramStore.getState().diagram.parsedSchema;
+
+		transports[0]!.serverMessage({
+			type: "state-update",
+			patch: {
+				positions: {
+					remote_table: { x: 44, y: 55 },
+					absent_table: { x: 99, y: 100 },
+				},
+				updatedAt: 456,
+			},
+		});
+
+		expect(diagramStore.getState().diagram.source).toBe(beforeSource);
+		expect(diagramStore.getState().diagram.parsedSchema).toBe(beforeParsedSchema);
+		expect(diagramStore.getState().diagram.tablePositions).toEqual({
+			remote_table: { x: 44, y: 55 },
+		});
+	});
+
+	it("applies Sticky Note patches without mutating React Flow arrays", () => {
+		const { store, diagramStore, transports } = createHarness();
+		store.getState().attach();
+		transports[0]!.open();
+		transports[0]!.serverMessage({ type: "state-ack", state: snapshot });
+		const beforePayload = diagramStore.getState().toSchemaPayload();
+		const nextNotes = [
+			{
+				id: "patched-note",
+				x: 5,
+				y: 6,
+				width: 120,
+				height: 90,
+				color: "blue" as const,
+				text: "patched",
+			},
+		];
+
+		transports[0]!.serverMessage({
+			type: "state-update",
+			patch: { notes: nextNotes, updatedAt: 456 },
+		});
+
+		expect(diagramStore.getState().diagram.source).toBe(beforePayload.source);
+		expect(diagramStore.getState().diagram.tablePositions).toEqual(
+			beforePayload.positions,
+		);
+		expect(diagramStore.getState().diagram.stickyNotes).toEqual(nextNotes);
+	});
+
+	it("routes Share results through Diagram Persistence policy", () => {
+		const { store, transports, shareResults } = createHarness();
+		store.getState().attach();
+		transports[0]!.open();
+
+		transports[0]!.serverMessage({ type: "share-result", id: "share-new" });
+
+		expect(shareResults).toEqual(["share-new"]);
 	});
 
 	it("scopes live transport state and ignores messages after dispose", () => {

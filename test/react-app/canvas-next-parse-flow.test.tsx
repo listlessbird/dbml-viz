@@ -10,6 +10,7 @@ import {
 	type DiagramSessionStore,
 } from "@/diagram-session/diagram-session-store";
 import { useSchemaParseFlow } from "@/canvas-next/use-schema-parse-flow";
+import { createDiagramSessionWorkspacePatchApplier } from "@/workspace/workspace-store";
 import type { ParseSchemaSourceFn } from "@/schema-source/parse-schema-source";
 import type { ParsedSchema } from "@/types";
 
@@ -82,6 +83,26 @@ describe("Canvas Next parse flow", () => {
 
 		expect(store.getState().diagram.parsedSchema).toEqual(usersSchema);
 		expect(store.getState().parseDiagnostics).toEqual([]);
+	});
+
+	it("routes Workspace source patches back through the parse flow", async () => {
+		const store = createDiagramSessionStore();
+		const applyWorkspacePatch = createDiagramSessionWorkspacePatchApplier(store);
+		renderWithStore({
+			store,
+			parser: async (source) => {
+				expect(source).toBe("Table users {}");
+				return { parsed: usersSchema, metadata: { format: "dbml" } };
+			},
+		});
+
+		act(() => {
+			applyWorkspacePatch({ source: "Table users {}" });
+		});
+		await flushMicrotasks();
+
+		expect(store.getState().diagram.source).toBe("Table users {}");
+		expect(store.getState().diagram.parsedSchema).toEqual(usersSchema);
 	});
 
 	it("removes Table Positions for Tables that disappear from the new Parsed Schema", async () => {
