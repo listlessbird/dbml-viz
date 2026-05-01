@@ -44,9 +44,35 @@ import type {
 	DraftPersistenceAdapter,
 } from "@/canvas-next/diagram-persistence-adapter";
 import type { SchemaPayload } from "@/types";
+import type {
+	WorkspaceTransport,
+	WorkspaceTransportHandlers,
+} from "@/workspace/workspace-store";
+import type { ClientWorkspaceMessage } from "@/types/workspace";
+import { SAMPLE_SCHEMA_SOURCE } from "@/lib/sample-dbml";
 
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;
+
+class FakeWorkspaceTransport implements WorkspaceTransport {
+	readonly sent: ClientWorkspaceMessage[] = [];
+	readonly closeCalls: unknown[] = [];
+
+	constructor(readonly handlers: WorkspaceTransportHandlers) {}
+
+	send(message: ClientWorkspaceMessage) {
+		this.sent.push(message);
+		return true;
+	}
+
+	close(code?: number, reason?: string) {
+		this.closeCalls.push({ code, reason });
+	}
+
+	open() {
+		this.handlers.onOpen();
+	}
+}
 
 afterEach(() => {
 	if (root) {
@@ -219,5 +245,58 @@ describe("CanvasNextPage draft hydration", () => {
 		});
 		expect(container.textContent).toContain("Local edits not shared");
 		expect(fakeAdapter.clearDraft).not.toHaveBeenCalledWith("share-1");
+	});
+
+	it("connects a scoped Workspace from the canvas-next shell", () => {
+		const transports: FakeWorkspaceTransport[] = [];
+		const fakeAdapter: DraftPersistenceAdapter = {
+			getDraft: () => null,
+			setDraft: () => {},
+			clearDraft: () => {},
+		};
+
+		container = document.createElement("div");
+		document.body.appendChild(container);
+		root = createRoot(container);
+
+		act(() => {
+			root?.render(
+				<CanvasNextPage
+					adapter={fakeAdapter}
+					workspaceAdapter={{
+						createWorkspaceId: () => "workspace-page",
+						createTransport: (_workspaceId, handlers) => {
+							const transport = new FakeWorkspaceTransport(handlers);
+							transports.push(transport);
+							return transport;
+						},
+					}}
+				/>,
+			);
+		});
+
+		const connectButton = container.querySelector(
+			'[data-status="offline"]',
+		) as HTMLButtonElement | null;
+		expect(connectButton?.textContent).toContain("Connect workspace");
+
+		act(() => {
+			connectButton?.click();
+			transports[0]?.open();
+		});
+
+		expect(transports[0]?.sent).toEqual([
+			{
+				type: "attach",
+				state: {
+					source: SAMPLE_SCHEMA_SOURCE,
+					positions: {},
+					notes: [],
+					baseline: null,
+				},
+				updatedAt: 0,
+			},
+		]);
+		expect(container.querySelector('[data-status="connecting"]')).toBeTruthy();
 	});
 });

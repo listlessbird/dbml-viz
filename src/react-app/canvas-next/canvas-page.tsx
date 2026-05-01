@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useCallback, useContext, useState, type PropsWithChildren } from "react";
 
 import { CanvasRuntimeProvider } from "@/canvas-next/canvas-runtime-provider";
 import { CanvasNextCanvas } from "@/canvas-next/canvas";
 import { CanvasSearchDock } from "@/canvas-next/canvas-search-popover";
 import { ShareButton } from "@/components/ShareButton";
+import { WorkspaceStatusPill } from "@/components/agent-connectivity/WorkspaceStatusPill";
 import {
 	type DiagramPersistenceAdapter,
 	type DraftPersistenceAdapter,
@@ -13,7 +14,10 @@ import { DraftPersistenceProvider } from "@/canvas-next/diagram-persistence-cont
 import { useDraftPersistence } from "@/canvas-next/use-draft-persistence";
 import { useSharePersistence } from "@/canvas-next/use-share-persistence";
 import type { Diagram } from "@/diagram-session/diagram-session-context";
-import { useDiagramSession } from "@/diagram-session/diagram-session-context";
+import {
+	DiagramSessionContext,
+	useDiagramSession,
+} from "@/diagram-session/diagram-session-context";
 import { DiagramSessionProvider } from "@/diagram-session/diagram-session-provider";
 import { emptyDiagram } from "@/diagram-session/diagram-session-store";
 import {
@@ -22,9 +26,14 @@ import {
 } from "@/lib/draftPersistence";
 import { useRouting } from "@/hooks/useRouting";
 import { SAMPLE_SCHEMA_SOURCE } from "@/lib/sample-dbml";
+import { WorkspaceProvider } from "@/workspace/workspace-provider";
+import { useWorkspace } from "@/workspace/workspace-context";
+import type { WorkspaceStatus } from "@/types/workspace";
+import type { WorkspaceStoreAdapters } from "@/workspace/workspace-store";
 
 export interface CanvasNextPageProps {
 	readonly adapter?: DraftPersistenceAdapter | DiagramPersistenceAdapter;
+	readonly workspaceAdapter?: Partial<WorkspaceStoreAdapters>;
 }
 
 function buildInitialDiagram(
@@ -57,6 +66,88 @@ function DraftPersistenceBridge({ routing }: CanvasNextContentProps) {
 
 interface CanvasNextContentProps {
 	readonly routing: ReturnType<typeof useRouting>;
+}
+
+function CanvasNextWorkspaceProvider({
+	routing,
+	workspaceAdapter,
+	children,
+}: PropsWithChildren<{
+	readonly routing: ReturnType<typeof useRouting>;
+	readonly workspaceAdapter?: Partial<WorkspaceStoreAdapters>;
+}>) {
+	const diagramStore = useContext(DiagramSessionContext);
+	if (!diagramStore) {
+		throw new Error(
+			"CanvasNextWorkspaceProvider must be used inside DiagramSessionProvider",
+		);
+	}
+
+	const getCurrentSeed = useCallback(() => {
+		const payload = diagramStore.getState().toSchemaPayload();
+		const shareBaseline = routing.currentShareBaseline;
+		return {
+			source: payload.source,
+			positions: payload.positions,
+			notes: payload.notes,
+			baseline:
+				shareBaseline && routing.viewedRoute.shareId !== null
+					? {
+							shareId: routing.viewedRoute.shareId,
+							source: shareBaseline.source,
+							positions: shareBaseline.positions,
+							notes: shareBaseline.notes,
+						}
+					: null,
+		};
+	}, [diagramStore, routing.currentShareBaseline, routing.viewedRoute.shareId]);
+
+	return (
+		<WorkspaceProvider
+			getCurrentSeed={getCurrentSeed}
+			adapter={workspaceAdapter}
+		>
+			{children}
+		</WorkspaceProvider>
+	);
+}
+
+const workspaceLabel = (status: WorkspaceStatus) => {
+	switch (status) {
+		case "offline":
+			return "Connect workspace";
+		case "connecting":
+			return "Connecting";
+		case "live":
+			return "Live";
+		case "reconnecting":
+			return "Reconnecting";
+		case "ended":
+			return "Workspace expired";
+	}
+};
+
+function CanvasNextWorkspaceAction() {
+	const status = useWorkspace((state) => state.status);
+	const workspaceId = useWorkspace((state) => state.workspaceId);
+	const attach = useWorkspace((state) => state.attach);
+	const detach = useWorkspace((state) => state.detach);
+	const handleClick =
+		status === "offline" || status === "ended"
+			? attach
+			: status === "live"
+				? detach
+				: undefined;
+
+	return (
+		<WorkspaceStatusPill
+			status={status}
+			tone="light"
+			label={workspaceLabel(status)}
+			hint={status === "live" ? workspaceId ?? undefined : undefined}
+			onClick={handleClick}
+		/>
+	);
 }
 
 function CanvasNextHeader({
@@ -96,7 +187,10 @@ function CanvasNextHeader({
 					</span>
 				)}
 			</div>
-			<ShareButton isSharing={isSharing} onShare={onShare} />
+			<div className="flex shrink-0 items-center gap-2">
+				<CanvasNextWorkspaceAction />
+				<ShareButton isSharing={isSharing} onShare={onShare} />
+			</div>
 		</header>
 	);
 }
@@ -136,7 +230,10 @@ function CanvasNextContent({ routing }: CanvasNextContentProps) {
 	);
 }
 
-export function CanvasNextPage({ adapter: providedAdapter }: CanvasNextPageProps = {}) {
+export function CanvasNextPage({
+	adapter: providedAdapter,
+	workspaceAdapter,
+}: CanvasNextPageProps = {}) {
 	const [adapter] = useState<DiagramPersistenceAdapter>(
 		() => withSharePersistenceAdapter(providedAdapter),
 	);
@@ -152,8 +249,13 @@ export function CanvasNextPage({ adapter: providedAdapter }: CanvasNextPageProps
 		<DiagramSessionProvider initialDiagram={initialDiagram}>
 			<DraftPersistenceProvider adapter={adapter}>
 				<CanvasRuntimeProvider>
-					<DraftPersistenceBridge routing={routing} />
-					<CanvasNextContent routing={routing} />
+					<CanvasNextWorkspaceProvider
+						routing={routing}
+						workspaceAdapter={workspaceAdapter}
+					>
+						<DraftPersistenceBridge routing={routing} />
+						<CanvasNextContent routing={routing} />
+					</CanvasNextWorkspaceProvider>
 				</CanvasRuntimeProvider>
 			</DraftPersistenceProvider>
 		</DiagramSessionProvider>
