@@ -5,6 +5,7 @@ import { DiagramSessionContext } from "@/diagram-session/diagram-session-context
 import { WorkspaceContext } from "@/workspace/workspace-context";
 import {
 	createCanvasRuntimeFocusRequester,
+	createDiagramSessionWorkspacePatchApplier,
 	createDiagramSessionWorkspaceHydrator,
 	createWorkspaceStore,
 	type WorkspaceStore,
@@ -14,12 +15,14 @@ import type { WorkspaceSeed } from "@/types/workspace";
 
 export interface WorkspaceProviderProps extends PropsWithChildren {
 	readonly getCurrentSeed: () => WorkspaceSeed;
+	readonly handleShareResult: (shareId: string) => void;
 	readonly adapter?: Partial<WorkspaceStoreAdapters>;
 }
 
 export function WorkspaceProvider({
 	children,
 	getCurrentSeed,
+	handleShareResult,
 	adapter,
 }: WorkspaceProviderProps) {
 	const diagramStore = useContext(DiagramSessionContext);
@@ -41,9 +44,13 @@ export function WorkspaceProvider({
 		hydrateSnapshot:
 			adapter?.hydrateSnapshot ??
 			createDiagramSessionWorkspaceHydrator(diagramStore),
+		applyPatch:
+			adapter?.applyPatch ??
+			createDiagramSessionWorkspacePatchApplier(diagramStore),
 		requestFocus:
 			adapter?.requestFocus ??
 			createCanvasRuntimeFocusRequester(runtimeStore),
+		handleShareResult: adapter?.handleShareResult ?? handleShareResult,
 	});
 
 	useEffect(() => {

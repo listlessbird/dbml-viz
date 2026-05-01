@@ -10,6 +10,7 @@ import {
 	type DraftPersistenceAdapter,
 	withSharePersistenceAdapter,
 } from "@/canvas-next/diagram-persistence-adapter";
+import { applyWorkspaceShareResult } from "@/canvas-next/diagram-persistence";
 import { DraftPersistenceProvider } from "@/canvas-next/diagram-persistence-context";
 import { useDraftPersistence } from "@/canvas-next/use-draft-persistence";
 import { useSharePersistence } from "@/canvas-next/use-share-persistence";
@@ -70,10 +71,12 @@ interface CanvasNextContentProps {
 
 function CanvasNextWorkspaceProvider({
 	routing,
+	persistenceAdapter,
 	workspaceAdapter,
 	children,
 }: PropsWithChildren<{
 	readonly routing: ReturnType<typeof useRouting>;
+	readonly persistenceAdapter: DiagramPersistenceAdapter;
 	readonly workspaceAdapter?: Partial<WorkspaceStoreAdapters>;
 }>) {
 	const diagramStore = useContext(DiagramSessionContext);
@@ -101,10 +104,30 @@ function CanvasNextWorkspaceProvider({
 					: null,
 		};
 	}, [diagramStore, routing.currentShareBaseline, routing.viewedRoute.shareId]);
+	const handleShareResult = useCallback(
+		(shareId: string) => {
+			applyWorkspaceShareResult({
+				adapter: persistenceAdapter,
+				sessionStore: diagramStore,
+				shareId,
+				currentShareId: routing.viewedRoute.shareId,
+				setShareBaseline: routing.setShareBaseline,
+				pushViewedRoute: routing.pushViewedRoute,
+			});
+		},
+		[
+			diagramStore,
+			persistenceAdapter,
+			routing.pushViewedRoute,
+			routing.setShareBaseline,
+			routing.viewedRoute.shareId,
+		],
+	);
 
 	return (
 		<WorkspaceProvider
 			getCurrentSeed={getCurrentSeed}
+			handleShareResult={handleShareResult}
 			adapter={workspaceAdapter}
 		>
 			{children}
@@ -251,6 +274,7 @@ export function CanvasNextPage({
 				<CanvasRuntimeProvider>
 					<CanvasNextWorkspaceProvider
 						routing={routing}
+						persistenceAdapter={adapter}
 						workspaceAdapter={workspaceAdapter}
 					>
 						<DraftPersistenceBridge routing={routing} />

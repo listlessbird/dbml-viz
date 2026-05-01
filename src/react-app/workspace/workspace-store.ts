@@ -41,7 +41,9 @@ export interface WorkspaceStoreAdapters {
 	readonly createTransport?: WorkspaceTransportFactory;
 	readonly getCurrentSeed: () => WorkspaceSeed;
 	readonly hydrateSnapshot: (snapshot: WorkspaceSnapshot) => void;
+	readonly applyPatch: (patch: Partial<WorkspaceSnapshot>) => void;
 	readonly requestFocus: (tableIds: readonly string[]) => void;
+	readonly handleShareResult: (shareId: string) => void;
 	readonly createWorkspaceId?: () => string;
 	readonly getLastUpdatedAt?: () => number;
 	readonly setLastUpdatedAt?: (updatedAt: number) => void;
@@ -104,7 +106,9 @@ export function createWorkspaceStore({
 	createTransport = createWorkspaceWebSocketTransport,
 	getCurrentSeed,
 	hydrateSnapshot,
+	applyPatch,
 	requestFocus,
+	handleShareResult,
 	createWorkspaceId = getOrCreateDeviceId,
 	getLastUpdatedAt = () => 0,
 	setLastUpdatedAt,
@@ -151,6 +155,15 @@ export function createWorkspaceStore({
 						case "focus":
 							requestFocus(message.tableIds);
 							return;
+						case "state-update":
+							if (typeof message.patch.updatedAt === "number") {
+								setLastUpdatedAt?.(message.patch.updatedAt);
+							}
+							applyPatch(message.patch);
+							return;
+						case "share-result":
+							handleShareResult(message.id);
+							return;
 						case "error":
 							if (message.message === "workspace-expired") {
 								intentionalClose = true;
@@ -171,8 +184,6 @@ export function createWorkspaceStore({
 						case "share-error":
 							set({ lastError: message.error });
 							return;
-						case "state-update":
-						case "share-result":
 						case "pong":
 							return;
 					}
@@ -271,6 +282,21 @@ export function createWorkspaceStore({
 export const createDiagramSessionWorkspaceHydrator =
 	(diagramStore: DiagramSessionStore) => (snapshot: WorkspaceSnapshot) => {
 		diagramStore.getState().hydrateDiagram(diagramFromWorkspaceSnapshot(snapshot));
+	};
+
+export const createDiagramSessionWorkspacePatchApplier =
+	(diagramStore: DiagramSessionStore) =>
+	(patch: Partial<WorkspaceSnapshot>) => {
+		const state = diagramStore.getState();
+		if (typeof patch.source === "string") {
+			state.setSchemaSource(patch.source);
+		}
+		if (patch.positions) {
+			state.commitTablePositions(patch.positions);
+		}
+		if (patch.notes) {
+			state.replaceStickyNotes(patch.notes);
+		}
 	};
 
 export const createCanvasRuntimeFocusRequester =

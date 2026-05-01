@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+	applyWorkspaceShareResult,
 	loadShareIntoDiagramSession,
 	saveDiagramSessionShare,
 	resolveShareRouteDecision,
@@ -166,5 +167,48 @@ describe("canvas-next Share persistence", () => {
 				baseline,
 			}).nextRoute,
 		).toEqual({ shareId: "share-1", isDirty: false });
+	});
+
+	it("applies Workspace Share results through Diagram Persistence policy", () => {
+		const store = createDiagramSessionStore({
+			...emptyDiagram,
+			source: "Table workspace_users { id int }",
+			tablePositions: { workspace_users: { x: 7, y: 9 } },
+			stickyNotes: [
+				{
+					id: "workspace-note",
+					x: 3,
+					y: 4,
+					width: 120,
+					height: 90,
+					color: "green",
+					text: "workspace",
+				},
+			],
+		});
+		const adapter = createAdapter();
+		const setShareBaseline = vi.fn();
+		const pushViewedRoute = vi.fn();
+
+		const baseline = applyWorkspaceShareResult({
+			adapter,
+			sessionStore: store,
+			shareId: "share-next",
+			currentShareId: "share-current",
+			setShareBaseline,
+			pushViewedRoute,
+		});
+
+		expect(adapter.clearDraft).toHaveBeenCalledWith("share-current");
+		expect(adapter.clearDraft).toHaveBeenCalledWith("share-next");
+		expect(baseline).toEqual({
+			shareId: "share-next",
+			payload: store.getState().toSchemaPayload(),
+		});
+		expect(setShareBaseline).toHaveBeenCalledWith(baseline);
+		expect(pushViewedRoute).toHaveBeenCalledWith({
+			shareId: "share-next",
+			isDirty: false,
+		});
 	});
 });
