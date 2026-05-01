@@ -13,6 +13,7 @@ import { useCanvasRuntime } from "@/canvas-next/canvas-runtime-context";
 import { buildCanvasProjection } from "@/canvas-next/canvas-projection";
 import { collectTablePositionChanges } from "@/canvas-next/table-position-changes";
 import { useSchemaParseFlow } from "@/canvas-next/use-schema-parse-flow";
+import { useRelationHoverHandlers } from "@/canvas-next/use-relation-hover";
 import { useDiagramSession } from "@/diagram-session/diagram-session-context";
 import { placeMissingTablePositions } from "@/diagram-layout/fallback-placement";
 import type { CanvasEdge, CanvasNode } from "@/types";
@@ -34,6 +35,8 @@ export function CanvasNextCanvas() {
 	const temporaryRelationship = useCanvasRuntime(
 		(state) => state.temporaryRelationship,
 	);
+	const searchHighlight = useCanvasRuntime((state) => state.searchHighlight);
+	const relationHoverHandlers = useRelationHoverHandlers();
 	const attachReactFlowInstance = useCanvasRuntime(
 		(state) => state.attachReactFlowInstance,
 	);
@@ -65,6 +68,7 @@ export function CanvasNextCanvas() {
 				{
 					activeRelationTableIds,
 					temporaryRelationship,
+					searchHighlight,
 				},
 			),
 		[
@@ -73,6 +77,7 @@ export function CanvasNextCanvas() {
 			stickyNotes,
 			activeRelationTableIds,
 			temporaryRelationship,
+			searchHighlight,
 		],
 	);
 	useEffect(() => {
@@ -113,6 +118,8 @@ export function CanvasNextCanvas() {
 					attachReactFlowInstance(instance)
 				}
 				onViewportChange={setViewport}
+				onNodeMouseEnter={relationHoverHandlers.onNodeMouseEnter}
+				onNodeMouseLeave={relationHoverHandlers.onNodeMouseLeave}
 				nodesConnectable={false}
 				proOptions={proOptions}
 			>

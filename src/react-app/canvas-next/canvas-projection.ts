@@ -128,6 +128,9 @@ const buildTableNode = (
 		readonly connectedColumns: readonly string[];
 		readonly relationAnchors: readonly RelationAnchorData[];
 		readonly activeRelationColumns?: readonly string[];
+		readonly isSearchMatch: boolean;
+		readonly isSearchRelated: boolean;
+		readonly isSearchDimmed: boolean;
 	},
 ): DiagramNode => ({
 	id: table.id,
@@ -138,9 +141,9 @@ const buildTableNode = (
 		layout: options.layout,
 		accent: accentFromTable(table.id),
 		connectedColumns: options.connectedColumns,
-		isSearchMatch: false,
-		isSearchRelated: false,
-		isSearchDimmed: false,
+		isSearchMatch: options.isSearchMatch,
+		isSearchRelated: options.isSearchRelated,
+		isSearchDimmed: options.isSearchDimmed,
 		relationAnchors: options.relationAnchors,
 		compositeHandleOffsets: getCompositeHandleOffsets(
 			table,
@@ -162,6 +165,10 @@ const buildTableNode = (
 const buildRelationshipEdge = (
 	resolved: ResolvedRelationship,
 	activeTableIds: ReadonlySet<string>,
+	emphasis: {
+		readonly isSearchMatch: boolean;
+		readonly isSearchDimmed: boolean;
+	},
 ): DiagramEdge => {
 	const stroke = "var(--primary)";
 	const isRelationSourceActive = activeTableIds.has(resolved.from.tableId);
@@ -178,8 +185,8 @@ const buildRelationshipEdge = (
 			from: resolved.ref.from,
 			to: resolved.ref.to,
 			relationText: relationText(resolved.ref.type),
-			isSearchMatch: false,
-			isSearchDimmed: false,
+			isSearchMatch: emphasis.isSearchMatch,
+			isSearchDimmed: emphasis.isSearchDimmed,
 			...(isRelationActive
 				? {
 						isRelationActive: true,
@@ -385,17 +392,37 @@ export function buildCanvasProjection(
 		indexes.relationships,
 		activeTableIds,
 	);
+	const searchHighlight = runtime.searchHighlight;
+	const matchedTableIds = new Set(searchHighlight?.matchedTableIds ?? []);
+	const relatedTableIds = new Set(searchHighlight?.relatedTableIds ?? []);
+	const highlightedEdgeIds = new Set(searchHighlight?.highlightedEdgeIds ?? []);
+	const hasSearchHighlight =
+		searchHighlight !== null &&
+		searchHighlight !== undefined &&
+		(matchedTableIds.size > 0 ||
+			relatedTableIds.size > 0 ||
+			highlightedEdgeIds.size > 0);
 
 	const nodes: CanvasNode[] = parsedSchema.tables.map((table) => {
 		const layout = tableLayoutById.get(table.id)!;
 		const position = placement.tablePositions[table.id]!;
 
 		const activeColumns = activeColumnsByTable.get(table.id);
+		const isSearchMatch =
+			hasSearchHighlight && matchedTableIds.has(table.id);
+		const isSearchRelated =
+			hasSearchHighlight && !isSearchMatch && relatedTableIds.has(table.id);
+		const isSearchDimmed =
+			hasSearchHighlight && !isSearchMatch && !isSearchRelated;
+
 		return buildTableNode(table, {
 			position,
 			layout,
 			connectedColumns: collectConnectedColumns(indexes, table.id),
 			relationAnchors: collectCompositeAnchors(indexes, table.id),
+			isSearchMatch,
+			isSearchRelated,
+			isSearchDimmed,
 			...(activeColumns !== undefined
 				? { activeRelationColumns: activeColumns }
 				: {}),
@@ -406,7 +433,15 @@ export function buildCanvasProjection(
 	const edges: CanvasEdge[] = [];
 	for (const resolved of indexes.relationships) {
 		if (!isResolvedReachable(resolved, indexes.tablesById)) continue;
-		edges.push(buildRelationshipEdge(resolved, activeTableIds));
+		const isSearchMatch =
+			hasSearchHighlight && highlightedEdgeIds.has(resolved.ref.id);
+		const isSearchDimmed = hasSearchHighlight && !isSearchMatch;
+		edges.push(
+			buildRelationshipEdge(resolved, activeTableIds, {
+				isSearchMatch,
+				isSearchDimmed,
+			}),
+		);
 	}
 	const stickyLinkEdges = buildStickyLinkEdges(diagram.stickyNotes, indexes);
 	const temporaryProjection = buildTemporaryProjection(
