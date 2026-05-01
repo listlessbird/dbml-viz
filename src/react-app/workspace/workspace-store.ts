@@ -2,7 +2,7 @@ import { createStore, type StoreApi } from "zustand/vanilla";
 
 import { makeWorkspaceMcpUrl, makeWorkspaceWebSocketUrl } from "@/lib/workspace-url";
 import { getOrCreateDeviceId } from "@/lib/device-workspace";
-import { parseServerWorkspaceMessage } from "@/store/useWorkspaceStore";
+import { parseServerWorkspaceMessage } from "@/workspace/workspace-protocol";
 import {
 	emptyParsedSchema,
 	type DiagramSessionStore,
