@@ -217,7 +217,7 @@ describe("canvas-next Table Position commits", () => {
 		const positions = diagramStore.getState().diagram.tablePositions;
 		expect(positions.users).toEqual({ x: 0, y: 0 });
 		expect(positions.orders?.x).toBeGreaterThan(0);
-		expect(positions.orders?.y).toBe(0);
+		expect(positions.orders?.y).toBeGreaterThan(0);
 	});
 
 	it("keeps Viewport and Selection changes out of durable Diagram state", () => {

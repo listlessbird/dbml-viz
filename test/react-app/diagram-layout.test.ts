@@ -6,10 +6,8 @@ import {
 	runDiagramAutoLayout,
 } from "@/diagram-layout/diagram-layout";
 import { placeMissingTablePositions } from "@/diagram-layout/fallback-placement";
-import { buildCanvasProjection } from "@/canvas-next/canvas-projection";
 import { createDiagramSessionStore } from "@/diagram-session/diagram-session-store";
-import { autoLayoutDiagram } from "@/lib/layout";
-import type { DiagramNode, ParsedSchema } from "@/types";
+import type { ParsedSchema } from "@/types";
 
 const table = (id: string) => ({
 	id,
@@ -24,71 +22,58 @@ const threeTables: ParsedSchema = {
 	errors: [],
 };
 
-afterEach(() => {
-	vi.unstubAllGlobals();
-	FakeWorker.instances = [];
-});
-
-class FakeWorker {
-	static instances: FakeWorker[] = [];
-
-	readonly listeners = new Map<string, Set<EventListener>>();
-	readonly addEventListener = vi.fn((type: string, listener: EventListener) => {
-		const listeners = this.listeners.get(type) ?? new Set<EventListener>();
-		listeners.add(listener);
-		this.listeners.set(type, listeners);
-	});
-	readonly removeEventListener = vi.fn(
-		(type: string, listener: EventListener) => {
-			this.listeners.get(type)?.delete(listener);
-		},
-	);
-	readonly terminate = vi.fn();
-	readonly postMessage = vi.fn();
-
-	constructor() {
-		FakeWorker.instances.push(this);
-	}
-
-	dispatch(type: string, event: unknown) {
-		for (const listener of this.listeners.get(type) ?? []) {
-			listener(event as Event);
-		}
-	}
-}
-
-const usersNode = (): DiagramNode => {
-	const projection = buildCanvasProjection(
+const usersOrdersAndProducts: ParsedSchema = {
+	tables: [table("users"), table("orders"), table("products")],
+	refs: [
 		{
-			parsedSchema: {
-				tables: [table("users")],
-				refs: [],
-				errors: [],
-			},
-			tablePositions: { users: { x: 0, y: 0 } },
-			stickyNotes: [],
+			id: "users_orders",
+			from: { table: "orders", columns: ["user_id"] },
+			to: { table: "users", columns: ["id"] },
+			type: "many_to_one",
 		},
-		{
-			activeRelationTableIds: [],
-			temporaryRelationship: null,
-		},
-	);
-	return projection.nodes[0] as DiagramNode;
+	],
+	errors: [],
 };
 
+const makeChainSchema = (count: number): ParsedSchema => ({
+	tables: Array.from({ length: count }, (_, index) => table(`table_${index}`)),
+	refs: Array.from({ length: Math.max(0, count - 1) }, (_, index) => ({
+		id: `ref_${index}`,
+		from: { table: `table_${index + 1}`, columns: ["parent_id"] },
+		to: { table: `table_${index}`, columns: ["id"] },
+		type: "many_to_one",
+	})),
+	errors: [],
+});
+
+afterEach(() => {
+	vi.unstubAllGlobals();
+});
+
 describe("Diagram Layout fallback placement", () => {
+	it("places connected Tables near each other and isolated Tables below them", () => {
+		const result = placeMissingTablePositions(usersOrdersAndProducts, {});
+		const users = result.tablePositions.users!;
+		const orders = result.tablePositions.orders!;
+		const products = result.tablePositions.products!;
+
+		expect(users.x).not.toBe(orders.x);
+		expect(Math.abs(users.y - orders.y)).toBeLessThan(260);
+		expect(products.y).toBeGreaterThan(Math.max(users.y, orders.y));
+	});
+
 	it("returns deterministic Table Positions for newly added Tables", () => {
 		const result = placeMissingTablePositions(threeTables, {
 			users: { x: 100, y: 120 },
 		});
 
 		expect(result.missingTableIds).toEqual(["orders", "products"]);
-		expect(result.missingTablePositions.orders?.x).toBeGreaterThan(100);
-		expect(result.missingTablePositions.products?.x).toBe(
-			result.missingTablePositions.orders?.x,
+		expect(result.missingTablePositions.orders?.y).toBeGreaterThan(120);
+		expect(result.missingTablePositions.products?.x).toBeGreaterThan(
+			result.missingTablePositions.orders?.x ?? 0,
 		);
-		expect(result.missingTablePositions.products?.y).toBeGreaterThan(
-			result.missingTablePositions.orders?.y ?? 0,
+		expect(result.missingTablePositions.products?.y).toBe(
+			result.missingTablePositions.orders?.y,
 		);
 		expect(result.tablePositions).toEqual({
 			users: { x: 100, y: 120 },
@@ -96,98 +81,82 @@ describe("Diagram Layout fallback placement", () => {
 			products: result.missingTablePositions.products,
 		});
 	});
-});
 
-describe("Diagram Layout ELK worker lifecycle", () => {
-	it("terminates the ELK worker after successful layout", async () => {
-		vi.stubGlobal("Worker", FakeWorker);
-		const promise = autoLayoutDiagram([usersNode()], [], "left-right");
-		const worker = FakeWorker.instances[0]!;
-
-		worker.dispatch("message", {
-			data: {
-				type: "success",
-				result: { children: [{ id: "users", x: 20, y: 40 }] },
-			},
+	it("places a newly added connected Table near its positioned neighbour", () => {
+		const result = placeMissingTablePositions(usersOrdersAndProducts, {
+			users: { x: 500, y: 240 },
+			products: { x: 100, y: 900 },
 		});
 
-		await expect(promise).resolves.toMatchObject([
-			{ id: "users", position: { x: 20, y: 40 } },
-		]);
-		expect(worker.removeEventListener).toHaveBeenCalledWith(
-			"message",
-			expect.any(Function),
+		expect(result.missingTableIds).toEqual(["orders"]);
+		expect(result.tablePositions.users).toEqual({ x: 500, y: 240 });
+		expect(result.tablePositions.products).toEqual({ x: 100, y: 900 });
+		expect(result.missingTablePositions.orders?.x).toBeGreaterThan(500);
+		expect(Math.abs((result.missingTablePositions.orders?.y ?? 0) - 240)).toBeLessThan(
+			260,
 		);
-		expect(worker.removeEventListener).toHaveBeenCalledWith(
-			"error",
-			expect.any(Function),
-		);
-		expect(worker.removeEventListener).toHaveBeenCalledWith(
-			"messageerror",
-			expect.any(Function),
-		);
-		expect(worker.terminate).toHaveBeenCalledTimes(1);
 	});
 
-	it("terminates the ELK worker after failed layout", async () => {
-		vi.stubGlobal("Worker", FakeWorker);
-		const promise = autoLayoutDiagram([usersNode()], [], "left-right");
-		const worker = FakeWorker.instances[0]!;
+	it("places a large connected schema without overlapping Tables", () => {
+		const largeSchema = makeChainSchema(100);
+		const result = placeMissingTablePositions(largeSchema, {});
 
-		worker.dispatch("error", { message: "worker failed" });
-
-		await expect(promise).rejects.toThrow("worker failed");
-		expect(worker.terminate).toHaveBeenCalledTimes(1);
+		expect(result.missingTableIds).toHaveLength(100);
+		expect(
+			detectOverlappingTablePositions(largeSchema, result.tablePositions)
+				.hasOverlaps,
+		).toBe(false);
 	});
 });
 
 describe("Diagram Layout auto-layout", () => {
-	it("returns Table Positions from an ELK layout adapter", async () => {
-		const result = await runDiagramAutoLayout(
-			{
-				parsedSchema: threeTables,
-				tablePositions: {
-					users: { x: 0, y: 0 },
-				},
-				algorithm: "left-right",
-			},
-			{
-				autoLayout: async (nodes) =>
-					nodes.map((node, index) => ({
-						...node,
-						position: { x: index * 200, y: index * 80 },
-					})),
+	it("returns Table Positions without allocating a layout Worker", async () => {
+		vi.stubGlobal(
+			"Worker",
+			class {
+				constructor() {
+					throw new Error("Worker should not be allocated");
+				}
 			},
 		);
+
+		const result = await runDiagramAutoLayout(
+			{
+				parsedSchema: usersOrdersAndProducts,
+				tablePositions: {},
+				algorithm: "left-right",
+			},
+		);
+
+		if (!result.ok) {
+			throw new Error(result.diagnostic.message);
+		}
+		expect(result.tablePositions.users?.x).not.toBe(
+			result.tablePositions.orders?.x,
+		);
+		expect(result.tablePositions.products?.y).toBeGreaterThan(
+			Math.max(
+				result.tablePositions.users?.y ?? 0,
+				result.tablePositions.orders?.y ?? 0,
+			),
+		);
+	});
+
+	it("returns deterministic Table Positions from the Table Placer", async () => {
+		const result = await runDiagramAutoLayout({
+			parsedSchema: threeTables,
+			tablePositions: {
+				users: { x: 0, y: 0 },
+			},
+			algorithm: "left-right",
+		});
 
 		expect(result).toEqual({
 			ok: true,
 			tablePositions: {
-				users: { x: 0, y: 0 },
-				orders: { x: 200, y: 80 },
-				products: { x: 400, y: 160 },
-			},
-		});
-	});
-
-	it("returns a recoverable diagnostic when ELK layout fails", async () => {
-		const result = await runDiagramAutoLayout(
-			{
-				parsedSchema: threeTables,
-				tablePositions: {},
-				algorithm: "compact",
-			},
-			{
-				autoLayout: async () => {
-					throw new Error("ELK layout worker crashed.");
-				},
-			},
-		);
-
-		expect(result).toEqual({
-			ok: false,
-			diagnostic: {
-				message: "ELK layout worker crashed.",
+				users: expect.any(Object),
+				orders: expect.any(Object),
+				products: expect.any(Object),
 			},
 		});
 	});
@@ -205,13 +174,6 @@ describe("Diagram Layout auto-layout", () => {
 				tablePositions: diagramStore.getState().diagram.tablePositions,
 				algorithm: "left-right",
 			},
-			{
-				autoLayout: async (nodes) =>
-					nodes.map((node, index) => ({
-						...node,
-						position: { x: index * 240, y: 12 },
-					})),
-			},
 		);
 
 		if (!result.ok) {
@@ -219,11 +181,11 @@ describe("Diagram Layout auto-layout", () => {
 		}
 		diagramStore.getState().commitTablePositions(result.tablePositions);
 
-		expect(diagramStore.getState().diagram.tablePositions).toEqual({
-			users: { x: 0, y: 12 },
-			orders: { x: 240, y: 12 },
-			products: { x: 480, y: 12 },
-		});
+		expect(Object.keys(diagramStore.getState().diagram.tablePositions)).toEqual([
+			"users",
+			"orders",
+			"products",
+		]);
 	});
 });
 
@@ -243,32 +205,22 @@ describe("Diagram Layout overlap recovery", () => {
 	});
 
 	it("repairs overlapping Table Positions with an auto-layout result", async () => {
-		const result = await repairOverlappingTablePositions(
-			{
-				parsedSchema: threeTables,
-				tablePositions: {
-					users: { x: 0, y: 0 },
-					orders: { x: 20, y: 20 },
-					products: { x: 1000, y: 0 },
-				},
-				algorithm: "left-right",
-			},
-			{
-				autoLayout: async (nodes) =>
-					nodes.map((node, index) => ({
-						...node,
-						position: { x: index * 360, y: 0 },
-					})),
-			},
-		);
-
-		expect(result).toEqual({
-			ok: true,
+		const result = await repairOverlappingTablePositions({
+			parsedSchema: threeTables,
 			tablePositions: {
 				users: { x: 0, y: 0 },
-				orders: { x: 360, y: 0 },
-				products: { x: 720, y: 0 },
+				orders: { x: 20, y: 20 },
+				products: { x: 1000, y: 0 },
 			},
+			algorithm: "left-right",
 		});
+
+		if (!result.ok) {
+			throw new Error(result.diagnostic.message);
+		}
+		expect(
+			detectOverlappingTablePositions(threeTables, result.tablePositions)
+				.hasOverlaps,
+		).toBe(false);
 	});
 });

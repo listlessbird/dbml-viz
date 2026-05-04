@@ -91,7 +91,7 @@ describe("canvas-next shell", () => {
 	it("shows and hides the Schema Source editor without changing the Canvas", async () => {
 		const container = renderApp();
 		const toggle = container.querySelector<HTMLButtonElement>(
-			'[data-testid="canvas-next-toggle-source-editor"]',
+			'[aria-label="Show schema source editor"]',
 		);
 
 		expect(toggle).toBeTruthy();
