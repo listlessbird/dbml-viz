@@ -10,7 +10,6 @@ import {
 import { CanvasRuntimeProvider } from "@/canvas-next/canvas-runtime-provider";
 import { CanvasNextCanvas } from "@/canvas-next/canvas";
 import { CanvasSearchDock } from "@/canvas-next/canvas-search-popover";
-import { CanvasNextToolbar } from "@/canvas-next/canvas-toolbar";
 import { ShareButton } from "@/components/ShareButton";
 import { WorkspaceStatusPill } from "@/components/agent-connectivity/WorkspaceStatusPill";
 import {
@@ -230,13 +229,13 @@ function CanvasNextHeader({
 					</p>
 				</div>
 				{shareId ? (
-					<div className="hidden min-w-0 items-center gap-2 text-xs text-muted-foreground sm:flex">
+					<div className="hidden min-w-0 self-end gap-2 pb-0.5 text-xs text-muted-foreground sm:flex">
 						<span>Shared snapshot</span>
 						<span className="font-mono">{shareId}</span>
 						{isDirty ? <span>Local edits not shared</span> : null}
 					</div>
 				) : (
-					<span className="hidden text-xs text-muted-foreground sm:inline">
+					<span className="hidden self-end pb-0.5 text-xs text-muted-foreground sm:inline">
 						Auto-saved locally
 					</span>
 				)}
@@ -282,13 +281,12 @@ function CanvasNextContent({ routing }: CanvasNextContentProps) {
 			/>
 			<section className="relative min-h-0 flex-1">
 				<CanvasNextCanvas />
-				<CanvasNextToolbar
+				<CanvasSearchDock
 					isSourceEditorOpen={isSourceEditorOpen}
 					onToggleSourceEditor={toggleSourceEditor}
 				/>
-				<CanvasSearchDock />
 				{isSourceEditorOpen ? (
-					<div className="absolute inset-y-0 right-0 z-20 w-full border-l border-border bg-background shadow-2xl sm:max-w-[440px]">
+					<div className="absolute inset-y-0 left-0 z-20 w-full border-r border-border bg-background shadow-2xl sm:max-w-[440px]">
 						<Suspense
 							fallback={
 								<div className="flex h-full items-center justify-center text-xs text-muted-foreground">

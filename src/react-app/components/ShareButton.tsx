@@ -9,16 +9,16 @@ export function ShareButton({ isSharing, onShare }: ShareButtonProps) {
 	return (
 		<button
 			type="button"
-			className="inline-flex items-center gap-2 border-l border-border bg-sidebar-primary px-3 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
+			className="inline-flex h-6 items-center gap-1.5 border-l border-border bg-sidebar-primary px-2.5 text-[11px] font-medium leading-none text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
 			onClick={onShare}
 			disabled={isSharing}
 		>
 			{isSharing ? (
-				<IconLoader className="size-4 animate-spin" />
+				<IconLoader className="size-3 animate-spin" />
 			) : (
-				<IconShare2 className="size-4" />
+				<IconShare2 className="size-3" />
 			)}
-			{isSharing ? "Sharing..." : "Share"}
+			<span>{isSharing ? "Sharing..." : "Share"}</span>
 		</button>
 	);
 }
