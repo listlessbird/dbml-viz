@@ -31,6 +31,7 @@ const renderParseFlow = (store: DiagramSessionStore): void => {
 	const Harness = ({ children }: { readonly children?: ReactNode }) => {
 		useSchemaParseFlow({
 			parser: async (source) => parseInWorkerModule(source),
+			debounceMs: 0,
 		});
 		return <>{children}</>;
 	};
@@ -47,7 +48,10 @@ const renderParseFlow = (store: DiagramSessionStore): void => {
 	});
 };
 
-const flushMicrotasks = () => act(async () => {});
+const flushParse = () =>
+	act(async () => {
+		await new Promise((resolve) => setTimeout(resolve, 0));
+	});
 
 describe("Canvas Next SQL Source flow", () => {
 	it("parses SQL Source and renders through the same Canvas Projection", async () => {
@@ -66,7 +70,7 @@ describe("Canvas Next SQL Source flow", () => {
 				);
 			`);
 		});
-		await flushMicrotasks();
+		await flushParse();
 
 		const state = store.getState();
 		expect(state.sourceMetadata).toEqual({ format: "sql", dialect: "postgres" });
@@ -96,7 +100,7 @@ describe("Canvas Next SQL Source flow", () => {
 				) ENGINE=InnoDB;
 			`);
 		});
-		await flushMicrotasks();
+		await flushParse();
 
 		expect(store.getState().sourceMetadata).toEqual({
 			format: "sql",
@@ -114,13 +118,13 @@ describe("Canvas Next SQL Source flow", () => {
 		act(() => {
 			store.getState().setSchemaSource("CREATE TABLE users (id int primary key);");
 		});
-		await flushMicrotasks();
+		await flushParse();
 		const lastGood = store.getState().diagram.parsedSchema;
 
 		act(() => {
 			store.getState().setSchemaSource("CREATE TABLE broken (");
 		});
-		await flushMicrotasks();
+		await flushParse();
 
 		expect(store.getState().diagram.parsedSchema).toBe(lastGood);
 		expect(store.getState().parseDiagnostics.length).toBeGreaterThan(0);

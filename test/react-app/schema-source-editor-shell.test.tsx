@@ -1,4 +1,5 @@
 import { act } from "react";
+import { EditorView } from "@codemirror/view";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -50,6 +51,36 @@ describe("Schema Source Editor shell", () => {
 		).toBeTruthy();
 		expect(container.textContent).toContain("Table users");
 		expect(container.textContent).toContain("id int");
+	});
+
+	it("commits editor text edits through Diagram Session", async () => {
+		const sessionStore = createDiagramSessionStore();
+
+		container = document.createElement("div");
+		document.body.appendChild(container);
+		root = createRoot(container);
+
+		act(() => {
+			root?.render(
+				<DiagramSessionContext value={sessionStore}>
+					<SchemaSourceEditorPanel />
+				</DiagramSessionContext>,
+			);
+		});
+		await flushMicrotasks();
+
+		const editorContent = container.querySelector<HTMLElement>(".cm-content");
+		expect(editorContent).toBeTruthy();
+		const view = editorContent ? EditorView.findFromDOM(editorContent) : null;
+		expect(view).toBeTruthy();
+		act(() => {
+			view?.dispatch({
+				changes: { from: 0, insert: "Table users {}" },
+			});
+		});
+		await flushMicrotasks();
+
+		expect(sessionStore.getState().diagram.source).toBe("Table users {}");
 	});
 
 	it("reuses DBML language support through the language Adapter", async () => {
