@@ -1,5 +1,6 @@
 import { Compartment, EditorState, type Extension } from "@codemirror/state";
 import {
+	Decoration,
 	EditorView,
 	highlightActiveLineGutter,
 	lineNumbers,
@@ -8,8 +9,9 @@ import { IconX } from "@tabler/icons-react";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 
 import { useDiagramSession } from "@/diagram-session/diagram-session-context";
+import { buildDiagnosticDecorations } from "@/lib/editor-diagnostics";
 import { loadEditorLanguage } from "@/lib/editor-language";
-import type { SchemaSourceMetadata } from "@/types";
+import type { ParseDiagnostic, SchemaSourceMetadata } from "@/types";
 import {
 	getSchemaSourceEditorTheme,
 	type SchemaSourceEditorThemeMode,
@@ -18,6 +20,7 @@ import {
 interface SchemaSourceEditorProps {
 	readonly source: string;
 	readonly metadata: SchemaSourceMetadata;
+	readonly diagnostics: readonly ParseDiagnostic[];
 	readonly onSourceChange: (source: string) => void;
 	readonly themeMode?: SchemaSourceEditorThemeMode;
 }
@@ -70,9 +73,18 @@ const editorBaseExtensions = [
 	}),
 ] satisfies readonly Extension[];
 
+const emptyDiagnosticDecorations = EditorView.decorations.of(Decoration.none);
+
+const formatDiagnosticLocation = (diagnostic: ParseDiagnostic) => {
+	const start = diagnostic.location?.start;
+	if (!start) return "Source";
+	return `Line ${start.line}, column ${start.column}`;
+};
+
 const SchemaSourceEditor = memo(function SchemaSourceEditor({
 	source,
 	metadata,
+	diagnostics,
 	onSourceChange,
 	themeMode = "light",
 }: SchemaSourceEditorProps) {
@@ -84,6 +96,7 @@ const SchemaSourceEditor = memo(function SchemaSourceEditor({
 	const isApplyingSessionSourceRef = useRef(false);
 	const languageCompartment = useMemo(() => new Compartment(), []);
 	const themeCompartment = useMemo(() => new Compartment(), []);
+	const diagnosticsCompartment = useMemo(() => new Compartment(), []);
 
 	useEffect(() => {
 		onSourceChangeRef.current = onSourceChange;
@@ -102,6 +115,7 @@ const SchemaSourceEditor = memo(function SchemaSourceEditor({
 					themeCompartment.of(
 						getSchemaSourceEditorTheme(initialThemeModeRef.current),
 					),
+					diagnosticsCompartment.of(emptyDiagnosticDecorations),
 					EditorView.updateListener.of((update) => {
 						if (!update.docChanged || isApplyingSessionSourceRef.current) {
 							return;
@@ -117,7 +131,7 @@ const SchemaSourceEditor = memo(function SchemaSourceEditor({
 			view.destroy();
 			viewRef.current = null;
 		};
-	}, [languageCompartment, themeCompartment]);
+	}, [diagnosticsCompartment, languageCompartment, themeCompartment]);
 
 	useEffect(() => {
 		const view = viewRef.current;
@@ -157,6 +171,21 @@ const SchemaSourceEditor = memo(function SchemaSourceEditor({
 		};
 	}, [languageCompartment, metadata]);
 
+	useEffect(() => {
+		const view = viewRef.current;
+		if (!view) return;
+
+		view.dispatch({
+			effects: diagnosticsCompartment.reconfigure(
+				diagnostics.length === 0
+					? emptyDiagnosticDecorations
+					: EditorView.decorations.of(
+							buildDiagnosticDecorations(view.state, diagnostics),
+						),
+			),
+		});
+	}, [diagnostics, diagnosticsCompartment]);
+
 	return (
 		<div
 			ref={hostRef}
@@ -171,11 +200,10 @@ export function SchemaSourceEditorPanel({
 }: SchemaSourceEditorPanelProps) {
 	const source = useDiagramSession((state) => state.diagram.source);
 	const metadata = useDiagramSession((state) => state.sourceMetadata);
-	const diagnosticsCount = useDiagramSession(
-		(state) => state.parseDiagnostics.length,
-	);
+	const diagnostics = useDiagramSession((state) => state.parseDiagnostics);
 	const setSchemaSource = useDiagramSession((state) => state.setSchemaSource);
 	const themeMode = useDocumentTheme();
+	const diagnosticsCount = diagnostics.length;
 
 	return (
 		<aside className="flex h-full min-h-0 flex-col bg-background text-foreground">
@@ -201,9 +229,33 @@ export function SchemaSourceEditorPanel({
 			<SchemaSourceEditor
 				source={source}
 				metadata={metadata}
+				diagnostics={diagnostics}
 				onSourceChange={setSchemaSource}
 				themeMode={themeMode}
 			/>
+			{diagnosticsCount > 0 ? (
+				<div
+					data-testid="schema-source-diagnostics"
+					className="max-h-36 shrink-0 overflow-auto border-t border-border bg-destructive/5 px-3 py-2"
+				>
+					<ul className="space-y-1">
+						{diagnostics.slice(0, 3).map((diagnostic, index) => (
+							<li key={index} className="text-xs text-foreground">
+								<span className="font-medium text-destructive">
+									{formatDiagnosticLocation(diagnostic)}
+								</span>
+								<span className="text-muted-foreground"> / </span>
+								<span>{diagnostic.message}</span>
+							</li>
+						))}
+					</ul>
+					{diagnosticsCount > 3 ? (
+						<p className="mt-1 text-xs text-muted-foreground">
+							{diagnosticsCount - 3} more diagnostics
+						</p>
+					) : null}
+				</div>
+			) : null}
 		</aside>
 	);
 }
