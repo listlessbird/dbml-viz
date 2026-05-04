@@ -3,6 +3,7 @@ import { useCallback, useContext, useState, type PropsWithChildren } from "react
 import { CanvasRuntimeProvider } from "@/canvas-next/canvas-runtime-provider";
 import { CanvasNextCanvas } from "@/canvas-next/canvas";
 import { CanvasSearchDock } from "@/canvas-next/canvas-search-popover";
+import { CanvasNextToolbar } from "@/canvas-next/canvas-toolbar";
 import { ShareButton } from "@/components/ShareButton";
 import { WorkspaceStatusPill } from "@/components/agent-connectivity/WorkspaceStatusPill";
 import {
@@ -247,6 +248,7 @@ function CanvasNextContent({ routing }: CanvasNextContentProps) {
 			/>
 			<section className="relative min-h-0 flex-1">
 				<CanvasNextCanvas />
+				<CanvasNextToolbar />
 				<CanvasSearchDock />
 			</section>
 		</main>

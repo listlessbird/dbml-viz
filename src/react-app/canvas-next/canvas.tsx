@@ -14,7 +14,7 @@ import { useCallback, useEffect, useMemo } from "react";
 import { useCanvasRuntime } from "@/canvas-next/canvas-runtime-context";
 import { buildCanvasProjection } from "@/canvas-next/canvas-projection";
 import { collectTablePositionChanges } from "@/canvas-next/table-position-changes";
-import { CanvasNextStickyNoteNode } from "@/canvas-next/sticky-note-node";
+import { CanvasNextStickyNoteNode } from "@/canvas-next/sticky-note";
 import { useSchemaParseFlow } from "@/canvas-next/use-schema-parse-flow";
 import { useRelationHoverHandlers } from "@/canvas-next/use-relation-hover";
 import { RelationshipEdge } from "@/components/RelationshipEdge";

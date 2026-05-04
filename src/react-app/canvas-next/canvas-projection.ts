@@ -9,7 +9,7 @@ import {
 	TEMPORARY_RELATIONSHIP_EDGE_ID,
 	type ProjectionRuntimeState,
 } from "@/canvas-next/canvas-runtime-store";
-import { parseLinksFromText } from "@/components/sticky-note/linkHelpers";
+import { parseLinksFromText } from "@/canvas-next/sticky-note/link-tokens";
 import { buildSchemaIndexes, type SchemaIndexes } from "@/schema-model/schema-indexes";
 import { placeMissingTablePositions } from "@/diagram-layout/fallback-placement";
 import type { ResolvedRelationship } from "@/schema-model/relation-anchors";
