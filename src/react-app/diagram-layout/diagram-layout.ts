@@ -51,6 +51,70 @@ const tableRight = (table: TableData, position: { readonly x: number }) =>
 const tableBottom = (table: TableData, position: { readonly y: number }) =>
 	position.y + getTableNodeLayout(table).height;
 
+export interface MovedTableOverlapRequest {
+	readonly parsedSchema: ParsedSchema;
+	readonly tablePositions: DiagramPositions;
+	readonly movedTableId: string;
+	readonly previousResult: TableOverlapResult;
+}
+
+const tablesOverlap = (
+	leftTable: TableData,
+	leftPosition: { readonly x: number; readonly y: number },
+	rightTable: TableData,
+	rightPosition: { readonly x: number; readonly y: number },
+) =>
+	leftPosition.x < tableRight(rightTable, rightPosition) &&
+	tableRight(leftTable, leftPosition) > rightPosition.x &&
+	leftPosition.y < tableBottom(rightTable, rightPosition) &&
+	tableBottom(leftTable, leftPosition) > rightPosition.y;
+
+export const updateTableOverlapForMovedTable = ({
+	parsedSchema,
+	tablePositions,
+	movedTableId,
+	previousResult,
+}: MovedTableOverlapRequest): TableOverlapResult => {
+	const tableById = new Map(parsedSchema.tables.map((table) => [table.id, table]));
+	const movedTable = tableById.get(movedTableId);
+	const movedPosition = tablePositions[movedTableId];
+
+	const carryOverPairs: TableOverlapPair[] = previousResult.overlapPairs.filter(
+		(pair) =>
+			pair.firstTableId !== movedTableId && pair.secondTableId !== movedTableId,
+	);
+
+	const newPairs: TableOverlapPair[] = [];
+	if (movedTable && movedPosition) {
+		for (const otherTable of parsedSchema.tables) {
+			if (otherTable.id === movedTableId) continue;
+			const otherPosition = tablePositions[otherTable.id];
+			if (!otherPosition) continue;
+			if (
+				tablesOverlap(movedTable, movedPosition, otherTable, otherPosition)
+			) {
+				newPairs.push({
+					firstTableId: movedTableId,
+					secondTableId: otherTable.id,
+				});
+			}
+		}
+	}
+
+	const overlapPairs = [...carryOverPairs, ...newPairs];
+	const overlappingTableIds = new Set<string>();
+	for (const pair of overlapPairs) {
+		overlappingTableIds.add(pair.firstTableId);
+		overlappingTableIds.add(pair.secondTableId);
+	}
+
+	return {
+		hasOverlaps: overlapPairs.length > 0,
+		overlappingTableIds: Array.from(overlappingTableIds),
+		overlapPairs,
+	};
+};
+
 export const detectOverlappingTablePositions = (
 	parsedSchema: ParsedSchema,
 	tablePositions: DiagramPositions,
