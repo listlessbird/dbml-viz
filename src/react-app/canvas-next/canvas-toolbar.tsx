@@ -1,8 +1,13 @@
-import { IconLayoutSidebar, IconNote } from "@tabler/icons-react";
+import {
+	IconLayoutGrid,
+	IconLayoutSidebar,
+	IconNote,
+} from "@tabler/icons-react";
 import { memo, useCallback } from "react";
 
 import { useCanvasRuntime } from "@/canvas-next/canvas-runtime-context";
 import { spawnStickyNote } from "@/canvas-next/sticky-note/spawn";
+import { useAutoArrangeCommand } from "@/canvas-next/use-auto-arrange-command";
 import { useDiagramSession } from "@/diagram-session/diagram-session-context";
 
 const screenCenter = () => ({
@@ -21,6 +26,7 @@ export const CanvasNextToolbar = memo(function CanvasNextToolbar({
 }: CanvasNextToolbarProps) {
 	const flowInstance = useCanvasRuntime((state) => state.flowInstance);
 	const addStickyNote = useDiagramSession((state) => state.addStickyNote);
+	const autoArrange = useAutoArrangeCommand();
 
 	const handleAddSticky = useCallback(() => {
 		spawnStickyNote({
@@ -29,6 +35,10 @@ export const CanvasNextToolbar = memo(function CanvasNextToolbar({
 			screenPoint: screenCenter(),
 		});
 	}, [flowInstance, addStickyNote]);
+
+	const handleAutoArrange = useCallback(() => {
+		void autoArrange.run();
+	}, [autoArrange]);
 
 	return (
 		<div
@@ -46,6 +56,18 @@ export const CanvasNextToolbar = memo(function CanvasNextToolbar({
 			>
 				<IconNote className="size-3.5" />
 				<span>Sticky note</span>
+			</button>
+			<button
+				type="button"
+				data-testid="canvas-next-auto-arrange"
+				disabled={!autoArrange.isAvailable}
+				onClick={handleAutoArrange}
+				className="pointer-events-auto inline-flex items-center gap-1.5 rounded-sm border border-border bg-background/95 px-2.5 py-1.5 text-xs font-medium shadow-sm backdrop-blur transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
+				title="Auto-arrange tables"
+				aria-label="Auto-arrange tables"
+			>
+				<IconLayoutGrid className="size-3.5" />
+				<span>Auto-arrange</span>
 			</button>
 			<button
 				type="button"

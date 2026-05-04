@@ -17,3 +17,11 @@ export function useCanvasRuntime<T>(
 	}
 	return useStore(store, selector);
 }
+
+export function useCanvasRuntimeStore(): CanvasRuntimeStore {
+	const store = useContext(CanvasRuntimeContext);
+	if (!store) {
+		throw new Error("useCanvasRuntimeStore must be used inside CanvasRuntimeProvider");
+	}
+	return store;
+}
