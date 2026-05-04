@@ -148,7 +148,9 @@ describe("Canvas Next parse flow", () => {
 		await flushMicrotasks();
 
 		expect(store.getState().diagram.parsedSchema).toEqual(ordersOnly);
-		expect(store.getState().diagram.tablePositions).toEqual({});
+		expect(store.getState().diagram.tablePositions).toEqual({
+			orders: expect.any(Object),
+		});
 	});
 
 	it("records diagnostics on parse failure without dropping the last good Parsed Schema", async () => {

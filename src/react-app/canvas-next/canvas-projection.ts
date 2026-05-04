@@ -11,7 +11,6 @@ import {
 } from "@/canvas-next/canvas-runtime-store";
 import { parseLinksFromText } from "@/canvas-next/sticky-note/link-tokens";
 import { buildSchemaIndexes, type SchemaIndexes } from "@/schema-model/schema-indexes";
-import { placeMissingTablePositions } from "@/diagram-layout/fallback-placement";
 import type { ResolvedRelationship } from "@/schema-model/relation-anchors";
 import type {
 	CanvasEdge,
@@ -377,7 +376,8 @@ export function buildCanvasProjection(
 	runtime: ProjectionRuntimeState,
 ): CanvasProjection {
 	const { parsedSchema, tablePositions } = diagram;
-	const placement = placeMissingTablePositions(parsedSchema, tablePositions);
+	const missingPositionIds: string[] = [];
+	const positionedTableIds = new Set<string>();
 	const indexes = buildSchemaIndexes(parsedSchema);
 	const tableLayoutById = new Map(
 		parsedSchema.tables.map(
@@ -403,9 +403,14 @@ export function buildCanvasProjection(
 			relatedTableIds.size > 0 ||
 			highlightedEdgeIds.size > 0);
 
-	const nodes: CanvasNode[] = parsedSchema.tables.map((table) => {
+	const nodes: CanvasNode[] = parsedSchema.tables.flatMap((table) => {
 		const layout = tableLayoutById.get(table.id)!;
-		const position = placement.tablePositions[table.id]!;
+		const position = tablePositions[table.id];
+		if (!position) {
+			missingPositionIds.push(table.id);
+			return [];
+		}
+		positionedTableIds.add(table.id);
 
 		const activeColumns = activeColumnsByTable.get(table.id);
 		const isSearchMatch =
@@ -433,6 +438,12 @@ export function buildCanvasProjection(
 	const edges: CanvasEdge[] = [];
 	for (const resolved of indexes.relationships) {
 		if (!isResolvedReachable(resolved, indexes.tablesById)) continue;
+		if (
+			!positionedTableIds.has(resolved.from.tableId) ||
+			!positionedTableIds.has(resolved.to.tableId)
+		) {
+			continue;
+		}
 		const isSearchMatch =
 			hasSearchHighlight && highlightedEdgeIds.has(resolved.ref.id);
 		const isSearchDimmed = hasSearchHighlight && !isSearchMatch;
@@ -452,6 +463,6 @@ export function buildCanvasProjection(
 	return {
 		nodes: [...nodes, ...stickyNodes, ...temporaryProjection.nodes],
 		edges: [...edges, ...stickyLinkEdges, ...temporaryProjection.edges],
-		missingPositionIds: placement.missingTableIds,
+		missingPositionIds,
 	};
 }

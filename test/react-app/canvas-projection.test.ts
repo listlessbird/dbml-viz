@@ -59,12 +59,19 @@ const usersOnly: ParsedSchema = {
 
 const buildDiagram = (
 	parsedSchema: ParsedSchema,
-	tablePositions = {},
+	tablePositions?: Diagram["tablePositions"],
 	stickyNotes: readonly SharedStickyNote[] = [],
 ): Diagram => ({
 	source: "",
 	parsedSchema,
-	tablePositions,
+	tablePositions:
+		tablePositions ??
+		Object.fromEntries(
+			parsedSchema.tables.map((table, index) => [
+				table.id,
+				{ x: index * 300, y: 0 },
+			]),
+		),
 	stickyNotes,
 });
 
@@ -92,12 +99,25 @@ describe("Canvas Projection table nodes", () => {
 		const projection = buildCanvasProjection(
 			buildDiagram(usersAndOrders, {
 				users: { x: 100, y: 200 },
+				orders: { x: 300, y: 200 },
 			}),
 			projectionRuntime,
 		);
 
 		const usersNode = projection.nodes.find((node) => node.id === "users");
 		expect(usersNode?.position).toEqual({ x: 100, y: 200 });
+	});
+
+	it("omits Tables that do not have Table Positions", () => {
+		const projection = buildCanvasProjection(
+			buildDiagram(usersAndOrders, {
+				users: { x: 100, y: 200 },
+			}),
+			projectionRuntime,
+		);
+
+		expect(projection.nodes.map((node) => node.id)).toEqual(["users"]);
+		expect(projection.missingPositionIds).toEqual(["orders"]);
 	});
 
 	it("removes the projected node when its Table is absent from a replaced Parsed Schema", () => {

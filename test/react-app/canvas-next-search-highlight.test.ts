@@ -84,7 +84,11 @@ const sampleSchema: ParsedSchema = {
 const diagram: Diagram = {
 	source: "",
 	parsedSchema: sampleSchema,
-	tablePositions: {},
+	tablePositions: {
+		users: { x: 0, y: 0 },
+		orders: { x: 300, y: 0 },
+		products: { x: 600, y: 0 },
+	},
 	stickyNotes: [],
 };
 

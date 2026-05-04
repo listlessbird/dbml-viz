@@ -208,7 +208,7 @@ describe("canvas-next Table Position commits", () => {
 		]);
 	});
 
-	it("commits deterministic fallback Table Positions for newly added Tables", () => {
+	it("does not synthesize missing Table Positions from the Canvas", () => {
 		const { diagramStore } = renderCanvasNext({
 			parsedSchema: usersAndOrders,
 			tablePositions: { users: { x: 0, y: 0 } },
@@ -216,8 +216,7 @@ describe("canvas-next Table Position commits", () => {
 
 		const positions = diagramStore.getState().diagram.tablePositions;
 		expect(positions.users).toEqual({ x: 0, y: 0 });
-		expect(positions.orders?.x).toBeGreaterThan(0);
-		expect(positions.orders?.y).toBeGreaterThan(0);
+		expect(positions.orders).toBeUndefined();
 	});
 
 	it("keeps Viewport and Selection changes out of durable Diagram state", () => {
