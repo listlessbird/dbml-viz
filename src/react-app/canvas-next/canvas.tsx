@@ -15,6 +15,7 @@ import { useCanvasRuntime } from "@/canvas-next/canvas-runtime-context";
 import { buildCanvasProjection } from "@/canvas-next/canvas-projection";
 import { collectTablePositionChanges } from "@/canvas-next/table-position-changes";
 import { CanvasNextStickyNoteNode } from "@/canvas-next/sticky-note";
+import { useParseDrivenFocus } from "@/canvas-next/use-parse-driven-focus";
 import { useSchemaParseFlow } from "@/canvas-next/use-schema-parse-flow";
 import { useRelationHoverHandlers } from "@/canvas-next/use-relation-hover";
 import { RelationshipEdge } from "@/components/RelationshipEdge";
@@ -35,6 +36,11 @@ const edgeTypes: EdgeTypes = {
 
 function SchemaParseFlowBridge() {
 	useSchemaParseFlow();
+	return null;
+}
+
+function ParseDrivenFocusBridge() {
+	useParseDrivenFocus();
 	return null;
 }
 
@@ -115,6 +121,7 @@ export function CanvasNextCanvas() {
 	return (
 		<div className="relative h-full min-h-0 overflow-hidden bg-background">
 			<SchemaParseFlowBridge />
+			<ParseDrivenFocusBridge />
 			<ReactFlow<CanvasNode, CanvasEdge>
 				nodes={projection.nodes}
 				edges={projection.edges}
