@@ -9,7 +9,7 @@ import {
 	type OnNodesChange,
 	type ReactFlowInstance,
 } from "@xyflow/react";
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useMemo } from "react";
 
 import { useCanvasRuntime } from "@/canvas-next/canvas-runtime-context";
 import { buildCanvasProjection } from "@/canvas-next/canvas-projection";
@@ -21,7 +21,6 @@ import { RelationshipEdge } from "@/components/RelationshipEdge";
 import { StickyLinkEdge } from "@/components/StickyLinkEdge";
 import { TableNode } from "@/components/TableNode";
 import { useDiagramSession } from "@/diagram-session/diagram-session-context";
-import { placeMissingTablePositions } from "@/diagram-layout/fallback-placement";
 import type { CanvasEdge, CanvasNode } from "@/types";
 
 const proOptions = { hideAttribution: true } as const;
@@ -59,10 +58,6 @@ export function CanvasNextCanvas() {
 		(state) => state.commitTablePositions,
 	);
 	const updateStickyNote = useDiagramSession((state) => state.updateStickyNote);
-	const tablePlacement = useMemo(
-		() => placeMissingTablePositions(parsedSchema, tablePositions),
-		[parsedSchema, tablePositions],
-	);
 	const tableIds = useMemo(
 		() => new Set(parsedSchema.tables.map((table) => table.id)),
 		[parsedSchema],
@@ -76,7 +71,7 @@ export function CanvasNextCanvas() {
 			buildCanvasProjection(
 				{
 					parsedSchema,
-					tablePositions: tablePlacement.tablePositions,
+					tablePositions,
 					stickyNotes,
 				},
 				{
@@ -87,17 +82,13 @@ export function CanvasNextCanvas() {
 			),
 		[
 			parsedSchema,
-			tablePlacement.tablePositions,
+			tablePositions,
 			stickyNotes,
 			activeRelationTableIds,
 			temporaryRelationship,
 			searchHighlight,
 		],
 	);
-	useEffect(() => {
-		if (tablePlacement.missingTableIds.length === 0) return;
-		commitTablePositions(tablePlacement.missingTablePositions);
-	}, [commitTablePositions, tablePlacement]);
 	const handleNodesChange = useCallback<OnNodesChange<CanvasNode>>(
 		(changes) => {
 			const positions = collectTablePositionChanges(changes, tableIds);

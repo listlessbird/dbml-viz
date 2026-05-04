@@ -12,6 +12,7 @@ import type {
 	SchemaSourceMetadata,
 	SharedStickyNote,
 } from "@/types";
+import { placeMissingTablePositions } from "@/diagram-layout/fallback-placement";
 
 export const emptyParsedSchema: ParsedSchema = Object.freeze({
 	tables: [],
@@ -28,6 +29,7 @@ export const emptyDiagram: Diagram = Object.freeze({
 
 export interface DiagramSessionState extends DiagramSession {
 	readonly sourceMetadata: SchemaSourceMetadata;
+	readonly lastParseTableDiff: TableDiff;
 	readonly hydrateDiagram: (
 		diagram: Diagram,
 		metadata?: SchemaSourceMetadata,
@@ -46,6 +48,11 @@ export interface DiagramSessionState extends DiagramSession {
 }
 
 export type DiagramSessionStore = StoreApi<DiagramSessionState>;
+
+export interface TableDiff {
+	readonly addedTableIds: readonly string[];
+	readonly removedTableIds: readonly string[];
+}
 
 const prunePositionsForTables = (
 	positions: DiagramPositions,
@@ -76,7 +83,43 @@ const commitPositionsForTables = (
 };
 
 const noDiagnostics: readonly ParseDiagnostic[] = Object.freeze([]);
+const emptyTableDiff: TableDiff = Object.freeze({
+	addedTableIds: [],
+	removedTableIds: [],
+});
 const defaultSourceMetadata: SchemaSourceMetadata = Object.freeze({ format: "dbml" });
+
+const diffTables = (
+	previousSchema: ParsedSchema,
+	nextSchema: ParsedSchema,
+): TableDiff => {
+	const previousIds = new Set(previousSchema.tables.map((table) => table.id));
+	const nextIds = new Set(nextSchema.tables.map((table) => table.id));
+	return {
+		addedTableIds: nextSchema.tables
+			.filter((table) => !previousIds.has(table.id))
+			.map((table) => table.id),
+		removedTableIds: previousSchema.tables
+			.filter((table) => !nextIds.has(table.id))
+			.map((table) => table.id),
+	};
+};
+
+const seedMissingTablePositions = (
+	parsedSchema: ParsedSchema,
+	tablePositions: DiagramPositions,
+): DiagramPositions =>
+	placeMissingTablePositions(parsedSchema, tablePositions).tablePositions;
+
+const hydrateTablePositions = (diagram: Diagram): DiagramPositions => {
+	if (diagram.parsedSchema.tables.length === 0) {
+		return diagram.tablePositions;
+	}
+	return seedMissingTablePositions(
+		diagram.parsedSchema,
+		prunePositionsForTables(diagram.tablePositions, diagram.parsedSchema),
+	);
+};
 
 export function createDiagramSessionStore(
 	initialDiagram: Diagram = emptyDiagram,
@@ -86,11 +129,16 @@ export function createDiagramSessionStore(
 		diagram: initialDiagram,
 		sourceMetadata: initialMetadata,
 		parseDiagnostics: noDiagnostics,
+		lastParseTableDiff: emptyTableDiff,
 		hydrateDiagram: (diagram, metadata = defaultSourceMetadata) => {
 			set({
-				diagram,
+				diagram: {
+					...diagram,
+					tablePositions: hydrateTablePositions(diagram),
+				},
 				sourceMetadata: metadata,
 				parseDiagnostics: noDiagnostics,
+				lastParseTableDiff: emptyTableDiff,
 			});
 		},
 		setSchemaSource: (source) => {
@@ -109,27 +157,38 @@ export function createDiagramSessionStore(
 				diagram: {
 					...state.diagram,
 					parsedSchema,
-					tablePositions: prunePositionsForTables(
-						state.diagram.tablePositions,
+					tablePositions: seedMissingTablePositions(
 						parsedSchema,
+						prunePositionsForTables(state.diagram.tablePositions, parsedSchema),
 					),
 				},
+				lastParseTableDiff: diffTables(state.diagram.parsedSchema, parsedSchema),
 			}));
 		},
 		applyParseResult: (result) => {
 			if (result.ok) {
-				set((state) => ({
-					diagram: {
-						...state.diagram,
-						parsedSchema: result.parsedSchema,
-						tablePositions: prunePositionsForTables(
-							state.diagram.tablePositions,
+				set((state) => {
+					const tablePositions = prunePositionsForTables(
+						state.diagram.tablePositions,
+						result.parsedSchema,
+					);
+					return {
+						diagram: {
+							...state.diagram,
+							parsedSchema: result.parsedSchema,
+							tablePositions: seedMissingTablePositions(
+								result.parsedSchema,
+								tablePositions,
+							),
+						},
+						sourceMetadata: result.metadata,
+						parseDiagnostics: noDiagnostics,
+						lastParseTableDiff: diffTables(
+							state.diagram.parsedSchema,
 							result.parsedSchema,
 						),
-					},
-					sourceMetadata: result.metadata,
-					parseDiagnostics: noDiagnostics,
-				}));
+					};
+				});
 				return;
 			}
 			set({ parseDiagnostics: result.diagnostics });

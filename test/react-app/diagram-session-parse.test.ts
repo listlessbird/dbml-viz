@@ -50,6 +50,75 @@ describe("Diagram Session parse-result commands", () => {
 		expect(store.getState().parseDiagnostics).toEqual([]);
 	});
 
+	it("seeds missing Table Positions on parse success", () => {
+		const store = createDiagramSessionStore();
+
+		store.getState().applyParseResult({
+			ok: true,
+			parsedSchema: usersAndOrders,
+			metadata: { format: "dbml" },
+		});
+
+		expect(Object.keys(store.getState().diagram.tablePositions)).toEqual([
+			"users",
+			"orders",
+		]);
+	});
+
+	it("preserves manual Table Positions and seeds only newly added Tables", () => {
+		const store = createDiagramSessionStore();
+
+		store.getState().applyParseResult({
+			ok: true,
+			parsedSchema: usersOnly,
+			metadata: { format: "dbml" },
+		});
+		store.getState().commitTablePositions({ users: { x: 10, y: 20 } });
+
+		store.getState().applyParseResult({
+			ok: true,
+			parsedSchema: usersAndOrders,
+			metadata: { format: "dbml" },
+		});
+
+		expect(store.getState().diagram.tablePositions.users).toEqual({ x: 10, y: 20 });
+		expect(store.getState().diagram.tablePositions.orders).toBeDefined();
+	});
+
+	it("exposes added and removed Table ids from parse success", () => {
+		const store = createDiagramSessionStore();
+
+		store.getState().applyParseResult({
+			ok: true,
+			parsedSchema: usersOnly,
+			metadata: { format: "dbml" },
+		});
+		expect(store.getState().lastParseTableDiff).toEqual({
+			addedTableIds: ["users"],
+			removedTableIds: [],
+		});
+
+		store.getState().applyParseResult({
+			ok: true,
+			parsedSchema: usersAndOrders,
+			metadata: { format: "dbml" },
+		});
+		expect(store.getState().lastParseTableDiff).toEqual({
+			addedTableIds: ["orders"],
+			removedTableIds: [],
+		});
+
+		store.getState().applyParseResult({
+			ok: true,
+			parsedSchema: usersOnly,
+			metadata: { format: "dbml" },
+		});
+		expect(store.getState().lastParseTableDiff).toEqual({
+			addedTableIds: [],
+			removedTableIds: ["orders"],
+		});
+	});
+
 	it("seeds Source metadata from the initial Diagram Session construction", () => {
 		const store = createDiagramSessionStore(
 			{
@@ -84,6 +153,20 @@ describe("Diagram Session parse-result commands", () => {
 			format: "sql",
 			dialect: "mysql",
 		});
+	});
+
+	it("seeds missing Table Positions when hydrating a Diagram with a Parsed Schema", () => {
+		const store = createDiagramSessionStore();
+
+		store.getState().hydrateDiagram({
+			source: "",
+			parsedSchema: usersAndOrders,
+			tablePositions: { users: { x: 10, y: 20 } },
+			stickyNotes: [],
+		});
+
+		expect(store.getState().diagram.tablePositions.users).toEqual({ x: 10, y: 20 });
+		expect(store.getState().diagram.tablePositions.orders).toBeDefined();
 	});
 
 	it("preserves SQL Source metadata from parse success", () => {
@@ -168,6 +251,7 @@ describe("Diagram Session parse-result commands", () => {
 		expect(store.getState().diagram.parsedSchema).toBe(usersAndOrders);
 		expect(store.getState().diagram.tablePositions).toEqual({
 			users: { x: 10, y: 20 },
+			orders: expect.any(Object),
 		});
 		expect(store.getState().parseDiagnostics).toEqual([
 			{ message: "Unexpected token" },
@@ -198,7 +282,9 @@ describe("Diagram Session parse-result commands", () => {
 		store.getState().commitTablePositions({ users: { x: 10, y: 20 } });
 		store.getState().replaceParsedSchema(renamedUsers);
 
-		expect(store.getState().diagram.tablePositions).toEqual({});
+		expect(store.getState().diagram.tablePositions).toEqual({
+			people: expect.any(Object),
+		});
 	});
 
 	it("ignores Table Position commits for ids absent from the Parsed Schema", () => {
