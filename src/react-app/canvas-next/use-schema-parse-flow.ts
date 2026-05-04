@@ -1,33 +1,39 @@
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 
 import { useDiagramSession } from "@/diagram-session/diagram-session-context";
-import type { ParseSchemaSourceFn } from "@/schema-source/parse-schema-source";
-import { createSchemaSourceParserAdapter } from "@/schema-source-editor/schema-source-parser-adapter";
+import {
+	parseSchemaSource,
+	type ParseSchemaSourceFn,
+} from "@/schema-source/parse-schema-source";
 
 export interface UseSchemaParseFlowOptions {
 	readonly parser?: ParseSchemaSourceFn;
 	readonly debounceMs?: number;
 }
 
+const DEFAULT_DEBOUNCE_MS = 300;
+
 export function useSchemaParseFlow({
 	parser,
-	debounceMs,
+	debounceMs = DEFAULT_DEBOUNCE_MS,
 }: UseSchemaParseFlowOptions = {}) {
 	const source = useDiagramSession((state) => state.diagram.source);
 	const applyParseResult = useDiagramSession((state) => state.applyParseResult);
-	const parserAdapter = useMemo(
-		() =>
-			createSchemaSourceParserAdapter({
-				parser,
-				debounceMs,
-				onResult: applyParseResult,
-			}),
-		[applyParseResult, debounceMs, parser],
-	);
 
 	useEffect(() => {
-		parserAdapter.schedule(source);
-	}, [parserAdapter, source]);
+		if (source.trim().length === 0) return;
 
-	useEffect(() => () => parserAdapter.dispose(), [parserAdapter]);
+		let cancelled = false;
+		const timer = setTimeout(() => {
+			void parseSchemaSource(source, { parser }).then((result) => {
+				if (cancelled) return;
+				applyParseResult(result);
+			});
+		}, debounceMs);
+
+		return () => {
+			cancelled = true;
+			clearTimeout(timer);
+		};
+	}, [source, parser, debounceMs, applyParseResult]);
 }

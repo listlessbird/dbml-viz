@@ -35,6 +35,12 @@ import {
 } from "@/lib/draftPersistence";
 import { useRouting } from "@/hooks/useRouting";
 import { SAMPLE_SCHEMA_SOURCE } from "@/lib/sample-dbml";
+import type { SchemaSourceMetadata } from "@/types";
+
+const SAMPLE_SCHEMA_METADATA: SchemaSourceMetadata = Object.freeze({
+	format: "sql",
+	dialect: "mysql",
+});
 import { WorkspaceProvider } from "@/workspace/workspace-provider";
 import { useWorkspace } from "@/workspace/workspace-context";
 import type { WorkspaceStatus } from "@/types/workspace";
@@ -51,22 +57,33 @@ export interface CanvasNextPageProps {
 	readonly workspaceAdapter?: Partial<WorkspaceStoreAdapters>;
 }
 
+interface InitialDiagramSeed {
+	readonly diagram: Diagram;
+	readonly metadata: SchemaSourceMetadata | undefined;
+}
+
 function buildInitialDiagram(
 	adapter: DraftPersistenceAdapter,
 	route: ReturnType<typeof getDiagramRouteState>,
-): Diagram {
+): InitialDiagramSeed {
 	const draft = adapter.getDraft(route.shareId);
 	const hydration = getDraftHydrationResult({
 		route,
 		draft,
 		sampleSource: SAMPLE_SCHEMA_SOURCE,
 	});
-	if (hydration.source.length === 0) return emptyDiagram;
+	if (hydration.source.length === 0) {
+		return { diagram: emptyDiagram, metadata: undefined };
+	}
+	const isSampleSeed = draft === null && hydration.source === SAMPLE_SCHEMA_SOURCE;
 	return {
-		source: hydration.source,
-		parsedSchema: emptyDiagram.parsedSchema,
-		tablePositions: hydration.positions,
-		stickyNotes: hydration.notes,
+		diagram: {
+			source: hydration.source,
+			parsedSchema: emptyDiagram.parsedSchema,
+			tablePositions: hydration.positions,
+			stickyNotes: hydration.notes,
+		},
+		metadata: isSampleSeed ? SAMPLE_SCHEMA_METADATA : undefined,
 	};
 }
 
@@ -301,12 +318,15 @@ export function CanvasNextPage({
 		getDiagramRouteState(window.location.pathname, window.location.search),
 	);
 	const routing = useRouting(initialRoute);
-	const [initialDiagram] = useState<Diagram>(() =>
+	const [initialSeed] = useState<InitialDiagramSeed>(() =>
 		buildInitialDiagram(adapter, initialRoute),
 	);
 
 	return (
-		<DiagramSessionProvider initialDiagram={initialDiagram}>
+		<DiagramSessionProvider
+			initialDiagram={initialSeed.diagram}
+			initialMetadata={initialSeed.metadata}
+		>
 			<DraftPersistenceProvider adapter={adapter}>
 				<CanvasRuntimeProvider>
 					<CanvasNextWorkspaceProvider

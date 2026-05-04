@@ -50,6 +50,42 @@ describe("Diagram Session parse-result commands", () => {
 		expect(store.getState().parseDiagnostics).toEqual([]);
 	});
 
+	it("seeds Source metadata from the initial Diagram Session construction", () => {
+		const store = createDiagramSessionStore(
+			{
+				source: "CREATE TABLE users (id int primary key);",
+				parsedSchema: { tables: [], refs: [], errors: [] },
+				tablePositions: {},
+				stickyNotes: [],
+			},
+			{ format: "sql", dialect: "mysql" },
+		);
+
+		expect(store.getState().sourceMetadata).toEqual({
+			format: "sql",
+			dialect: "mysql",
+		});
+	});
+
+	it("seeds Source metadata through hydrateDiagram so the editor never drifts from the seeded source", () => {
+		const store = createDiagramSessionStore();
+
+		store.getState().hydrateDiagram(
+			{
+				source: "CREATE TABLE users (id int primary key);",
+				parsedSchema: { tables: [], refs: [], errors: [] },
+				tablePositions: {},
+				stickyNotes: [],
+			},
+			{ format: "sql", dialect: "mysql" },
+		);
+
+		expect(store.getState().sourceMetadata).toEqual({
+			format: "sql",
+			dialect: "mysql",
+		});
+	});
+
 	it("preserves SQL Source metadata from parse success", () => {
 		const store = createDiagramSessionStore();
 
@@ -62,6 +98,31 @@ describe("Diagram Session parse-result commands", () => {
 		expect(store.getState().sourceMetadata).toEqual({
 			format: "sql",
 			dialect: "mysql",
+		});
+	});
+
+	it("lets explicit editor metadata changes stay out of Schema Payload", () => {
+		const store = createDiagramSessionStore({
+			source: "CREATE TABLE users (id int primary key);",
+			parsedSchema: usersOnly,
+			tablePositions: {},
+			stickyNotes: [],
+		});
+
+		store.getState().setSourceMetadata({
+			format: "sql",
+			dialect: "mysql",
+		});
+
+		expect(store.getState().sourceMetadata).toEqual({
+			format: "sql",
+			dialect: "mysql",
+		});
+		expect(store.getState().toSchemaPayload()).toEqual({
+			source: "CREATE TABLE users (id int primary key);",
+			positions: {},
+			notes: [],
+			version: 3,
 		});
 	});
 

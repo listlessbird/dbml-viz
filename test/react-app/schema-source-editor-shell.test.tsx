@@ -83,6 +83,94 @@ describe("Schema Source Editor shell", () => {
 		expect(sessionStore.getState().diagram.source).toBe("Table users {}");
 	});
 
+	it("switches source metadata to SQL without remounting the editor view", async () => {
+		const sessionStore = createDiagramSessionStore({
+			source: "CREATE TABLE users (id int primary key);",
+			parsedSchema: { tables: [], refs: [], errors: [] },
+			tablePositions: {},
+			stickyNotes: [],
+		});
+
+		container = document.createElement("div");
+		document.body.appendChild(container);
+		root = createRoot(container);
+
+		act(() => {
+			root?.render(
+				<DiagramSessionContext value={sessionStore}>
+					<SchemaSourceEditorPanel />
+				</DiagramSessionContext>,
+			);
+		});
+		await flushMicrotasks();
+
+		const editorContent = container.querySelector<HTMLElement>(".cm-content");
+		const initialView = editorContent
+			? EditorView.findFromDOM(editorContent)
+			: null;
+		const sqlButton = Array.from(container.querySelectorAll("button")).find(
+			(button) => button.textContent === "SQL",
+		);
+
+		act(() => {
+			sqlButton?.click();
+		});
+		await flushMicrotasks();
+
+		const currentView = editorContent
+			? EditorView.findFromDOM(editorContent)
+			: null;
+		expect(currentView).toBe(initialView);
+		expect(sessionStore.getState().sourceMetadata).toEqual({
+			format: "sql",
+			dialect: "postgres",
+		});
+		const visibleDialectSelect = container.querySelector(
+			'[aria-label="SQL dialect"]',
+		) as HTMLSelectElement | null;
+		expect(visibleDialectSelect?.value).toBe("postgres");
+	});
+
+	it("updates SQL dialect metadata from the editor controls", async () => {
+		const sessionStore = createDiagramSessionStore();
+
+		container = document.createElement("div");
+		document.body.appendChild(container);
+		root = createRoot(container);
+
+		act(() => {
+			root?.render(
+				<DiagramSessionContext value={sessionStore}>
+					<SchemaSourceEditorPanel />
+				</DiagramSessionContext>,
+			);
+		});
+		await flushMicrotasks();
+
+		act(() => {
+			sessionStore.getState().setSourceMetadata({
+				format: "sql",
+				dialect: "postgres",
+			});
+		});
+		await flushMicrotasks();
+
+		const dialectSelect = container.querySelector(
+			'[aria-label="SQL dialect"]',
+		) as HTMLSelectElement | null;
+		expect(dialectSelect).toBeTruthy();
+		act(() => {
+			if (!dialectSelect) return;
+			dialectSelect.value = "mysql";
+			dialectSelect.dispatchEvent(new Event("change", { bubbles: true }));
+		});
+
+		expect(sessionStore.getState().sourceMetadata).toEqual({
+			format: "sql",
+			dialect: "mysql",
+		});
+	});
+
 	it("reuses DBML language support through the language Adapter", async () => {
 		const first = loadEditorLanguage({ format: "dbml" });
 		const second = loadEditorLanguage({ format: "dbml" });
