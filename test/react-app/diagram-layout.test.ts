@@ -4,6 +4,7 @@ import {
 	detectOverlappingTablePositions,
 	repairOverlappingTablePositions,
 	runDiagramAutoLayout,
+	updateTableOverlapForMovedTable,
 } from "@/diagram-layout/diagram-layout";
 import { placeMissingTablePositions } from "@/diagram-layout/fallback-placement";
 import { createDiagramSessionStore } from "@/diagram-session/diagram-session-store";
@@ -222,5 +223,123 @@ describe("Diagram Layout overlap recovery", () => {
 			detectOverlappingTablePositions(threeTables, result.tablePositions)
 				.hasOverlaps,
 		).toBe(false);
+	});
+});
+
+const canonicalizePair = (pair: {
+	readonly firstTableId: string;
+	readonly secondTableId: string;
+}) => [pair.firstTableId, pair.secondTableId].sort().join("|");
+
+const sameOverlapResult = (
+	left: ReturnType<typeof detectOverlappingTablePositions>,
+	right: ReturnType<typeof detectOverlappingTablePositions>,
+) => {
+	expect(left.hasOverlaps).toBe(right.hasOverlaps);
+	expect([...left.overlappingTableIds].sort()).toEqual(
+		[...right.overlappingTableIds].sort(),
+	);
+	expect(left.overlapPairs.map(canonicalizePair).sort()).toEqual(
+		right.overlapPairs.map(canonicalizePair).sort(),
+	);
+};
+
+describe("Diagram Layout incremental Overlap updates", () => {
+	const emptyResult = {
+		hasOverlaps: false as const,
+		overlappingTableIds: [] as readonly string[],
+		overlapPairs: [] as readonly {
+			readonly firstTableId: string;
+			readonly secondTableId: string;
+		}[],
+	};
+
+	it("returns the same result as full recompute when nothing overlaps", () => {
+		const positions = {
+			users: { x: 0, y: 0 },
+			orders: { x: 800, y: 0 },
+			products: { x: 1600, y: 0 },
+		};
+		const incremental = updateTableOverlapForMovedTable({
+			parsedSchema: threeTables,
+			tablePositions: positions,
+			movedTableId: "orders",
+			previousResult: emptyResult,
+		});
+		sameOverlapResult(
+			incremental,
+			detectOverlappingTablePositions(threeTables, positions),
+		);
+		expect(incremental.hasOverlaps).toBe(false);
+	});
+
+	it("matches full recompute for a single overlapping pair after one move", () => {
+		const positions = {
+			users: { x: 0, y: 0 },
+			orders: { x: 20, y: 20 },
+			products: { x: 1600, y: 0 },
+		};
+		const incremental = updateTableOverlapForMovedTable({
+			parsedSchema: threeTables,
+			tablePositions: positions,
+			movedTableId: "orders",
+			previousResult: emptyResult,
+		});
+		sameOverlapResult(
+			incremental,
+			detectOverlappingTablePositions(threeTables, positions),
+		);
+	});
+
+	it("matches full recompute for multi-pair overlaps under repeated incremental updates", () => {
+		const positions = {
+			users: { x: 0, y: 0 },
+			orders: { x: 10, y: 10 },
+			products: { x: 20, y: 20 },
+		};
+		let incremental: ReturnType<typeof detectOverlappingTablePositions> =
+			emptyResult;
+		for (const movedTableId of ["users", "orders", "products"]) {
+			incremental = updateTableOverlapForMovedTable({
+				parsedSchema: threeTables,
+				tablePositions: positions,
+				movedTableId,
+				previousResult: incremental,
+			});
+		}
+		sameOverlapResult(
+			incremental,
+			detectOverlappingTablePositions(threeTables, positions),
+		);
+		expect(incremental.hasOverlaps).toBe(true);
+	});
+
+	it("removes prior overlap pairs when a moved Table no longer overlaps neighbours", () => {
+		const overlappingPositions = {
+			users: { x: 0, y: 0 },
+			orders: { x: 20, y: 20 },
+			products: { x: 1600, y: 0 },
+		};
+		const overlapResult = detectOverlappingTablePositions(
+			threeTables,
+			overlappingPositions,
+		);
+		expect(overlapResult.hasOverlaps).toBe(true);
+
+		const movedAwayPositions = {
+			...overlappingPositions,
+			orders: { x: 2000, y: 2000 },
+		};
+		const incremental = updateTableOverlapForMovedTable({
+			parsedSchema: threeTables,
+			tablePositions: movedAwayPositions,
+			movedTableId: "orders",
+			previousResult: overlapResult,
+		});
+		sameOverlapResult(
+			incremental,
+			detectOverlappingTablePositions(threeTables, movedAwayPositions),
+		);
+		expect(incremental.hasOverlaps).toBe(false);
 	});
 });

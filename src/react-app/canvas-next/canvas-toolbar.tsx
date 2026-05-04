@@ -1,4 +1,5 @@
 import {
+	IconBandage,
 	IconLayoutGrid,
 	IconLayoutSidebar,
 	IconNote,
@@ -8,6 +9,7 @@ import { memo, useCallback } from "react";
 import { useCanvasRuntime } from "@/canvas-next/canvas-runtime-context";
 import { spawnStickyNote } from "@/canvas-next/sticky-note/spawn";
 import { useAutoArrangeCommand } from "@/canvas-next/use-auto-arrange-command";
+import { useRepairOverlapsCommand } from "@/canvas-next/use-repair-overlaps-command";
 import { useDiagramSession } from "@/diagram-session/diagram-session-context";
 
 const screenCenter = () => ({
@@ -27,6 +29,7 @@ export const CanvasNextToolbar = memo(function CanvasNextToolbar({
 	const flowInstance = useCanvasRuntime((state) => state.flowInstance);
 	const addStickyNote = useDiagramSession((state) => state.addStickyNote);
 	const autoArrange = useAutoArrangeCommand();
+	const repairOverlaps = useRepairOverlapsCommand();
 
 	const handleAddSticky = useCallback(() => {
 		spawnStickyNote({
@@ -39,6 +42,10 @@ export const CanvasNextToolbar = memo(function CanvasNextToolbar({
 	const handleAutoArrange = useCallback(() => {
 		void autoArrange.run();
 	}, [autoArrange]);
+
+	const handleRepairOverlaps = useCallback(() => {
+		void repairOverlaps.run();
+	}, [repairOverlaps]);
 
 	return (
 		<div
@@ -68,6 +75,18 @@ export const CanvasNextToolbar = memo(function CanvasNextToolbar({
 			>
 				<IconLayoutGrid className="size-3.5" />
 				<span>Auto-arrange</span>
+			</button>
+			<button
+				type="button"
+				data-testid="canvas-next-repair-overlaps"
+				disabled={!repairOverlaps.isAvailable}
+				onClick={handleRepairOverlaps}
+				className="pointer-events-auto inline-flex items-center gap-1.5 rounded-sm border border-border bg-background/95 px-2.5 py-1.5 text-xs font-medium shadow-sm backdrop-blur transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
+				title="Repair overlaps"
+				aria-label="Repair overlapping tables"
+			>
+				<IconBandage className="size-3.5" />
+				<span>Repair overlaps</span>
 			</button>
 			<button
 				type="button"

@@ -1,6 +1,7 @@
 // @ts-nocheck
 export { default as IconAlertOctagon } from "@tabler-icon/IconAlertOctagon.mjs";
 export { default as IconAlertTriangle } from "@tabler-icon/IconAlertTriangle.mjs";
+export { default as IconBandage } from "@tabler-icon/IconBandage.mjs";
 export { default as IconBinaryTree2 } from "@tabler-icon/IconBinaryTree2.mjs";
 export { default as IconBorderNone } from "@tabler-icon/IconBorderNone.mjs";
 export { default as IconBrandGithub } from "@tabler-icon/IconBrandGithub.mjs";
