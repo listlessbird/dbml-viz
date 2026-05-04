@@ -63,6 +63,17 @@ const renderApp = () => {
 	return container;
 };
 
+const flushMicrotasks = () => act(async () => {});
+
+const waitForLazyEditor = async (container: HTMLDivElement) => {
+	for (let attempt = 0; attempt < 10; attempt += 1) {
+		if (container.querySelector('[data-testid="schema-source-editor"]')) return;
+		await act(async () => {
+			await new Promise((resolve) => setTimeout(resolve, 0));
+		});
+	}
+};
+
 describe("canvas-next shell", () => {
 	it("mounts and unmounts through the app route with explicit empty projection state", () => {
 		const container = renderApp();
@@ -78,5 +89,44 @@ describe("canvas-next shell", () => {
 			activeRoot?.unmount();
 		});
 		activeRoot = null;
+	});
+
+	it("shows and hides the Schema Source editor without changing the Canvas", async () => {
+		const container = renderApp();
+		const toggle = container.querySelector<HTMLButtonElement>(
+			'[data-testid="canvas-next-toggle-source-editor"]',
+		);
+
+		expect(toggle).toBeTruthy();
+		act(() => {
+			toggle?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+		});
+		await flushMicrotasks();
+		await flushMicrotasks();
+		await waitForLazyEditor(container);
+		expect(
+			container.querySelector('[data-testid="schema-source-editor"]'),
+		).toBeTruthy();
+		expect(
+			container
+				.querySelector('[data-testid="canvas-next-react-flow"]')
+				?.getAttribute("data-node-count"),
+		).toBe("0");
+
+		const close = container.querySelector<HTMLButtonElement>(
+			'[aria-label="Close schema source editor"]',
+		);
+		act(() => {
+			close?.click();
+		});
+
+		expect(
+			container.querySelector('[data-testid="schema-source-editor"]'),
+		).toBeNull();
+		expect(
+			container
+				.querySelector('[data-testid="canvas-next-react-flow"]')
+				?.getAttribute("data-edge-count"),
+		).toBe("0");
 	});
 });

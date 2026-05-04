@@ -1,4 +1,11 @@
-import { useCallback, useContext, useState, type PropsWithChildren } from "react";
+import {
+	Suspense,
+	lazy,
+	useCallback,
+	useContext,
+	useState,
+	type PropsWithChildren,
+} from "react";
 
 import { CanvasRuntimeProvider } from "@/canvas-next/canvas-runtime-provider";
 import { CanvasNextCanvas } from "@/canvas-next/canvas";
@@ -32,6 +39,12 @@ import { WorkspaceProvider } from "@/workspace/workspace-provider";
 import { useWorkspace } from "@/workspace/workspace-context";
 import type { WorkspaceStatus } from "@/types/workspace";
 import type { WorkspaceStoreAdapters } from "@/workspace/workspace-store";
+
+const LazySchemaSourceEditorPanel = lazy(() =>
+	import("@/schema-source-editor/schema-source-editor").then((module) => ({
+		default: module.SchemaSourceEditorPanel,
+	})),
+);
 
 export interface CanvasNextPageProps {
 	readonly adapter?: DraftPersistenceAdapter | DiagramPersistenceAdapter;
@@ -220,6 +233,7 @@ function CanvasNextHeader({
 }
 
 function CanvasNextContent({ routing }: CanvasNextContentProps) {
+	const [isSourceEditorOpen, setIsSourceEditorOpen] = useState(false);
 	const tableCount = useDiagramSession(
 		(state) => state.diagram.parsedSchema.tables.length,
 	);
@@ -232,6 +246,9 @@ function CanvasNextContent({ routing }: CanvasNextContentProps) {
 		setShareBaseline: routing.setShareBaseline,
 		pushViewedRoute: routing.pushViewedRoute,
 	});
+	const toggleSourceEditor = useCallback(() => {
+		setIsSourceEditorOpen((isOpen) => !isOpen);
+	}, []);
 
 	return (
 		<main
@@ -248,8 +265,26 @@ function CanvasNextContent({ routing }: CanvasNextContentProps) {
 			/>
 			<section className="relative min-h-0 flex-1">
 				<CanvasNextCanvas />
-				<CanvasNextToolbar />
+				<CanvasNextToolbar
+					isSourceEditorOpen={isSourceEditorOpen}
+					onToggleSourceEditor={toggleSourceEditor}
+				/>
 				<CanvasSearchDock />
+				{isSourceEditorOpen ? (
+					<div className="absolute inset-y-0 right-0 z-20 w-full border-l border-border bg-background shadow-2xl sm:max-w-[440px]">
+						<Suspense
+							fallback={
+								<div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+									Loading schema source
+								</div>
+							}
+						>
+							<LazySchemaSourceEditorPanel
+								onRequestClose={() => setIsSourceEditorOpen(false)}
+							/>
+						</Suspense>
+					</div>
+				) : null}
 			</section>
 		</main>
 	);
