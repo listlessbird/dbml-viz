@@ -1,6 +1,10 @@
-import { IconSearch } from "@tabler/icons-react";
+import { IconLayoutSidebar, IconNote, IconSearch } from "@tabler/icons-react";
 import { useHotkeys } from "@tanstack/react-hotkeys";
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+
+import { useCanvasRuntime } from "@/canvas-next/canvas-runtime-context";
+import { spawnStickyNote } from "@/canvas-next/sticky-note/spawn";
+import { useDiagramSession } from "@/diagram-session/diagram-session-context";
 
 import { DockButton } from "@/components/canvas-dock/DockButton";
 import {
@@ -17,12 +21,36 @@ import {
 import { useCanvasSearchEmphasis } from "@/canvas-next/use-canvas-search-emphasis";
 import { cn } from "@/lib/utils";
 
-export function CanvasSearchDock() {
+const screenCenter = () => ({
+	x: typeof window === "undefined" ? 0 : window.innerWidth / 2,
+	y: typeof window === "undefined" ? 0 : window.innerHeight / 2,
+});
+
+export interface CanvasSearchDockProps {
+	readonly isSourceEditorOpen?: boolean;
+	readonly onToggleSourceEditor?: () => void;
+}
+
+export function CanvasSearchDock({
+	isSourceEditorOpen = false,
+	onToggleSourceEditor,
+}: CanvasSearchDockProps) {
 	const id = useId();
 	const triggerId = `${id}-search-trigger`;
 	const [isOpen, setIsOpen] = useState(false);
 	const [query, setQuery] = useState("");
 	const inputRef = useRef<HTMLInputElement | null>(null);
+
+	const flowInstance = useCanvasRuntime((state) => state.flowInstance);
+	const addStickyNote = useDiagramSession((state) => state.addStickyNote);
+
+	const handleAddSticky = useCallback(() => {
+		spawnStickyNote({
+			flowInstance,
+			addStickyNote,
+			screenPoint: screenCenter(),
+		});
+	}, [flowInstance, addStickyNote]);
 
 	const { matchedTableNames, focusMatched } = useCanvasSearchEmphasis(query);
 
@@ -62,6 +90,26 @@ export function CanvasSearchDock() {
 	return (
 		<div className="pointer-events-none absolute bottom-4 left-1/2 z-10 -translate-x-1/2">
 			<div className={DOCK_SURFACE_CLASS}>
+				<DockButton
+					icon={IconNote}
+					label="Note"
+					onClick={handleAddSticky}
+					disabled={!flowInstance}
+					title="Add sticky note"
+					aria-label="Add sticky note"
+				/>
+				<DockButton
+					icon={IconLayoutSidebar}
+					label="Code"
+					isActive={isSourceEditorOpen}
+					onClick={onToggleSourceEditor}
+					title={isSourceEditorOpen ? "Hide schema source" : "Show schema source"}
+					aria-label={
+						isSourceEditorOpen
+							? "Hide schema source editor"
+							: "Show schema source editor"
+					}
+				/>
 				<Popover
 					open={isOpen}
 					triggerId={triggerId}
