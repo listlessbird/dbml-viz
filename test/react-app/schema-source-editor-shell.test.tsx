@@ -91,6 +91,99 @@ describe("Schema Source Editor shell", () => {
 		expect(await second).toBe(await first);
 	});
 
+	it("renders diagnostics from plain Diagram Session data and clears them on success", async () => {
+		const sessionStore = createDiagramSessionStore({
+			source: "Table users {\n  id int [pk]\n",
+			parsedSchema: { tables: [], refs: [], errors: [] },
+			tablePositions: {},
+			stickyNotes: [],
+		});
+
+		container = document.createElement("div");
+		document.body.appendChild(container);
+		root = createRoot(container);
+
+		act(() => {
+			root?.render(
+				<DiagramSessionContext value={sessionStore}>
+					<SchemaSourceEditorPanel />
+				</DiagramSessionContext>,
+			);
+		});
+		await flushMicrotasks();
+
+		act(() => {
+			sessionStore.getState().applyParseResult({
+				ok: false,
+				diagnostics: [
+					{
+						message: "Expected closing brace",
+						location: {
+							start: { line: 2, column: 3 },
+							end: { line: 2, column: 5 },
+						},
+					},
+				],
+			});
+		});
+		await flushMicrotasks();
+
+		expect(
+			container.querySelector('[data-testid="schema-source-diagnostics"]')
+				?.textContent,
+		).toContain("Line 2, column 3");
+		expect(container.textContent).toContain("Expected closing brace");
+		expect(container.querySelector(".cm-parse-error-line")).toBeTruthy();
+		expect(container.querySelector(".cm-parse-error-range")).toBeTruthy();
+
+		act(() => {
+			sessionStore.getState().applyParseResult({
+				ok: true,
+				parsedSchema: { tables: [], refs: [], errors: [] },
+				metadata: { format: "dbml" },
+			});
+		});
+		await flushMicrotasks();
+
+		expect(
+			container.querySelector('[data-testid="schema-source-diagnostics"]'),
+		).toBeNull();
+		expect(container.querySelector(".cm-parse-error-line")).toBeNull();
+		expect(container.querySelector(".cm-parse-error-range")).toBeNull();
+	});
+
+	it("summarizes diagnostics without source ranges", async () => {
+		const sessionStore = createDiagramSessionStore();
+
+		container = document.createElement("div");
+		document.body.appendChild(container);
+		root = createRoot(container);
+
+		act(() => {
+			root?.render(
+				<DiagramSessionContext value={sessionStore}>
+					<SchemaSourceEditorPanel />
+				</DiagramSessionContext>,
+			);
+		});
+		await flushMicrotasks();
+
+		act(() => {
+			sessionStore.getState().applyParseResult({
+				ok: false,
+				diagnostics: [{ message: "Unable to parse source" }],
+			});
+		});
+		await flushMicrotasks();
+
+		const summary = container.querySelector(
+			'[data-testid="schema-source-diagnostics"]',
+		);
+		expect(summary?.textContent).toContain("Source");
+		expect(summary?.textContent).toContain("Unable to parse source");
+		expect(container.querySelector(".cm-parse-error-line")).toBeNull();
+	});
+
 	it("unmounts without mutating durable Diagram state", async () => {
 		const initialDiagram = {
 			source: "Table accounts {\n  id int [pk]\n}",

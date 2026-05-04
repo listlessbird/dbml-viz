@@ -46,11 +46,25 @@ const usersAndOrders: ParsedSchema = {
 
 vi.mock("@/schema-source/parse-schema-source", () => ({
 	parseSchemaSource: vi.fn(
-		async (source: string): Promise<ParseResult> => ({
-			ok: true,
-			parsedSchema: source.includes("orders") ? usersAndOrders : usersOnly,
-			metadata: { format: "dbml" },
-		}),
+		async (source: string): Promise<ParseResult> => {
+			if (source.includes("broken")) {
+				return {
+					ok: false,
+					diagnostics: [
+						{
+							message: "Expected table body",
+							location: { start: { line: 1, column: 13 } },
+						},
+					],
+				};
+			}
+
+			return {
+				ok: true,
+				parsedSchema: source.includes("orders") ? usersAndOrders : usersOnly,
+				metadata: { format: "dbml" },
+			};
+		},
 	),
 }));
 
@@ -172,5 +186,53 @@ describe("Canvas Next DBML editor flow", () => {
 		expect(diagramStore.getState().diagram.tablePositions).toEqual({
 			users: { x: 10, y: 20 },
 		});
+	});
+
+	it("keeps the Canvas on the last good Parsed Schema after a failed edit", async () => {
+		const diagramStore = createDiagramSessionStore({
+			source: "",
+			parsedSchema: usersOnly,
+			tablePositions: { users: { x: 10, y: 20 } },
+			stickyNotes: [],
+		});
+		const runtimeStore = createCanvasRuntimeStore();
+
+		container = document.createElement("div");
+		document.body.appendChild(container);
+		root = createRoot(container);
+		act(() => {
+			root?.render(
+				<DiagramSessionContext value={diagramStore}>
+					<CanvasRuntimeContext value={runtimeStore}>
+						<CanvasNextCanvas />
+					</CanvasRuntimeContext>
+				</DiagramSessionContext>,
+			);
+		});
+
+		act(() => {
+			diagramStore.getState().setSchemaSource("Table broken {");
+		});
+		act(() => {
+			vi.advanceTimersByTime(300);
+		});
+		await flushMicrotasks();
+		await flushMicrotasks();
+
+		expect(
+			container
+				.querySelector('[data-testid="canvas-next-react-flow"]')
+				?.getAttribute("data-node-count"),
+		).toBe("1");
+		expect(diagramStore.getState().diagram.parsedSchema).toBe(usersOnly);
+		expect(diagramStore.getState().diagram.tablePositions).toEqual({
+			users: { x: 10, y: 20 },
+		});
+		expect(diagramStore.getState().parseDiagnostics).toEqual([
+			{
+				message: "Expected table body",
+				location: { start: { line: 1, column: 13 } },
+			},
+		]);
 	});
 });

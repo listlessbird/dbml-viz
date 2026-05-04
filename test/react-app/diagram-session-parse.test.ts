@@ -113,6 +113,23 @@ describe("Diagram Session parse-result commands", () => {
 		]);
 	});
 
+	it("replaces older diagnostics on a later parse failure", () => {
+		const store = createDiagramSessionStore();
+
+		store.getState().applyParseResult({
+			ok: false,
+			diagnostics: [{ message: "first error" }],
+		});
+		store.getState().applyParseResult({
+			ok: false,
+			diagnostics: [{ message: "second error" }],
+		});
+
+		expect(store.getState().parseDiagnostics).toEqual([
+			{ message: "second error" },
+		]);
+	});
+
 	it("does not inherit Table Positions across renamed Tables", () => {
 		const store = createDiagramSessionStore();
 
