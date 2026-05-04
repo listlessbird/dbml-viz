@@ -43,3 +43,11 @@ export function useDiagramSession<T>(
 	}
 	return useStore(store, selector);
 }
+
+export function useDiagramSessionStore(): DiagramSessionStore {
+	const store = useContext(DiagramSessionContext);
+	if (!store) {
+		throw new Error("useDiagramSessionStore must be used inside DiagramSessionProvider");
+	}
+	return store;
+}
