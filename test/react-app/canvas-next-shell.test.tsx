@@ -63,15 +63,12 @@ const renderApp = () => {
 	return container;
 };
 
-const flushMicrotasks = () => act(async () => {});
-
 const waitForLazyEditor = async (container: HTMLDivElement) => {
-	for (let attempt = 0; attempt < 10; attempt += 1) {
-		if (container.querySelector('[data-testid="schema-source-editor"]')) return;
-		await act(async () => {
-			await new Promise((resolve) => setTimeout(resolve, 0));
-		});
-	}
+	await vi.waitFor(() => {
+		expect(
+			container.querySelector('[data-testid="schema-source-editor"]'),
+		).toBeTruthy();
+	});
 };
 
 describe("canvas-next shell", () => {
@@ -101,12 +98,7 @@ describe("canvas-next shell", () => {
 		act(() => {
 			toggle?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 		});
-		await flushMicrotasks();
-		await flushMicrotasks();
 		await waitForLazyEditor(container);
-		expect(
-			container.querySelector('[data-testid="schema-source-editor"]'),
-		).toBeTruthy();
 		expect(
 			container
 				.querySelector('[data-testid="canvas-next-react-flow"]')

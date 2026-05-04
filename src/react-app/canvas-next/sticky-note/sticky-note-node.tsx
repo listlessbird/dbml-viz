@@ -268,7 +268,7 @@ export const CanvasNextStickyNoteNode = memo(function CanvasNextStickyNoteNode({
 					/>
 				)}
 				<Popover open={linker.open} onOpenChange={linker.setOpen}>
-					<PopoverTrigger render={renderPopoverAnchor} />
+					<PopoverTrigger nativeButton={false} render={renderPopoverAnchor} />
 					{linker.open && (
 						<LinkerPopoverContent
 							tables={tables}
