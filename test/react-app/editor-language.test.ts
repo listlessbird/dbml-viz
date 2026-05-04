@@ -38,4 +38,19 @@ describe("editor-language", () => {
 		expect(dbmlSupport.language.name).toBe("dbml");
 		expect(cachedSqlSupport).toBe(sqlSupport);
 	});
+
+	it("caches SQL language supports by mapped grammar dialect", () => {
+		const postgres = loadEditorLanguage({ format: "sql", dialect: "postgres" });
+		const defaultPostgres = loadEditorLanguage({ format: "sql" });
+		const oracle = loadEditorLanguage({ format: "sql", dialect: "oracle" });
+		const snowflake = loadEditorLanguage({ format: "sql", dialect: "snowflake" });
+
+		expect(defaultPostgres).toBe(postgres);
+		expect(oracle).toBe(loadEditorLanguage({ format: "sql", dialect: "oracle" }));
+		expect(snowflake).toBe(
+			loadEditorLanguage({ format: "sql", dialect: "snowflake" }),
+		);
+		expect(oracle).not.toBe(postgres);
+		expect(snowflake).not.toBe(postgres);
+	});
 });

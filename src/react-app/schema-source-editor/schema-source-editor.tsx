@@ -16,6 +16,10 @@ import {
 	getSchemaSourceEditorTheme,
 	type SchemaSourceEditorThemeMode,
 } from "@/schema-source-editor/schema-source-editor-theme";
+import {
+	SchemaSourceDiagnosticsSummary,
+	SchemaSourceMetadataControls,
+} from "@/schema-source-editor/schema-source-editor-panel-chrome";
 
 interface SchemaSourceEditorProps {
 	readonly source: string;
@@ -74,12 +78,6 @@ const editorBaseExtensions = [
 ] satisfies readonly Extension[];
 
 const emptyDiagnosticDecorations = EditorView.decorations.of(Decoration.none);
-
-const formatDiagnosticLocation = (diagnostic: ParseDiagnostic) => {
-	const start = diagnostic.location?.start;
-	if (!start) return "Source";
-	return `Line ${start.line}, column ${start.column}`;
-};
 
 const SchemaSourceEditor = memo(function SchemaSourceEditor({
 	source,
@@ -202,6 +200,7 @@ export function SchemaSourceEditorPanel({
 	const metadata = useDiagramSession((state) => state.sourceMetadata);
 	const diagnostics = useDiagramSession((state) => state.parseDiagnostics);
 	const setSchemaSource = useDiagramSession((state) => state.setSchemaSource);
+	const setSourceMetadata = useDiagramSession((state) => state.setSourceMetadata);
 	const themeMode = useDocumentTheme();
 	const diagnosticsCount = diagnostics.length;
 
@@ -226,6 +225,12 @@ export function SchemaSourceEditorPanel({
 					</button>
 				) : null}
 			</div>
+			<div className="flex h-10 shrink-0 items-center justify-between gap-3 border-b border-border px-3">
+				<SchemaSourceMetadataControls
+					metadata={metadata}
+					onMetadataChange={setSourceMetadata}
+				/>
+			</div>
 			<SchemaSourceEditor
 				source={source}
 				metadata={metadata}
@@ -233,29 +238,7 @@ export function SchemaSourceEditorPanel({
 				onSourceChange={setSchemaSource}
 				themeMode={themeMode}
 			/>
-			{diagnosticsCount > 0 ? (
-				<div
-					data-testid="schema-source-diagnostics"
-					className="max-h-36 shrink-0 overflow-auto border-t border-border bg-destructive/5 px-3 py-2"
-				>
-					<ul className="space-y-1">
-						{diagnostics.slice(0, 3).map((diagnostic, index) => (
-							<li key={index} className="text-xs text-foreground">
-								<span className="font-medium text-destructive">
-									{formatDiagnosticLocation(diagnostic)}
-								</span>
-								<span className="text-muted-foreground"> / </span>
-								<span>{diagnostic.message}</span>
-							</li>
-						))}
-					</ul>
-					{diagnosticsCount > 3 ? (
-						<p className="mt-1 text-xs text-muted-foreground">
-							{diagnosticsCount - 3} more diagnostics
-						</p>
-					) : null}
-				</div>
-			) : null}
+			<SchemaSourceDiagnosticsSummary diagnostics={diagnostics} />
 		</aside>
 	);
 }

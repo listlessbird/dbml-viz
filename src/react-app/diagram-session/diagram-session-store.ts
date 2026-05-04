@@ -28,8 +28,12 @@ export const emptyDiagram: Diagram = Object.freeze({
 
 export interface DiagramSessionState extends DiagramSession {
 	readonly sourceMetadata: SchemaSourceMetadata;
-	readonly hydrateDiagram: (diagram: Diagram) => void;
+	readonly hydrateDiagram: (
+		diagram: Diagram,
+		metadata?: SchemaSourceMetadata,
+	) => void;
 	readonly setSchemaSource: (source: string) => void;
+	readonly setSourceMetadata: (metadata: SchemaSourceMetadata) => void;
 	readonly replaceParsedSchema: (parsedSchema: ParsedSchema) => void;
 	readonly applyParseResult: (result: ParseResult) => void;
 	readonly addStickyNote: (note: SharedStickyNote) => void;
@@ -76,15 +80,16 @@ const defaultSourceMetadata: SchemaSourceMetadata = Object.freeze({ format: "dbm
 
 export function createDiagramSessionStore(
 	initialDiagram: Diagram = emptyDiagram,
+	initialMetadata: SchemaSourceMetadata = defaultSourceMetadata,
 ): DiagramSessionStore {
 	return createStore<DiagramSessionState>()((set, get) => ({
 		diagram: initialDiagram,
-		sourceMetadata: defaultSourceMetadata,
+		sourceMetadata: initialMetadata,
 		parseDiagnostics: noDiagnostics,
-		hydrateDiagram: (diagram) => {
+		hydrateDiagram: (diagram, metadata = defaultSourceMetadata) => {
 			set({
 				diagram,
-				sourceMetadata: defaultSourceMetadata,
+				sourceMetadata: metadata,
 				parseDiagnostics: noDiagnostics,
 			});
 		},
@@ -95,6 +100,9 @@ export function createDiagramSessionStore(
 					source,
 				},
 			}));
+		},
+		setSourceMetadata: (sourceMetadata) => {
+			set({ sourceMetadata });
 		},
 		replaceParsedSchema: (parsedSchema) => {
 			set((state) => ({

@@ -1,4 +1,4 @@
-import { act, type ReactNode } from "react";
+import { act, StrictMode, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -44,9 +44,10 @@ afterEach(() => {
 interface RenderOptions {
 	readonly store: DiagramSessionStore;
 	readonly parser: ParseSchemaSourceFn;
+	readonly strict?: boolean;
 }
 
-const renderWithStore = ({ store, parser }: RenderOptions): void => {
+const renderWithStore = ({ store, parser, strict = false }: RenderOptions): void => {
 	const Harness = ({ children }: { readonly children?: ReactNode }) => {
 		useSchemaParseFlow({ parser });
 		return <>{children}</>;
@@ -55,12 +56,13 @@ const renderWithStore = ({ store, parser }: RenderOptions): void => {
 	container = document.createElement("div");
 	document.body.appendChild(container);
 	root = createRoot(container);
+	const tree = (
+		<DiagramSessionContext value={store}>
+			<Harness />
+		</DiagramSessionContext>
+	);
 	act(() => {
-		root!.render(
-			<DiagramSessionContext value={store}>
-				<Harness />
-			</DiagramSessionContext>,
-		);
+		root!.render(strict ? <StrictMode>{tree}</StrictMode> : tree);
 	});
 };
 
@@ -217,6 +219,28 @@ describe("Canvas Next parse flow", () => {
 		await flushMicrotasks();
 
 		expect(parsedSources).toEqual(["Table users {}"]);
+	});
+
+	it("applies the parse result for the current Schema Source after the parse flow remounts", async () => {
+		const store = createDiagramSessionStore({
+			source: "Table users {}",
+			parsedSchema: { tables: [], refs: [], errors: [] },
+			tablePositions: {},
+			stickyNotes: [],
+		});
+		renderWithStore({
+			store,
+			strict: true,
+			parser: async () => ({ parsed: usersSchema, metadata: { format: "dbml" } }),
+		});
+
+		act(() => {
+			vi.advanceTimersByTime(300);
+		});
+		await flushMicrotasks();
+		await flushMicrotasks();
+
+		expect(store.getState().diagram.parsedSchema).toEqual(usersSchema);
 	});
 
 	it("drops stale parser responses when a newer generation finishes first", async () => {
