@@ -1,4 +1,4 @@
-import { IconNote } from "@tabler/icons-react";
+import { IconLayoutSidebar, IconNote } from "@tabler/icons-react";
 import { memo, useCallback } from "react";
 
 import { useCanvasRuntime } from "@/canvas-next/canvas-runtime-context";
@@ -10,7 +10,15 @@ const screenCenter = () => ({
 	y: typeof window === "undefined" ? 0 : window.innerHeight / 2,
 });
 
-export const CanvasNextToolbar = memo(function CanvasNextToolbar() {
+interface CanvasNextToolbarProps {
+	readonly isSourceEditorOpen?: boolean;
+	readonly onToggleSourceEditor?: () => void;
+}
+
+export const CanvasNextToolbar = memo(function CanvasNextToolbar({
+	isSourceEditorOpen = false,
+	onToggleSourceEditor,
+}: CanvasNextToolbarProps) {
 	const flowInstance = useCanvasRuntime((state) => state.flowInstance);
 	const addStickyNote = useDiagramSession((state) => state.addStickyNote);
 
@@ -38,6 +46,24 @@ export const CanvasNextToolbar = memo(function CanvasNextToolbar() {
 			>
 				<IconNote className="size-3.5" />
 				<span>Sticky note</span>
+			</button>
+			<button
+				type="button"
+				data-testid="canvas-next-toggle-source-editor"
+				onClick={onToggleSourceEditor}
+				className="pointer-events-auto inline-flex items-center gap-1.5 rounded-sm border border-border bg-background/95 px-2.5 py-1.5 text-xs font-medium shadow-sm backdrop-blur transition-colors hover:bg-accent hover:text-accent-foreground"
+				title={
+					isSourceEditorOpen ? "Hide schema source" : "Show schema source"
+				}
+				aria-label={
+					isSourceEditorOpen
+						? "Hide schema source editor"
+						: "Show schema source editor"
+				}
+				aria-pressed={isSourceEditorOpen}
+			>
+				<IconLayoutSidebar className="size-3.5" />
+				<span>Schema source</span>
 			</button>
 		</div>
 	);
