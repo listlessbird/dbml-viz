@@ -1,6 +1,6 @@
 import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
 	DiagramSessionContext,
@@ -38,6 +38,7 @@ afterEach(() => {
 	container?.remove();
 	root = null;
 	container = null;
+	vi.useRealTimers();
 });
 
 interface RenderOptions {
@@ -66,6 +67,10 @@ const renderWithStore = ({ store, parser }: RenderOptions): void => {
 const flushMicrotasks = () => act(async () => {});
 
 describe("Canvas Next parse flow", () => {
+	beforeEach(() => {
+		vi.useFakeTimers();
+	});
+
 	it("parses Schema Source on change and applies the result through Diagram Session", async () => {
 		const store = createDiagramSessionStore();
 		renderWithStore({
@@ -78,6 +83,9 @@ describe("Canvas Next parse flow", () => {
 
 		act(() => {
 			store.getState().setSchemaSource("Table users {}");
+		});
+		act(() => {
+			vi.advanceTimersByTime(300);
 		});
 		await flushMicrotasks();
 
@@ -99,6 +107,9 @@ describe("Canvas Next parse flow", () => {
 		act(() => {
 			applyWorkspacePatch({ source: "Table users {}" });
 		});
+		act(() => {
+			vi.advanceTimersByTime(300);
+		});
 		await flushMicrotasks();
 
 		expect(store.getState().diagram.source).toBe("Table users {}");
@@ -117,6 +128,9 @@ describe("Canvas Next parse flow", () => {
 		act(() => {
 			store.getState().setSchemaSource("Table users {}");
 		});
+		act(() => {
+			vi.advanceTimersByTime(300);
+		});
 		await flushMicrotasks();
 		act(() => {
 			store.getState().commitTablePositions({ users: { x: 1, y: 2 } });
@@ -125,6 +139,9 @@ describe("Canvas Next parse flow", () => {
 		nextSchema = ordersOnly;
 		act(() => {
 			store.getState().setSchemaSource("Table orders {}");
+		});
+		act(() => {
+			vi.advanceTimersByTime(300);
 		});
 		await flushMicrotasks();
 
@@ -150,15 +167,101 @@ describe("Canvas Next parse flow", () => {
 		act(() => {
 			store.getState().setSchemaSource("Table users {}");
 		});
+		act(() => {
+			vi.advanceTimersByTime(300);
+		});
 		await flushMicrotasks();
 
 		shouldFail = true;
 		act(() => {
 			store.getState().setSchemaSource("Table {");
 		});
+		act(() => {
+			vi.advanceTimersByTime(300);
+		});
 		await flushMicrotasks();
 
 		expect(store.getState().diagram.parsedSchema).toEqual(usersSchema);
 		expect(store.getState().parseDiagnostics).toEqual([{ message: "bad" }]);
+	});
+
+	it("debounces parser requests during rapid Schema Source edits", async () => {
+		const store = createDiagramSessionStore();
+		const parsedSources: string[] = [];
+
+		renderWithStore({
+			store,
+			parser: async (source) => {
+				parsedSources.push(source);
+				return { parsed: usersSchema, metadata: { format: "dbml" } };
+			},
+		});
+
+		act(() => {
+			store.getState().setSchemaSource("Table u {}");
+			vi.advanceTimersByTime(100);
+			store.getState().setSchemaSource("Table us {}");
+			vi.advanceTimersByTime(100);
+			store.getState().setSchemaSource("Table users {}");
+		});
+		act(() => {
+			vi.advanceTimersByTime(299);
+		});
+		await flushMicrotasks();
+
+		expect(parsedSources).toEqual([]);
+
+		act(() => {
+			vi.advanceTimersByTime(1);
+		});
+		await flushMicrotasks();
+
+		expect(parsedSources).toEqual(["Table users {}"]);
+	});
+
+	it("drops stale parser responses when a newer generation finishes first", async () => {
+		const store = createDiagramSessionStore();
+		const resolvers: Array<(schema: ParsedSchema) => void> = [];
+
+		renderWithStore({
+			store,
+			parser: (source) =>
+				new Promise((resolve) => {
+					resolvers.push((schema) =>
+						resolve({ parsed: schema, metadata: { format: "dbml" } }),
+					);
+					expect(source.length).toBeGreaterThan(0);
+				}),
+		});
+
+		act(() => {
+			store.getState().setSchemaSource("Table users {}");
+		});
+		act(() => {
+			vi.advanceTimersByTime(300);
+		});
+		await flushMicrotasks();
+
+		act(() => {
+			store.getState().setSchemaSource("Table orders {}");
+		});
+		act(() => {
+			vi.advanceTimersByTime(300);
+		});
+		await flushMicrotasks();
+
+		act(() => {
+			resolvers[1]?.(ordersOnly);
+		});
+		await flushMicrotasks();
+		await flushMicrotasks();
+
+		act(() => {
+			resolvers[0]?.(usersSchema);
+		});
+		await flushMicrotasks();
+		await flushMicrotasks();
+
+		expect(store.getState().diagram.parsedSchema).toEqual(ordersOnly);
 	});
 });
