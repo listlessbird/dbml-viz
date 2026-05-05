@@ -37,7 +37,6 @@ export function useRepairOverlapsCommand(): RepairOverlapsCommand {
 		const result = await repairOverlappingTablePositions({
 			parsedSchema,
 			tablePositions,
-			algorithm: "compact",
 		});
 		if (!result.ok) return;
 

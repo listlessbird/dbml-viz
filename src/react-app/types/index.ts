@@ -106,8 +106,6 @@ export interface ParsedSchema {
 
 export type DiagramGridMode = "none" | "dots" | "lines";
 
-export type DiagramLayoutAlgorithm = "left-right" | "snowflake" | "compact";
-
 export type DiagramPositions = Record<string, XYPosition>;
 
 export interface TableNodeLayout {
