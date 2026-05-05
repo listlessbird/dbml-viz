@@ -41,7 +41,7 @@ export const ProseBody = memo(function ProseBody({
 			data-testid="sticky-note-prose"
 			onClick={onClick}
 			onPointerDown={(e) => e.stopPropagation()}
-			className="sticky-note__body cursor-text px-3 pt-2 pb-1 font-sans text-[13px] leading-5 wrap-break-word whitespace-pre-wrap"
+			className="sticky-note__body min-w-0 cursor-text px-3 pt-2 pb-1 font-sans text-[13px] leading-5 whitespace-pre-wrap wrap-anywhere"
 		>
 			{text.length === 0 ? (
 				<span className="italic opacity-50">{PLACEHOLDER_TEXT}</span>
@@ -57,7 +57,7 @@ export const ProseBody = memo(function ProseBody({
 								const ref = links.find((l) => l.token === segment.value);
 								if (ref) onChipClick(ref);
 							}}
-							className="sticky-note__token mx-px rounded-xs border px-1 font-sans text-[13px] align-baseline"
+							className="sticky-note__token mx-px max-w-full whitespace-normal break-all rounded-xs border px-1 text-left font-sans text-[13px] align-baseline"
 						>
 							{segment.value}
 						</button>
@@ -82,7 +82,7 @@ export const LinksRow = memo(function LinksRow({
 	return (
 		<div
 			data-testid="sticky-note-links-row"
-			className="flex flex-wrap gap-x-1.5 gap-y-1 px-3 pt-2 pb-2"
+			className="flex min-w-0 flex-wrap gap-x-1.5 gap-y-1 px-3 pt-2 pb-2"
 		>
 			{links.map((ref) => (
 				<button
@@ -94,12 +94,14 @@ export const LinksRow = memo(function LinksRow({
 						onChipClick(ref);
 					}}
 					onPointerDown={(e) => e.stopPropagation()}
-					className="sticky-note__chip inline-flex items-center gap-1 rounded-[3px] border px-1.5 py-0 font-sans text-[10px]"
+					className="sticky-note__chip inline-flex max-w-full items-center gap-1 rounded-[3px] border px-1.5 py-0 text-left font-sans text-[10px]"
 				>
 					<span aria-hidden className="sticky-note__chip-arrow">
 						→
 					</span>
-					{ref.column ? `${ref.table}.${ref.column}` : ref.table}
+					<span className="min-w-0 break-all">
+						{ref.column ? `${ref.table}.${ref.column}` : ref.table}
+					</span>
 				</button>
 			))}
 		</div>

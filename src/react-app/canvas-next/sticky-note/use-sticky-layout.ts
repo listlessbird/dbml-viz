@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useLayoutEffect, useMemo } from "react";
 
 import type {
 	LinkValidator,
@@ -41,6 +41,7 @@ export interface StickyLayoutInput {
 	readonly selected: boolean;
 	readonly widthMode: StickyWidthMode;
 	readonly currentWidth: number;
+	readonly currentHeight: number;
 	readonly links: readonly StickyNoteLinkRef[];
 	readonly isValidRef: LinkValidator;
 }
@@ -86,6 +87,7 @@ export function useStickyLayout({
 	selected,
 	widthMode,
 	currentWidth,
+	currentHeight,
 	links,
 	isValidRef,
 }: StickyLayoutInput): StickyLayoutOutput {
@@ -144,27 +146,62 @@ export function useStickyLayout({
 		);
 	}, [linksStats]);
 
-	const nodeHeight = useMemo(() => {
-		const chrome =
-			HEADER_H + (isEditing ? EDITBAR_H : selected ? PALETTE_H : 0);
-		const content = isEditing
-			? textareaBoxH + 2 * TA_MARGIN
-			: proseBlockH + linksBlockH;
-		return Math.max(
-			STICKY_NOTE_MIN_HEIGHT,
-			Math.ceil(chrome + content + 2 * ROOT_BORDER),
-		);
-	}, [isEditing, selected, textareaBoxH, proseBlockH, linksBlockH]);
+	const editNodeHeight = useMemo(
+		() =>
+			Math.max(
+				STICKY_NOTE_MIN_HEIGHT,
+				Math.ceil(
+					HEADER_H +
+						EDITBAR_H +
+						textareaBoxH +
+						2 * TA_MARGIN +
+						2 * ROOT_BORDER,
+				),
+			),
+		[textareaBoxH],
+	);
+
+	const displayNodeHeight = useMemo(
+		() =>
+			Math.max(
+				STICKY_NOTE_MIN_HEIGHT,
+				Math.ceil(
+					HEADER_H +
+						(selected ? PALETTE_H : 0) +
+						proseBlockH +
+						linksBlockH +
+						2 * ROOT_BORDER,
+				),
+			),
+		[selected, proseBlockH, linksBlockH],
+	);
+
+	const nodeHeight = isEditing
+		? Math.max(editNodeHeight, displayNodeHeight)
+		: displayNodeHeight;
 
 	const finalNodeWidth = Math.max(STICKY_NOTE_MIN_WIDTH, Math.ceil(nodeWidth));
 
-	useEffect(() => {
-		if (widthMode !== "auto") return;
+	useLayoutEffect(() => {
+		if (widthMode !== "auto") {
+			if (nodeHeight <= currentHeight) return;
+			updateStickyNote(id, {
+				height: nodeHeight,
+			});
+			return;
+		}
 		updateStickyNote(id, {
 			width: finalNodeWidth,
 			height: nodeHeight,
 		});
-	}, [finalNodeWidth, id, nodeHeight, updateStickyNote, widthMode]);
+	}, [
+		currentHeight,
+		finalNodeWidth,
+		id,
+		nodeHeight,
+		updateStickyNote,
+		widthMode,
+	]);
 
 	return { textareaBoxH, nodeHeight, nodeWidth: finalNodeWidth };
 }

@@ -24,14 +24,17 @@ import {
 	type LinkValidator,
 	type StickyNoteLinkRef,
 } from "@/canvas-next/sticky-note/link-tokens";
-import { LinkerPopoverContent } from "@/canvas-next/sticky-note/linker-popover";
+import { LinkerMentionList } from "@/canvas-next/sticky-note/linker-popover";
 import {
 	STICKY_NOTE_MIN_HEIGHT,
 	STICKY_NOTE_MIN_WIDTH,
 } from "@/canvas-next/sticky-note/measure";
 import { useStickyLayout } from "@/canvas-next/sticky-note/use-sticky-layout";
-import { useStickyLinker } from "@/canvas-next/sticky-note/use-sticky-linker";
-import { Popover, PopoverTrigger } from "@/components/ui/popover";
+import {
+	Mention,
+	MentionContent,
+	MentionInput,
+} from "@/components/ui/mention";
 import { useDiagramSession } from "@/diagram-session/diagram-session-context";
 import type {
 	CanvasNode,
@@ -82,17 +85,6 @@ const buildTableValidator = (
 	};
 };
 
-const renderPopoverAnchor = (
-	props: React.HTMLAttributes<HTMLSpanElement>,
-) => (
-	<span
-		{...props}
-		aria-hidden
-		tabIndex={-1}
-		className="pointer-events-none absolute inset-x-2 bottom-2 h-0"
-	/>
-);
-
 const resolveWidthMode = (
 	mode: StickyNoteWidthMode | undefined,
 ): StickyNoteWidthMode => mode ?? "auto";
@@ -116,12 +108,8 @@ export const CanvasNextStickyNoteNode = memo(function CanvasNextStickyNoteNode({
 	const text = note?.text ?? "";
 	const widthMode = resolveWidthMode(note?.widthMode);
 	const currentWidth = width ?? note?.width ?? STICKY_NOTE_MIN_WIDTH;
+	const currentHeight = height ?? note?.height ?? STICKY_NOTE_MIN_HEIGHT;
 	const [isEditing, setIsEditing] = useState(() => text.length === 0);
-	const linker = useStickyLinker({
-		id,
-		textareaRef,
-		selected: Boolean(selected),
-	});
 
 	const isValidRef = useMemo(() => buildTableValidator(tables), [tables]);
 	const links = useMemo(
@@ -135,6 +123,7 @@ export const CanvasNextStickyNoteNode = memo(function CanvasNextStickyNoteNode({
 		selected: Boolean(selected),
 		widthMode,
 		currentWidth,
+		currentHeight,
 		links,
 		isValidRef,
 	});
@@ -150,21 +139,38 @@ export const CanvasNextStickyNoteNode = memo(function CanvasNextStickyNoteNode({
 		requestAnimationFrame(() => textareaRef.current?.focus());
 	}, []);
 
+	const handleChangeText = useCallback(
+		(value: string) => {
+			updateStickyNote(id, { text: value });
+		},
+		[id, updateStickyNote],
+	);
+
 	const handleTextareaKey = useCallback(
 		(event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
 			if (event.key === "Escape") {
-				event.preventDefault();
-				event.currentTarget.blur();
-				setIsEditing(false);
-				linker.setOpen(false);
+				// If mention is open, the mention component will stop propagation.
+				// If we get here, mention is either closed or it didn't stop propagation.
+				if (text.trim().length === 0) {
+					event.preventDefault();
+					deleteStickyNote(id);
+				} else {
+					// We let the textarea blur normally, or we explicitly blur it.
+					event.currentTarget.blur();
+					setIsEditing(false);
+				}
 			}
 		},
-		[linker],
+		[text, deleteStickyNote, id],
 	);
 
 	const handleBlur = useCallback(() => {
-		if (!linker.open) setIsEditing(false);
-	}, [linker.open]);
+		if (text.trim().length === 0) {
+			deleteStickyNote(id);
+		} else {
+			setIsEditing(false);
+		}
+	}, [text, deleteStickyNote, id]);
 
 	const handleColorPick = useCallback(
 		(color: StickyNoteColor) => {
@@ -198,7 +204,10 @@ export const CanvasNextStickyNoteNode = memo(function CanvasNextStickyNoteNode({
 		[],
 	);
 
-	const renderedHeight = height ?? layout.nodeHeight;
+	const renderedHeight =
+		widthMode === "manual"
+			? Math.max(currentHeight, layout.nodeHeight)
+			: layout.nodeHeight;
 	const renderedWidth = layout.nodeWidth;
 
 	if (!note) return null;
@@ -245,19 +254,30 @@ export const CanvasNextStickyNoteNode = memo(function CanvasNextStickyNoteNode({
 
 			<div className="relative flex min-h-0 flex-1 flex-col">
 				{isEditing ? (
-					<textarea
-						ref={textareaRef}
-						value={text}
-						onChange={linker.handleChangeText}
-						onKeyDown={handleTextareaKey}
-						onFocus={() => setIsEditing(true)}
-						onBlur={handleBlur}
-						onPointerDown={stopPropagation}
-						spellCheck={false}
-						placeholder="Write a note… type # to link a table"
-						style={{ height: layout.textareaBoxH }}
-						className="sticky-note__textarea nodrag nowheel m-2 block w-auto resize-none border border-dashed bg-white/50 px-2 pt-2 pb-1 font-sans text-[13px] leading-5 outline-none placeholder:text-current/40"
-					/>
+					<Mention
+						trigger="#"
+						inputValue={text}
+						onInputValueChange={handleChangeText}
+						className="block min-w-0 p-2 **:data-tag:rounded-none **:data-tag:bg-transparent **:data-tag:p-0 **:data-tag:text-transparent dark:**:data-tag:bg-transparent dark:**:data-tag:text-transparent"
+					>
+						<MentionInput asChild>
+							<textarea
+								ref={textareaRef}
+								value={text}
+								onKeyDown={handleTextareaKey}
+								onFocus={() => setIsEditing(true)}
+								onBlur={handleBlur}
+								onPointerDown={stopPropagation}
+								spellCheck={false}
+								placeholder="Write a note… type # to link a table"
+								style={{ height: layout.textareaBoxH }}
+								className="sticky-note__textarea nodrag nowheel block w-full min-w-0 resize-none overflow-hidden border border-dashed bg-white/50 px-2! pt-2! pb-1! font-sans text-[13px]! leading-5! outline-none wrap-break-word placeholder:text-current/40"
+							/>
+						</MentionInput>
+						<MentionContent className="w-60 gap-0 border border-border bg-popover p-0 font-sans shadow-lg">
+							<LinkerMentionList tables={tables} />
+						</MentionContent>
+					</Mention>
 				) : (
 					<ProseBody
 						text={text}
@@ -267,23 +287,6 @@ export const CanvasNextStickyNoteNode = memo(function CanvasNextStickyNoteNode({
 						onClick={enterEditMode}
 					/>
 				)}
-				<Popover open={linker.open} onOpenChange={linker.setOpen}>
-					<PopoverTrigger nativeButton={false} render={renderPopoverAnchor} />
-					{linker.open && (
-						<LinkerPopoverContent
-							tables={tables}
-							stage={linker.stage}
-							scopedTable={linker.scopedTable}
-							onPickTable={linker.handlePickTable}
-							onPickColumn={linker.handlePickColumn}
-							onBackToTables={linker.resetToTables}
-							onClose={() => {
-								linker.setOpen(false);
-								textareaRef.current?.focus();
-							}}
-						/>
-					)}
-				</Popover>
 			</div>
 
 			{!isEditing && links.length > 0 && (
