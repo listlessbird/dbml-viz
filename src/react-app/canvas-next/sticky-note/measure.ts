@@ -37,6 +37,9 @@ export const TA_PAD_X = 8;
 export const TA_PAD_TOP = 8;
 export const TA_PAD_BOTTOM = 4;
 export const STICKY_NOTE_AUTO_FIT_SLACK = 16;
+// Textarea wrapping is a little more eager than Pretext's paragraph model.
+// Keep the virtual width conservative so edit mode grows before native scroll.
+const TEXTAREA_WRAP_GUARD = 12;
 
 const TOKEN_EXTRA_W = 12;
 const CHIP_EXTRA_W = 26;
@@ -101,9 +104,13 @@ export function measureTextareaLines(text: string, innerWidth: number): number {
 		text.length === 0
 			? placeholderPrepared
 			: prepare(text, BODY_FONT, { whiteSpace: "pre-wrap" });
+	const measuredWidth =
+		text.length === 0
+			? innerWidth
+			: Math.max(0, innerWidth - TEXTAREA_WRAP_GUARD);
 	return Math.max(
 		1,
-		layout(prepared, innerWidth, BODY_LINE_HEIGHT).lineCount,
+		layout(prepared, measuredWidth, BODY_LINE_HEIGHT).lineCount,
 	);
 }
 

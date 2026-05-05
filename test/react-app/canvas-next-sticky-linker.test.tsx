@@ -1,14 +1,10 @@
-import { act, useEffect, useRef } from "react";
+import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { useStickyLinker } from "@/canvas-next/sticky-note/use-sticky-linker";
-import { DiagramSessionContext } from "@/diagram-session/diagram-session-context";
-import {
-	createDiagramSessionStore,
-	type DiagramSessionStore,
-} from "@/diagram-session/diagram-session-store";
-import type { ParsedSchema, SharedStickyNote, TableData } from "@/types";
+import { LinkerMentionList } from "@/canvas-next/sticky-note/linker-popover";
+import { Mention } from "@/components/ui/mention";
+import type { TableData } from "@/types";
 
 const usersTable: TableData = {
 	id: "users",
@@ -27,22 +23,6 @@ const usersTable: TableData = {
 	indexes: [],
 };
 
-const baseNote: SharedStickyNote = {
-	id: "sticky-1",
-	x: 0,
-	y: 0,
-	width: 220,
-	height: 160,
-	color: "yellow",
-	text: "",
-};
-
-const schema: ParsedSchema = {
-	tables: [usersTable],
-	refs: [],
-	errors: [],
-};
-
 let activeRoot: Root | null = null;
 let activeContainer: HTMLDivElement | null = null;
 
@@ -57,152 +37,55 @@ afterEach(() => {
 	activeContainer = null;
 });
 
-interface LinkerRig {
-	readonly diagramStore: DiagramSessionStore;
-	readonly textarea: HTMLTextAreaElement;
-	readonly controllerRef: { current: ReturnType<typeof useStickyLinker> | null };
-}
-
-function mountLinker(): LinkerRig {
-	const diagramStore = createDiagramSessionStore({
-		source: "",
-		parsedSchema: schema,
-		tablePositions: { users: { x: 0, y: 0 } },
-		stickyNotes: [baseNote],
-	});
+function renderMentionList(tables: readonly TableData[]) {
 	const container = document.createElement("div");
 	document.body.appendChild(container);
-	const textareaHolder: { current: HTMLTextAreaElement | null } = {
-		current: null,
-	};
-	const controllerRef: { current: ReturnType<typeof useStickyLinker> | null } =
-		{
-			current: null,
-		};
-
-	function Harness() {
-		const ref = useRef<HTMLTextAreaElement | null>(null);
-		const linker = useStickyLinker({
-			id: "sticky-1",
-			textareaRef: ref,
-			selected: true,
-		});
-		useEffect(() => {
-			controllerRef.current = linker;
-		});
-		return (
-			<textarea
-				ref={(node) => {
-					ref.current = node;
-					textareaHolder.current = node;
-				}}
-				defaultValue={baseNote.text}
-				onChange={linker.handleChangeText}
-			/>
-		);
-	}
-
 	const root = createRoot(container);
+
 	act(() => {
 		root.render(
-			<DiagramSessionContext value={diagramStore}>
-				<Harness />
-			</DiagramSessionContext>,
+			<Mention trigger="#">
+				<LinkerMentionList tables={tables} />
+			</Mention>,
 		);
 	});
-
-	if (!textareaHolder.current) {
-		throw new Error("textarea did not mount");
-	}
 
 	activeRoot = root;
 	activeContainer = container;
 
-	return {
-		diagramStore,
-		textarea: textareaHolder.current,
-		controllerRef,
-	};
+	return container;
 }
 
-const nativeValueSetter = Object.getOwnPropertyDescriptor(
-	HTMLTextAreaElement.prototype,
-	"value",
-)!.set!;
+describe("LinkerMentionList", () => {
+	it("renders table and table.column mention labels in full", () => {
+		const container = renderMentionList([usersTable]);
 
-function typeAt(textarea: HTMLTextAreaElement, value: string, caret: number) {
-	nativeValueSetter.call(textarea, value);
-	textarea.setSelectionRange(caret, caret);
-	textarea.dispatchEvent(new Event("input", { bubbles: true }));
-}
-
-describe("useStickyLinker", () => {
-	it("opens the table stage when '#' is typed", () => {
-		const { textarea, controllerRef } = mountLinker();
-		expect(controllerRef.current?.open).toBe(false);
-
-		act(() => {
-			typeAt(textarea, "#", 1);
-		});
-
-		expect(controllerRef.current?.open).toBe(true);
-		expect(controllerRef.current?.stage).toBe("tables");
+		expect(container.textContent).toContain("users");
+		expect(container.textContent).toContain("users.id");
 	});
 
-	it("inserts '#TableName' at caret on table pick and closes the popover", () => {
-		const { diagramStore, textarea, controllerRef } = mountLinker();
+	it("allows long table and column names to wrap instead of clipping", () => {
+		const container = renderMentionList([
+			{
+				...usersTable,
+				id: "long-table",
+				name: "users_with_a_very_long_reporting_identifier",
+				columns: [
+					{
+						...usersTable.columns[0]!,
+						name: "external_identity_provider_subject_identifier",
+					},
+				],
+			},
+		]);
 
-		act(() => {
-			typeAt(textarea, "#", 1);
-		});
+		const longLabel = container.querySelector<HTMLElement>(
+			"[data-slot='mention-item'] span.min-w-0",
+		);
 
-		act(() => {
-			controllerRef.current?.handlePickTable(usersTable);
-		});
-
-		const text = diagramStore.getState().diagram.stickyNotes[0]?.text;
-		expect(text).toBe("#users");
-		expect(controllerRef.current?.open).toBe(false);
-		expect(controllerRef.current?.scopedTable?.name).toBe("users");
+		expect(longLabel?.classList.contains("break-all")).toBe(true);
+		expect(container.textContent).toContain(
+			"users_with_a_very_long_reporting_identifier.external_identity_provider_subject_identifier",
+		);
 	});
-
-	it("opens the column stage when '.' follows a scoped table", () => {
-		const { textarea, controllerRef } = mountLinker();
-
-		act(() => {
-			typeAt(textarea, "#", 1);
-		});
-		act(() => {
-			controllerRef.current?.handlePickTable(usersTable);
-		});
-
-		act(() => {
-			typeAt(textarea, "#users.", 7);
-		});
-
-		expect(controllerRef.current?.open).toBe(true);
-		expect(controllerRef.current?.stage).toBe("columns");
-	});
-
-	it("inserts '.column' on column pick and closes the popover", () => {
-		const { diagramStore, textarea, controllerRef } = mountLinker();
-
-		act(() => {
-			typeAt(textarea, "#", 1);
-		});
-		act(() => {
-			controllerRef.current?.handlePickTable(usersTable);
-		});
-		act(() => {
-			typeAt(textarea, "#users.", 7);
-		});
-		act(() => {
-			controllerRef.current?.handlePickColumn(usersTable, usersTable.columns[0]!);
-		});
-
-		const text = diagramStore.getState().diagram.stickyNotes[0]?.text;
-		expect(text).toBe("#users.id");
-		expect(controllerRef.current?.open).toBe(false);
-	});
-
 });

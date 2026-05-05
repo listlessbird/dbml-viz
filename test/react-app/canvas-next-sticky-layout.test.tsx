@@ -59,8 +59,13 @@ interface Rig {
 }
 
 function mountLayout(
-	input: Omit<StickyLayoutInput, "id">,
-	note: SharedStickyNote = makeNote({ width: input.currentWidth }),
+	input: Omit<StickyLayoutInput, "id" | "currentHeight"> &
+		Partial<Pick<StickyLayoutInput, "currentHeight">>,
+	note: SharedStickyNote = makeNote(
+		input.currentHeight === undefined
+			? { width: input.currentWidth }
+			: { width: input.currentWidth, height: input.currentHeight },
+	),
 ): Rig {
 	const diagramStore = createDiagramSessionStore({
 		source: "",
@@ -71,7 +76,11 @@ function mountLayout(
 	const outputRef: { current: StickyLayoutOutput | null } = { current: null };
 
 	function Harness() {
-		const out = useStickyLayout({ ...input, id: note.id });
+		const out = useStickyLayout({
+			...input,
+			id: note.id,
+			currentHeight: input.currentHeight ?? note.height,
+		});
 		useEffect(() => {
 			outputRef.current = out;
 		});
@@ -178,7 +187,7 @@ describe("useStickyLayout", () => {
 		expect(note.height).toBeGreaterThanOrEqual(STICKY_NOTE_MIN_HEIGHT);
 	});
 
-	it("does not commit dims in manual mode", () => {
+	it("does not commit dims in manual mode when not editing", () => {
 		const manualWidth = 360;
 		const manualHeight = 250;
 		const { diagramStore } = mountLayout(
@@ -196,6 +205,28 @@ describe("useStickyLayout", () => {
 		const note = diagramStore.getState().diagram.stickyNotes[0]!;
 		expect(note.width).toBe(manualWidth);
 		expect(note.height).toBe(manualHeight);
+	});
+
+	it("grows manual-mode note height while editing when text needs more room", () => {
+		const manualWidth = 220;
+		const manualHeight = 160;
+		const { diagramStore, outputRef } = mountLayout(
+			{
+				text: "one\ntwo\nthree\nfour\nfive\nsix\nseven\neight\nnine\nten",
+				isEditing: true,
+				selected: false,
+				widthMode: "manual",
+				currentWidth: manualWidth,
+				currentHeight: manualHeight,
+				links: [],
+				isValidRef: isAnyValid,
+			},
+			makeNote({ width: manualWidth, height: manualHeight, widthMode: "manual" }),
+		);
+		const note = diagramStore.getState().diagram.stickyNotes[0]!;
+		expect(outputRef.current!.nodeHeight).toBeGreaterThan(manualHeight);
+		expect(note.width).toBe(manualWidth);
+		expect(note.height).toBe(outputRef.current!.nodeHeight);
 	});
 
 	it("returns a textareaBoxH suitable for sizing the editing textarea", () => {

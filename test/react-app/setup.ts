@@ -40,6 +40,18 @@ if (!("OffscreenCanvas" in globalThis)) {
 	});
 }
 
+class MockResizeObserver {
+	observe() {}
+	unobserve() {}
+	disconnect() {}
+}
+
+if (!("ResizeObserver" in globalThis)) {
+	Object.assign(globalThis, {
+		ResizeObserver: MockResizeObserver,
+	});
+}
+
 afterEach(() => {
 	window.localStorage.clear();
 	clearCache();
