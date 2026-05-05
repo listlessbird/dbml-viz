@@ -44,6 +44,18 @@ function ParseDrivenFocusBridge() {
 	return null;
 }
 
+function ZoomLevelControl() {
+	const zoom = useCanvasRuntime((state) => state.viewport.zoom);
+	return (
+		<div
+			className="react-flow__controls-zoom-level"
+			aria-label={`Zoom ${Math.round(zoom * 100)} percent`}
+		>
+			{Math.round(zoom * 100)}%
+		</div>
+	);
+}
+
 export function CanvasNextCanvas() {
 	const parsedSchema = useDiagramSession((state) => state.diagram.parsedSchema);
 	const tablePositions = useDiagramSession((state) => state.diagram.tablePositions);
@@ -150,7 +162,9 @@ export function CanvasNextCanvas() {
 					className="border! border-border! bg-background!"
 					maskColor="color-mix(in oklab, var(--muted) 84%, transparent)"
 				/>
-				<Controls position="bottom-left" showInteractive={false} />
+				<Controls position="bottom-left" showInteractive={false}>
+					<ZoomLevelControl />
+				</Controls>
 			</ReactFlow>
 		</div>
 	);
