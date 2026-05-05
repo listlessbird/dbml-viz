@@ -124,4 +124,9 @@
 	.acnx-dot-halo::after {
 		display: none;
 	}
+	/* Dialog open/close transitions */
+	[data-open].animate-in,
+	[data-closed].animate-out {
+		animation: none;
+	}
 }

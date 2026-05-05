@@ -9,9 +9,8 @@ import {
 
 import { CanvasRuntimeProvider } from "@/canvas-next/canvas-runtime-provider";
 import { CanvasNextCanvas } from "@/canvas-next/canvas";
-import { CanvasSearchDock } from "@/canvas-next/canvas-search-popover";
+import { CanvasActionBar } from "@/canvas-next/canvas-action-bar";
 import { ShareButton } from "@/components/ShareButton";
-import { WorkspaceStatusPill } from "@/components/agent-connectivity/WorkspaceStatusPill";
 import {
 	type DiagramPersistenceAdapter,
 	type DraftPersistenceAdapter,
@@ -35,15 +34,14 @@ import {
 import { useRouting } from "@/hooks/useRouting";
 import { SAMPLE_SCHEMA_SOURCE } from "@/lib/sample-dbml";
 import type { SchemaSourceMetadata } from "@/types";
+import { WorkspaceProvider } from "@/workspace/workspace-provider";
+import type { WorkspaceStoreAdapters } from "@/workspace/workspace-store";
+import { CanvasNextWorkspaceAction } from "@/canvas-next/canvas-workspace-action";
 
 const SAMPLE_SCHEMA_METADATA: SchemaSourceMetadata = Object.freeze({
 	format: "sql",
 	dialect: "mysql",
 });
-import { WorkspaceProvider } from "@/workspace/workspace-provider";
-import { useWorkspace } from "@/workspace/workspace-context";
-import type { WorkspaceStatus } from "@/types/workspace";
-import type { WorkspaceStoreAdapters } from "@/workspace/workspace-store";
 
 const LazySchemaSourceEditorPanel = lazy(() =>
 	import("@/schema-source-editor/schema-source-editor").then((module) => ({
@@ -165,43 +163,6 @@ function CanvasNextWorkspaceProvider({
 	);
 }
 
-const workspaceLabel = (status: WorkspaceStatus) => {
-	switch (status) {
-		case "offline":
-			return "Connect workspace";
-		case "connecting":
-			return "Connecting";
-		case "live":
-			return "Live";
-		case "reconnecting":
-			return "Reconnecting";
-		case "ended":
-			return "Workspace expired";
-	}
-};
-
-function CanvasNextWorkspaceAction() {
-	const status = useWorkspace((state) => state.status);
-	const workspaceId = useWorkspace((state) => state.workspaceId);
-	const attach = useWorkspace((state) => state.attach);
-	const detach = useWorkspace((state) => state.detach);
-	const handleClick =
-		status === "offline" || status === "ended"
-			? attach
-			: status === "live"
-				? detach
-				: undefined;
-
-	return (
-		<WorkspaceStatusPill
-			status={status}
-			tone="light"
-			label={workspaceLabel(status)}
-			hint={status === "live" ? workspaceId ?? undefined : undefined}
-			onClick={handleClick}
-		/>
-	);
-}
 
 function CanvasNextHeader({
 	isSharing,
@@ -281,7 +242,7 @@ function CanvasNextContent({ routing }: CanvasNextContentProps) {
 			/>
 			<section className="relative min-h-0 flex-1">
 				<CanvasNextCanvas />
-				<CanvasSearchDock
+				<CanvasActionBar
 					isSourceEditorOpen={isSourceEditorOpen}
 					onToggleSourceEditor={toggleSourceEditor}
 				/>

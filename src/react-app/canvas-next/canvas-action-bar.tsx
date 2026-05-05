@@ -1,9 +1,11 @@
-import { IconLayoutSidebar, IconNote, IconSearch } from "@tabler/icons-react";
+import { IconBandage, IconLayoutGrid, IconLayoutSidebar, IconNote, IconSearch } from "@tabler/icons-react";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 
 import { useCanvasRuntime } from "@/canvas-next/canvas-runtime-context";
 import { spawnStickyNote } from "@/canvas-next/sticky-note/spawn";
+import { useAutoArrangeCommand } from "@/canvas-next/use-auto-arrange-command";
+import { useRepairOverlapsCommand } from "@/canvas-next/use-repair-overlaps-command";
 import { useDiagramSession } from "@/diagram-session/diagram-session-context";
 
 import { DockButton } from "@/components/canvas-dock/DockButton";
@@ -26,15 +28,15 @@ const screenCenter = () => ({
 	y: typeof window === "undefined" ? 0 : window.innerHeight / 2,
 });
 
-export interface CanvasSearchDockProps {
+export interface CanvasActionBarProps {
 	readonly isSourceEditorOpen?: boolean;
 	readonly onToggleSourceEditor?: () => void;
 }
 
-export function CanvasSearchDock({
+export function CanvasActionBar({
 	isSourceEditorOpen = false,
 	onToggleSourceEditor,
-}: CanvasSearchDockProps) {
+}: CanvasActionBarProps) {
 	const id = useId();
 	const triggerId = `${id}-search-trigger`;
 	const [isOpen, setIsOpen] = useState(false);
@@ -43,6 +45,8 @@ export function CanvasSearchDock({
 
 	const flowInstance = useCanvasRuntime((state) => state.flowInstance);
 	const addStickyNote = useDiagramSession((state) => state.addStickyNote);
+	const autoArrange = useAutoArrangeCommand();
+	const repairOverlaps = useRepairOverlapsCommand();
 
 	const handleAddSticky = useCallback(() => {
 		spawnStickyNote({
@@ -51,6 +55,14 @@ export function CanvasSearchDock({
 			screenPoint: screenCenter(),
 		});
 	}, [flowInstance, addStickyNote]);
+
+	const handleAutoArrange = useCallback(() => {
+		void autoArrange.run();
+	}, [autoArrange]);
+
+	const handleRepairOverlaps = useCallback(() => {
+		void repairOverlaps.run();
+	}, [repairOverlaps]);
 
 	const { matchedTableNames, focusMatched } = useCanvasSearchEmphasis(query);
 
@@ -96,6 +108,24 @@ export function CanvasSearchDock({
 				meta: { name: "Toggle schema source" },
 			},
 		},
+		{
+			hotkey: "A",
+			callback: handleAutoArrange,
+			options: {
+				enabled: autoArrange.isAvailable,
+				ignoreInputs: true,
+				meta: { name: "Auto-arrange tables" },
+			},
+		},
+		{
+			hotkey: "R",
+			callback: handleRepairOverlaps,
+			options: {
+				enabled: repairOverlaps.isAvailable,
+				ignoreInputs: true,
+				meta: { name: "Repair overlaps" },
+			},
+		},
 	]);
 
 	const handleSelect = (tableName: string) => {
@@ -110,16 +140,34 @@ export function CanvasSearchDock({
 				<DockButton
 					icon={IconNote}
 					label="Note"
-					shortcut="n"
+					shortcut="N"
 					onClick={handleAddSticky}
 					disabled={!flowInstance}
 					title="Add sticky note (n)"
 					aria-label="Add sticky note"
 				/>
 				<DockButton
+					icon={IconLayoutGrid}
+					label="Arrange"
+					shortcut="A"
+					onClick={handleAutoArrange}
+					disabled={!autoArrange.isAvailable}
+					title="Auto-arrange tables (a)"
+					aria-label="Auto-arrange tables"
+				/>
+				<DockButton
+					icon={IconBandage}
+					label="Repair"
+					shortcut="R"
+					onClick={handleRepairOverlaps}
+					disabled={!repairOverlaps.isAvailable}
+					title="Repair overlaps (r)"
+					aria-label="Repair overlapping tables"
+				/>
+				<DockButton
 					icon={IconLayoutSidebar}
 					label="Code"
-					shortcut="c"
+					shortcut="C"
 					isActive={isSourceEditorOpen}
 					onClick={onToggleSourceEditor}
 					title={isSourceEditorOpen ? "Hide schema source (c)" : "Show schema source (c)"}
