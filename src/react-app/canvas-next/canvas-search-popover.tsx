@@ -79,6 +79,23 @@ export function CanvasSearchDock({
 				meta: { name: "Close search" },
 			},
 		},
+		{
+			hotkey: "N",
+			callback: handleAddSticky,
+			options: {
+				enabled: !!flowInstance,
+				ignoreInputs: true,
+				meta: { name: "Add sticky note" },
+			},
+		},
+		{
+			hotkey: "C",
+			callback: () => onToggleSourceEditor?.(),
+			options: {
+				ignoreInputs: true,
+				meta: { name: "Toggle schema source" },
+			},
+		},
 	]);
 
 	const handleSelect = (tableName: string) => {
@@ -93,17 +110,19 @@ export function CanvasSearchDock({
 				<DockButton
 					icon={IconNote}
 					label="Note"
+					shortcut="n"
 					onClick={handleAddSticky}
 					disabled={!flowInstance}
-					title="Add sticky note"
+					title="Add sticky note (n)"
 					aria-label="Add sticky note"
 				/>
 				<DockButton
 					icon={IconLayoutSidebar}
 					label="Code"
+					shortcut="c"
 					isActive={isSourceEditorOpen}
 					onClick={onToggleSourceEditor}
-					title={isSourceEditorOpen ? "Hide schema source" : "Show schema source"}
+					title={isSourceEditorOpen ? "Hide schema source (c)" : "Show schema source (c)"}
 					aria-label={
 						isSourceEditorOpen
 							? "Hide schema source editor"
