@@ -49,7 +49,7 @@ const LazySchemaSourceEditorPanel = lazy(() =>
 	})),
 );
 
-export interface CanvasNextPageProps {
+interface CanvasNextPageProps {
 	readonly adapter?: DraftPersistenceAdapter | DiagramPersistenceAdapter;
 	readonly workspaceAdapter?: Partial<WorkspaceStoreAdapters>;
 }

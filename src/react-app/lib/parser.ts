@@ -7,8 +7,6 @@ import {
 } from "@/lib/parser-shared";
 import type { AppType } from "../../parser-worker";
 
-export { SchemaParseError } from "@/lib/parser-shared";
-
 const client = hc<AppType>("/");
 
 let nextRequestId = 0;

@@ -3,7 +3,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { CanvasNextToolbar } from "@/canvas-next/canvas-toolbar";
+import { CanvasActionBar } from "@/canvas-next/canvas-action-bar";
 import { CanvasRuntimeContext } from "@/canvas-next/canvas-runtime-context";
 import {
 	createCanvasRuntimeStore,
@@ -124,7 +124,7 @@ function renderToolbar(options: RenderOptions): RenderResult {
 		root.render(
 			<DiagramSessionContext value={diagramStore}>
 				<CanvasRuntimeContext value={runtimeStore}>
-					<CanvasNextToolbar />
+					<CanvasActionBar />
 				</CanvasRuntimeContext>
 			</DiagramSessionContext>,
 		);
@@ -136,10 +136,10 @@ function renderToolbar(options: RenderOptions): RenderResult {
 
 const findRepair = (container: HTMLDivElement) =>
 	container.querySelector<HTMLButtonElement>(
-		"[data-testid='canvas-next-repair-overlaps']",
+		'[aria-label="Repair overlapping tables"]',
 	);
 
-describe("CanvasNextToolbar Repair overlaps", () => {
+describe("CanvasActionBar Repair overlaps", () => {
 	it("renders a Repair overlaps button", () => {
 		const { container } = renderToolbar({
 			tablePositions: {
@@ -256,7 +256,7 @@ describe("CanvasNextToolbar Repair overlaps", () => {
 			root.render(
 				<DiagramSessionContext value={diagramStore}>
 					<CanvasRuntimeContext value={runtimeStore}>
-						<CanvasNextToolbar />
+						<CanvasActionBar />
 					</CanvasRuntimeContext>
 				</DiagramSessionContext>,
 			);

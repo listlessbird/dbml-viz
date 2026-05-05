@@ -6,7 +6,7 @@ import {
 	type ParseSchemaSourceFn,
 } from "@/schema-source/parse-schema-source";
 
-export interface UseSchemaParseFlowOptions {
+interface UseSchemaParseFlowOptions {
 	readonly parser?: ParseSchemaSourceFn;
 	readonly debounceMs?: number;
 }

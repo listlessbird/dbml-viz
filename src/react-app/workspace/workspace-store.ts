@@ -32,7 +32,7 @@ export interface WorkspaceTransport {
 	readonly close: (code?: number, reason?: string) => void;
 }
 
-export type WorkspaceTransportFactory = (
+type WorkspaceTransportFactory = (
 	workspaceId: string,
 	handlers: WorkspaceTransportHandlers,
 ) => WorkspaceTransport;
@@ -72,7 +72,7 @@ export const diagramFromWorkspaceSnapshot = (
 	stickyNotes: snapshot.notes,
 });
 
-export function createWorkspaceWebSocketTransport(
+function createWorkspaceWebSocketTransport(
 	workspaceId: string,
 	handlers: WorkspaceTransportHandlers,
 ): WorkspaceTransport {

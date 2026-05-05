@@ -1,9 +1,9 @@
-export interface SharePosition {
+interface SharePosition {
 	readonly x: number;
 	readonly y: number;
 }
 
-export interface EditorPosition {
+interface EditorPosition {
 	readonly line: number;
 	readonly column: number;
 }

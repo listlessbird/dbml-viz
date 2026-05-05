@@ -1,16 +1,16 @@
 import { z } from "zod";
 
 export const SHARE_TTL_SECONDS = 60 * 60 * 24 * 90;
-export const MAX_SCHEMA_SOURCE_LENGTH = 500_000;
+const MAX_SCHEMA_SOURCE_LENGTH = 500_000;
 
-export const stickyNoteColorSchema = z.enum(["yellow", "pink", "blue", "green"]);
+const stickyNoteColorSchema = z.enum(["yellow", "pink", "blue", "green"]);
 
-export const sharePositionSchema = z.object({
+const sharePositionSchema = z.object({
 	x: z.number(),
 	y: z.number(),
 });
 
-export const sharedStickyNoteSchema = z.object({
+const sharedStickyNoteSchema = z.object({
 	id: z.string(),
 	x: z.number(),
 	y: z.number(),
@@ -29,12 +29,6 @@ export const sharedSchemaPayloadSchema = z.object({
 	notes: z.array(sharedStickyNoteSchema),
 	version: z.literal(3),
 });
-
-export type SharedSchemaPayload = z.infer<typeof sharedSchemaPayloadSchema>;
-
-export interface SharedSchemaReference {
-	readonly id: string;
-}
 
 export interface ShareErrorResponse {
 	readonly error: string;

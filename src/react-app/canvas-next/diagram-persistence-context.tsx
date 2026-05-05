@@ -9,7 +9,7 @@ import {
 const DiagramPersistenceContext =
 	createContext<DiagramPersistenceAdapter | null>(null);
 
-export interface DraftPersistenceProviderProps extends PropsWithChildren {
+interface DraftPersistenceProviderProps extends PropsWithChildren {
 	readonly adapter?: DraftPersistenceAdapter | DiagramPersistenceAdapter;
 }
 

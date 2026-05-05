@@ -11,13 +11,13 @@ import {
 	type StickyNoteLinkRef,
 } from "@/canvas-next/sticky-note/link-tokens";
 
-export interface StickyTextMeasure {
+interface StickyTextMeasure {
 	readonly lineCount: number;
 	readonly maxLineWidth: number;
 }
 
-export const BODY_FONT = '13px "Noto Sans Variable", sans-serif';
-export const CHIP_FONT = '10px "Noto Sans Variable", sans-serif';
+const BODY_FONT = '13px "Noto Sans Variable", sans-serif';
+const CHIP_FONT = '10px "Noto Sans Variable", sans-serif';
 export const BODY_LINE_HEIGHT = 20;
 export const CHIP_LINE_HEIGHT = 20;
 

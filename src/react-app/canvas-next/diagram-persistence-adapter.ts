@@ -25,7 +25,7 @@ export function createDefaultDraftPersistenceAdapter(): DraftPersistenceAdapter 
 	};
 }
 
-export function createDefaultDiagramPersistenceAdapter(): DiagramPersistenceAdapter {
+function createDefaultDiagramPersistenceAdapter(): DiagramPersistenceAdapter {
 	return {
 		...createDefaultDraftPersistenceAdapter(),
 		loadShare: loadSharedSchema,

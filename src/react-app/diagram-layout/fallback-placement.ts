@@ -1,7 +1,7 @@
 import type { DiagramPositions, ParsedSchema } from "@/types";
 import { placeTables } from "@/diagram-layout/table-placer";
 
-export interface MissingTablePositionResult {
+interface MissingTablePositionResult {
 	readonly tablePositions: DiagramPositions;
 	readonly missingTablePositions: DiagramPositions;
 	readonly missingTableIds: readonly string[];

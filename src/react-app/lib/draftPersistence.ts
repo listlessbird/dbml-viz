@@ -35,7 +35,7 @@ interface DraftPersistenceOptions {
 	readonly rootBaseline: SchemaPayload | null;
 }
 
-export interface DraftHydrationResult {
+interface DraftHydrationResult {
 	readonly source: string;
 	readonly positions: DiagramPositions;
 	readonly notes: readonly SharedStickyNote[];
@@ -80,7 +80,7 @@ export const isSameDiagramRoute = (
 	right: DiagramRouteState,
 ) => left.shareId === right.shareId && left.isDirty === right.isDirty;
 
-export const getPositionsFromNodes = (nodes: readonly DiagramNode[]): DiagramPositions =>
+const getPositionsFromNodes = (nodes: readonly DiagramNode[]): DiagramPositions =>
 	Object.fromEntries(nodes.map((node) => [node.id, node.position]));
 
 const arePositionsEqual = (
@@ -110,7 +110,7 @@ const arePositionsEqual = (
 	return true;
 };
 
-export const areSharedStickyNotesEqual = (
+const areSharedStickyNotesEqual = (
 	left: readonly SharedStickyNote[],
 	right: readonly SharedStickyNote[],
 	options?: { readonly ignoreDimensions?: boolean },

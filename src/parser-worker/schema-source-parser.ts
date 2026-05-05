@@ -84,4 +84,4 @@ export const parseSchemaSource = (source: string): ParsedSourceResult => {
 	throw getBestFailedAttempt(failures)?.error ?? new Error("Error parsing statement(s).");
 };
 
-export { getPreferredSourceMetadata, getSchemaParseCandidates } from "@/lib/schema-source-detection";
+export { getSchemaParseCandidates } from "@/lib/schema-source-detection";

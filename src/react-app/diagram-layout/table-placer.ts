@@ -16,14 +16,14 @@ const GAP_Y = 100;
 const START = Object.freeze({ x: 100, y: 100 });
 const MAX_SPIRAL_ITERATIONS = 1000;
 
-export interface TablePlacementRequest {
+interface TablePlacementRequest {
 	readonly parsedSchema: ParsedSchema;
 	readonly tablePositions: DiagramPositions;
 	readonly tableIdsToPlace?: readonly string[];
 	readonly getTableLayout?: (table: TableData) => TableNodeLayout;
 }
 
-export interface TablePlacementResult {
+interface TablePlacementResult {
 	readonly tablePositions: DiagramPositions;
 	readonly placedTablePositions: DiagramPositions;
 	readonly placedTableIds: readonly string[];

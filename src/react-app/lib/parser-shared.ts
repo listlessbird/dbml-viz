@@ -25,28 +25,6 @@ export class SchemaParseError extends Error {
 	}
 }
 
-export interface SchemaParserRequest {
-	readonly id: number;
-	readonly source: string;
-}
-
-export interface SchemaParserSuccessResponse {
-	readonly id: number;
-	readonly ok: true;
-	readonly parsed: ParsedSchema;
-	readonly metadata: SchemaSourceMetadata;
-}
-
-export interface SchemaParserErrorResponse {
-	readonly id: number;
-	readonly ok: false;
-	readonly diagnostics: readonly ParseDiagnostic[];
-}
-
-export type SchemaParserResponse =
-	| SchemaParserSuccessResponse
-	| SchemaParserErrorResponse;
-
 const hasDiagnosticsArray = (error: unknown): error is { diags: unknown[] } =>
 	typeof error === "object" &&
 	error !== null &&

@@ -12,7 +12,7 @@ interface DbmlTokenizerState {
 	expectDefinitionName: boolean;
 }
 
-export type SqlGrammarDialect =
+type SqlGrammarDialect =
 	| "postgres"
 	| "mysql"
 	| "mssql"

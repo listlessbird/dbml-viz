@@ -19,9 +19,7 @@ export interface ParseDiagnostic {
 	};
 }
 
-export const MAX_SCHEMA_SOURCE_LENGTH = 500_000;
-
-export type SchemaSourceFormat = "dbml" | "sql";
+type SchemaSourceFormat = "dbml" | "sql";
 
 export type SqlDialect = "postgres" | "mysql" | "mssql" | "oracle" | "snowflake";
 
@@ -104,8 +102,6 @@ export interface ParsedSchema {
 	readonly errors: readonly string[];
 }
 
-export type DiagramGridMode = "none" | "dots" | "lines";
-
 export type DiagramPositions = Record<string, XYPosition>;
 
 export interface TableNodeLayout {
@@ -134,7 +130,7 @@ export interface TableNodeData extends Record<string, unknown> {
 	readonly compositeHandleOffsets: Readonly<Record<string, number>>;
 }
 
-export interface RelationshipEdgeData extends Record<string, unknown> {
+interface RelationshipEdgeData extends Record<string, unknown> {
 	readonly from: RefEndpointData;
 	readonly to: RefEndpointData;
 	readonly relationText: string;
@@ -151,7 +147,7 @@ export interface RelationshipEdgeData extends Record<string, unknown> {
 export type DiagramNode = Node<TableNodeData, "table">;
 export type DiagramEdge = Edge<RelationshipEdgeData, "relationship">;
 
-export interface StickyLinkEdgeData extends Record<string, unknown> {
+interface StickyLinkEdgeData extends Record<string, unknown> {
 	readonly color: StickyNoteColor;
 	readonly tableName: string;
 	readonly columnName?: string;
@@ -162,19 +158,19 @@ export type StickyLinkEdge = Edge<StickyLinkEdgeData, "stickyLink">;
 export const STICKY_NOTE_COLORS = ["yellow", "pink", "blue", "green"] as const;
 export type StickyNoteColor = (typeof STICKY_NOTE_COLORS)[number];
 
-export interface StickyNoteData extends Record<string, unknown> {
+interface StickyNoteData extends Record<string, unknown> {
 	readonly note?: SharedStickyNote;
 }
 
 export type StickyNoteNode = Node<StickyNoteData, "sticky">;
 
-export type TemporaryCursorNodeData = Record<string, never>;
+type TemporaryCursorNodeData = Record<string, never>;
 export type TemporaryCursorNode = Node<
 	TemporaryCursorNodeData,
 	"temporaryCursor"
 >;
 
-export interface TemporaryRelationshipEdgeData extends Record<string, unknown> {
+interface TemporaryRelationshipEdgeData extends Record<string, unknown> {
 	readonly sourceTableId: string;
 	readonly targetTableId?: string;
 }

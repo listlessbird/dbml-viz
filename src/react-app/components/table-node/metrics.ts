@@ -2,7 +2,7 @@ import type { CSSProperties } from "react";
 
 type FontWeight = NonNullable<CSSProperties["fontWeight"]>;
 
-export interface TableNodeFontMetrics {
+interface TableNodeFontMetrics {
 	readonly family: string;
 	readonly font: string;
 	readonly lineHeight: number;

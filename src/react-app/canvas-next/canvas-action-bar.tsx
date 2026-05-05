@@ -28,7 +28,7 @@ const screenCenter = () => ({
 	y: typeof window === "undefined" ? 0 : window.innerHeight / 2,
 });
 
-export interface CanvasActionBarProps {
+interface CanvasActionBarProps {
 	readonly isSourceEditorOpen?: boolean;
 	readonly onToggleSourceEditor?: () => void;
 }

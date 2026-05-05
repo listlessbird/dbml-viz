@@ -32,7 +32,7 @@ import {
 } from "@/canvas-next/sticky-note/measure";
 import { useDiagramSession } from "@/diagram-session/diagram-session-context";
 
-export type StickyWidthMode = "auto" | "manual";
+type StickyWidthMode = "auto" | "manual";
 
 export interface StickyLayoutInput {
 	readonly id: string;

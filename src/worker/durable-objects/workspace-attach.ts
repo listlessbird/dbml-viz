@@ -1,6 +1,6 @@
 import type { WorkspaceSeed, WorkspaceState } from "./workspace-types.ts";
 
-export interface WorkspaceAttachRequest {
+interface WorkspaceAttachRequest {
 	readonly state: WorkspaceSeed;
 	readonly updatedAt: number;
 }

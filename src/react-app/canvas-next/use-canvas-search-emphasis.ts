@@ -9,7 +9,7 @@ import {
 	type SchemaSearchResult,
 } from "@/schema-model/schema-search";
 
-export interface CanvasSearchEmphasis {
+interface CanvasSearchEmphasis {
 	readonly result: SchemaSearchResult;
 	readonly matchedTableNames: readonly string[];
 	readonly focusMatched: () => void;

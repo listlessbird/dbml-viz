@@ -37,7 +37,7 @@ export async function readValidatedSharePayload(
 	return payload;
 }
 
-export interface LoadShareIntoDiagramSessionOptions {
+interface LoadShareIntoDiagramSessionOptions {
 	readonly adapter: DiagramPersistenceAdapter;
 	readonly sessionStore: DiagramSessionStore;
 	readonly shareId: string;
@@ -53,7 +53,7 @@ export async function loadShareIntoDiagramSession({
 	return payload;
 }
 
-export interface SaveDiagramSessionShareOptions {
+interface SaveDiagramSessionShareOptions {
 	readonly adapter: DiagramPersistenceAdapter;
 	readonly sessionStore: DiagramSessionStore;
 }
@@ -70,7 +70,7 @@ export async function saveDiagramSessionShare({
 	};
 }
 
-export interface ApplyWorkspaceShareResultOptions {
+interface ApplyWorkspaceShareResultOptions {
 	readonly adapter: DiagramPersistenceAdapter;
 	readonly sessionStore: DiagramSessionStore;
 	readonly shareId: string;
@@ -98,7 +98,7 @@ export function applyWorkspaceShareResult({
 	return baseline;
 }
 
-export interface ResolveShareRouteDecisionOptions {
+interface ResolveShareRouteDecisionOptions {
 	readonly route: DiagramRouteState;
 	readonly payload: SchemaPayload;
 	readonly baseline: SchemaPayload | null;
