@@ -1,6 +1,5 @@
 import { getTableNodeLayout } from "@/components/table-node/layout";
 import type {
-	DiagramLayoutAlgorithm,
 	DiagramPositions,
 	ParsedSchema,
 	TableData,
@@ -10,7 +9,6 @@ import { placeTables } from "@/diagram-layout/table-placer";
 export interface DiagramAutoLayoutRequest {
 	readonly parsedSchema: ParsedSchema;
 	readonly tablePositions: DiagramPositions;
-	readonly algorithm: DiagramLayoutAlgorithm;
 }
 
 export interface DiagramLayoutDiagnostic {

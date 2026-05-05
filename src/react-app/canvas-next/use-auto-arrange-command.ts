@@ -28,7 +28,6 @@ export function useAutoArrangeCommand(): AutoArrangeCommand {
 		const result = await runDiagramAutoLayout({
 			parsedSchema: session.diagram.parsedSchema,
 			tablePositions: session.diagram.tablePositions,
-			algorithm: "compact",
 		});
 		if (!result.ok) return;
 

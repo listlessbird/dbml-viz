@@ -121,13 +121,10 @@ describe("Diagram Layout auto-layout", () => {
 			},
 		);
 
-		const result = await runDiagramAutoLayout(
-			{
-				parsedSchema: usersOrdersAndProducts,
-				tablePositions: {},
-				algorithm: "left-right",
-			},
-		);
+		const result = await runDiagramAutoLayout({
+			parsedSchema: usersOrdersAndProducts,
+			tablePositions: {},
+		});
 
 		if (!result.ok) {
 			throw new Error(result.diagnostic.message);
@@ -149,7 +146,6 @@ describe("Diagram Layout auto-layout", () => {
 			tablePositions: {
 				users: { x: 0, y: 0 },
 			},
-			algorithm: "left-right",
 		});
 
 		expect(result).toEqual({
@@ -169,13 +165,10 @@ describe("Diagram Layout auto-layout", () => {
 			tablePositions: { users: { x: 0, y: 0 } },
 			stickyNotes: [],
 		});
-		const result = await runDiagramAutoLayout(
-			{
-				parsedSchema: diagramStore.getState().diagram.parsedSchema,
-				tablePositions: diagramStore.getState().diagram.tablePositions,
-				algorithm: "left-right",
-			},
-		);
+		const result = await runDiagramAutoLayout({
+			parsedSchema: diagramStore.getState().diagram.parsedSchema,
+			tablePositions: diagramStore.getState().diagram.tablePositions,
+		});
 
 		if (!result.ok) {
 			throw new Error(result.diagnostic.message);
@@ -213,7 +206,6 @@ describe("Diagram Layout overlap recovery", () => {
 				orders: { x: 20, y: 20 },
 				products: { x: 1000, y: 0 },
 			},
-			algorithm: "left-right",
 		});
 
 		if (!result.ok) {
