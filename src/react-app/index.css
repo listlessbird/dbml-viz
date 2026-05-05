@@ -226,6 +226,7 @@
         background: var(--background);
         box-shadow: 0 10px 24px
             color-mix(in oklab, var(--foreground) 10%, transparent);
+        flex-direction: row !important;
     }
 
     .react-flow__minimap {
@@ -244,24 +245,33 @@
     }
 
     .react-flow__controls-button {
-        border: 0;
-        border-bottom: 1px solid var(--border);
+        border: 0 !important;
+        border-right: 1px solid var(--border) !important;
         background: var(--background);
         color: var(--foreground);
+        align-self: stretch !important;
+        height: auto !important;
+        min-width: 44px !important;
     }
 
-    .react-flow__controls-button:last-child {
-        border-bottom: 0;
+    .react-flow__controls-zoomout { order: 1; }
+
+    .react-flow__controls-zoomin { order: 3; }
+
+    .react-flow__controls-fitview {
+        order: 5;
+        border-right: 0 !important;
     }
 
     .react-flow__controls-zoom-level {
+        order: 2;
         display: flex;
-        width: 36px;
-        min-height: 26px;
+        min-width: 44px;
+        min-height: 32px;
         align-items: center;
         justify-content: center;
-        border-top: 1px solid var(--border);
-        background: var(--muted);
+        border-right: 1px solid var(--border);
+        background: var(--background);
         color: var(--foreground);
         font-size: 11px;
         font-weight: 700;
