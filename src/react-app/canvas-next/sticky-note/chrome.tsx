@@ -5,7 +5,7 @@ import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import { cn } from "@/lib/utils";
 import { STICKY_NOTE_COLORS, type StickyNoteColor } from "@/types";
 
-export const STICKY_NOTE_DRAG_HANDLE_CLASS = "sticky-note-drag-handle";
+const STICKY_NOTE_DRAG_HANDLE_CLASS = "sticky-note-drag-handle";
 
 const DRAG_DOT_KEYS = ["a", "b", "c", "d", "e", "f"] as const;
 

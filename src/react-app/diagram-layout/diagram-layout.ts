@@ -6,16 +6,16 @@ import type {
 } from "@/types";
 import { placeTables } from "@/diagram-layout/table-placer";
 
-export interface DiagramAutoLayoutRequest {
+interface DiagramAutoLayoutRequest {
 	readonly parsedSchema: ParsedSchema;
 	readonly tablePositions: DiagramPositions;
 }
 
-export interface DiagramLayoutDiagnostic {
+interface DiagramLayoutDiagnostic {
 	readonly message: string;
 }
 
-export type DiagramAutoLayoutResult =
+type DiagramAutoLayoutResult =
 	| {
 			readonly ok: true;
 			readonly tablePositions: DiagramPositions;
@@ -25,12 +25,12 @@ export type DiagramAutoLayoutResult =
 			readonly diagnostic: DiagramLayoutDiagnostic;
 	  };
 
-export interface TableOverlapPair {
+interface TableOverlapPair {
 	readonly firstTableId: string;
 	readonly secondTableId: string;
 }
 
-export interface TableOverlapResult {
+interface TableOverlapResult {
 	readonly hasOverlaps: boolean;
 	readonly overlappingTableIds: readonly string[];
 	readonly overlapPairs: readonly TableOverlapPair[];
@@ -49,7 +49,7 @@ const tableRight = (table: TableData, position: { readonly x: number }) =>
 const tableBottom = (table: TableData, position: { readonly y: number }) =>
 	position.y + getTableNodeLayout(table).height;
 
-export interface MovedTableOverlapRequest {
+interface MovedTableOverlapRequest {
 	readonly parsedSchema: ParsedSchema;
 	readonly tablePositions: DiagramPositions;
 	readonly movedTableId: string;

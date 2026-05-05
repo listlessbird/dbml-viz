@@ -4,7 +4,7 @@ import { createStore, type StoreApi } from "zustand/vanilla";
 import type { SchemaSearchResult } from "@/schema-model/schema-search";
 import type { CanvasEdge, CanvasNode } from "@/types";
 
-export const defaultViewport: Viewport = Object.freeze({ x: 0, y: 0, zoom: 1 });
+const defaultViewport: Viewport = Object.freeze({ x: 0, y: 0, zoom: 1 });
 export const TEMPORARY_CURSOR_NODE_ID = "canvas-runtime:temporary-cursor";
 export const TEMPORARY_RELATIONSHIP_EDGE_ID =
 	"canvas-runtime:temporary-relationship";
@@ -17,7 +17,7 @@ const fitViewOptions = Object.freeze({
 const normalizeTableIds = (tableIds: readonly string[]) =>
 	Array.from(new Set(tableIds));
 
-export interface TemporaryRelationshipPreview {
+interface TemporaryRelationshipPreview {
 	readonly kind: "relationship-preview";
 	readonly sourceTableId: string;
 	readonly targetTableId: string | null;

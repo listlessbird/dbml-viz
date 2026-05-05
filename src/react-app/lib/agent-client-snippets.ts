@@ -56,12 +56,6 @@ export const AGENT_CLIENTS: readonly AgentClient[] = [
 	},
 ];
 
-export const findAgentClient = (id: AgentClientId): AgentClient => {
-	const match = AGENT_CLIENTS.find((client) => client.id === id);
-	if (!match) throw new Error(`Unknown agent client: ${id}`);
-	return match;
-};
-
 const PLACEHOLDER_ENDPOINT = "https://dbml-viz.dev/api/agent/device-id/mcp";
 
 export const getDisplayEndpoint = (endpoint: string | null): string =>

@@ -3,7 +3,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { CanvasNextToolbar } from "@/canvas-next/canvas-toolbar";
+import { CanvasActionBar } from "@/canvas-next/canvas-action-bar";
 import { CanvasRuntimeContext } from "@/canvas-next/canvas-runtime-context";
 import {
 	createCanvasRuntimeStore,
@@ -140,7 +140,7 @@ function renderToolbar(options: RenderOptions = {}): RenderResult {
 		root.render(
 			<DiagramSessionContext value={diagramStore}>
 				<CanvasRuntimeContext value={runtimeStore}>
-					<CanvasNextToolbar />
+					<CanvasActionBar />
 				</CanvasRuntimeContext>
 			</DiagramSessionContext>,
 		);
@@ -152,10 +152,10 @@ function renderToolbar(options: RenderOptions = {}): RenderResult {
 
 const findAutoArrange = (container: HTMLDivElement) =>
 	container.querySelector<HTMLButtonElement>(
-		"[data-testid='canvas-next-auto-arrange']",
+		'[aria-label="Auto-arrange tables"]',
 	);
 
-describe("CanvasNextToolbar Auto-arrange", () => {
+describe("CanvasActionBar Auto-arrange", () => {
 	it("renders an Auto-arrange button", () => {
 		const { container } = renderToolbar({
 			diagram: { parsedSchema: usersAndOrders },

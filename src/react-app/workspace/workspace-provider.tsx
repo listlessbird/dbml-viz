@@ -13,7 +13,7 @@ import {
 } from "@/workspace/workspace-store";
 import type { WorkspaceSeed } from "@/types/workspace";
 
-export interface WorkspaceProviderProps extends PropsWithChildren {
+interface WorkspaceProviderProps extends PropsWithChildren {
 	readonly getCurrentSeed: () => WorkspaceSeed;
 	readonly handleShareResult: (shareId: string) => void;
 	readonly adapter?: Partial<WorkspaceStoreAdapters>;

@@ -29,13 +29,13 @@ import type {
 	TemporaryRelationshipEdge,
 } from "@/types";
 
-export interface CanvasProjectionInput {
+interface CanvasProjectionInput {
 	readonly parsedSchema: ParsedSchema;
 	readonly tablePositions: DiagramPositions;
 	readonly stickyNotes: readonly SharedStickyNote[];
 }
 
-export interface CanvasProjection {
+interface CanvasProjection {
 	readonly nodes: CanvasNode[];
 	readonly edges: CanvasEdge[];
 	readonly missingPositionIds: readonly string[];

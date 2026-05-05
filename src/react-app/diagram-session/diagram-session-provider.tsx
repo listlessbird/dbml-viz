@@ -8,7 +8,7 @@ import {
 } from "@/diagram-session/diagram-session-store";
 import type { SchemaSourceMetadata } from "@/types";
 
-export interface DiagramSessionProviderProps extends PropsWithChildren {
+interface DiagramSessionProviderProps extends PropsWithChildren {
 	readonly initialDiagram?: Diagram;
 	readonly initialMetadata?: SchemaSourceMetadata;
 }

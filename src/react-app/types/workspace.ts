@@ -7,7 +7,7 @@ export type WorkspaceStatus =
 	| "reconnecting"
 	| "ended";
 
-export interface WorkspaceBaseline {
+interface WorkspaceBaseline {
 	readonly shareId: string;
 	readonly source: string;
 	readonly positions: DiagramPositions;

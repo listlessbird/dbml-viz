@@ -24,8 +24,6 @@ const readErrorMessage = async (response: JsonErrorResponse) => {
 	}
 };
 
-export const sharedSchemaQueryKey = (id: string) => ["shared-schema", id] as const;
-
 export const loadSharedSchema = async (id: string): Promise<SchemaPayload> => {
 	const response = await loadSharedSchemaRequest({ param: { id } });
 

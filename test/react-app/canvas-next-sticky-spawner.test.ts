@@ -8,12 +8,16 @@ interface FakeFlow {
 		x: number;
 		y: number;
 	};
+	readonly getZoom: () => number;
+	readonly setCenter: () => void;
 }
 
 const makeFlow = (
 	mapped: { x: number; y: number } = { x: 100, y: 200 },
 ): FakeFlow => ({
 	screenToFlowPosition: vi.fn(() => mapped),
+	getZoom: vi.fn(() => 1),
+	setCenter: vi.fn(),
 });
 
 describe("spawnStickyNote", () => {
@@ -52,7 +56,11 @@ describe("spawnStickyNote", () => {
 
 	it("calls screenToFlowPosition with the provided screen point", () => {
 		const screenToFlow = vi.fn(() => ({ x: 0, y: 0 }));
-		const flow = { screenToFlowPosition: screenToFlow };
+		const flow = {
+			screenToFlowPosition: screenToFlow,
+			getZoom: vi.fn(() => 1),
+			setCenter: vi.fn(),
+		};
 		spawnStickyNote({
 			flowInstance: flow as unknown as Parameters<
 				typeof spawnStickyNote

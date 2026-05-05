@@ -5,13 +5,13 @@ import {
 import { parseSchema } from "@/lib/parser";
 import type { ParseDiagnostic, ParsedSchema, SchemaSourceMetadata } from "@/types";
 
-export interface ParseSuccess {
+interface ParseSuccess {
 	readonly ok: true;
 	readonly parsedSchema: ParsedSchema;
 	readonly metadata: SchemaSourceMetadata;
 }
 
-export interface ParseFailure {
+interface ParseFailure {
 	readonly ok: false;
 	readonly diagnostics: readonly ParseDiagnostic[];
 }
@@ -20,7 +20,7 @@ export type ParseResult = ParseSuccess | ParseFailure;
 
 export type ParseSchemaSourceFn = (source: string) => Promise<ParsedSourceResult>;
 
-export interface ParseSchemaSourceOptions {
+interface ParseSchemaSourceOptions {
 	readonly parser?: ParseSchemaSourceFn;
 }
 

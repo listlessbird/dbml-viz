@@ -4,7 +4,7 @@ import { forwardRef } from "react";
 import { cn } from "@/lib/utils";
 import type { WorkspaceStatus } from "@/types/workspace";
 
-export type WorkspacePillTone = "light" | "dark";
+type WorkspacePillTone = "light" | "dark";
 
 interface WorkspaceStatusPillProps
 	extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children"> {

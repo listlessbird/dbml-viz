@@ -10,7 +10,7 @@ import {
 	useDiagramSessionStore,
 } from "@/diagram-session/diagram-session-context";
 
-export interface RepairOverlapsCommand {
+interface RepairOverlapsCommand {
 	readonly run: () => Promise<void>;
 	readonly isAvailable: boolean;
 }

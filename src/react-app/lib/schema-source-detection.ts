@@ -100,8 +100,3 @@ export const getPreferredSourceMetadata = (
 	source: string,
 ): SchemaSourceMetadata =>
 	toSchemaSourceMetadata(getSchemaParseCandidates(source)[0] ?? { format: "dbml" });
-
-export const hasSameSourceMetadata = (
-	left: SchemaSourceMetadata,
-	right: SchemaSourceMetadata,
-) => left.format === right.format && left.dialect === right.dialect;

@@ -36,6 +36,3 @@ export const getColumnConstraintBadges = (table: TableData) => {
 
 	return badgesByColumn;
 };
-
-export const countColumnsWithConstraintBadges = (table: TableData) =>
-	getColumnConstraintBadges(table).size;

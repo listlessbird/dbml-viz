@@ -28,7 +28,7 @@ export const parseLinksFromText = (
 	return out;
 };
 
-export type TextSegment =
+type TextSegment =
 	| { readonly kind: "text"; readonly value: string }
 	| {
 			readonly kind: "token";

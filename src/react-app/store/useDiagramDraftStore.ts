@@ -67,6 +67,3 @@ export const useDiagramDraftStore = create<DiagramDraftState>()(
 		},
 	),
 );
-
-export const getDiagramDraft = (shareId: string | null) =>
-	useDiagramDraftStore.getState().getDraft(shareId);

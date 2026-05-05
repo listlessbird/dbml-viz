@@ -49,7 +49,7 @@ export interface DiagramSessionState extends DiagramSession {
 
 export type DiagramSessionStore = StoreApi<DiagramSessionState>;
 
-export interface TableDiff {
+interface TableDiff {
 	readonly addedTableIds: readonly string[];
 	readonly removedTableIds: readonly string[];
 }

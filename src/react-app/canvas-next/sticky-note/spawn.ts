@@ -9,7 +9,7 @@ import type { CanvasEdge, CanvasNode, SharedStickyNote } from "@/types";
 const STICKY_NOTE_AUTHORING_ZOOM = 1.15;
 const STICKY_NOTE_FOCUS_DURATION_MS = 260;
 
-export interface SpawnStickyNoteInput {
+interface SpawnStickyNoteInput {
 	readonly flowInstance: ReactFlowInstance<CanvasNode, CanvasEdge> | null;
 	readonly addStickyNote: (note: SharedStickyNote) => void;
 	readonly screenPoint: { readonly x: number; readonly y: number };

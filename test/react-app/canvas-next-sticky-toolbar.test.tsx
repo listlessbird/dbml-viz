@@ -3,7 +3,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { CanvasNextToolbar } from "@/canvas-next/canvas-toolbar";
+import { CanvasActionBar } from "@/canvas-next/canvas-action-bar";
 import { CanvasRuntimeContext } from "@/canvas-next/canvas-runtime-context";
 import { createCanvasRuntimeStore } from "@/canvas-next/canvas-runtime-store";
 import { DiagramSessionContext } from "@/diagram-session/diagram-session-context";
@@ -32,6 +32,8 @@ const fakeFlowInstance = (
 ): ReactFlowInstance<CanvasNode, CanvasEdge> => {
 	const partial = {
 		screenToFlowPosition: vi.fn(() => mapped),
+		getZoom: vi.fn(() => 1),
+		setCenter: vi.fn(),
 	};
 	return partial as unknown as ReactFlowInstance<CanvasNode, CanvasEdge>;
 };
@@ -64,7 +66,7 @@ function renderToolbar(
 		root.render(
 			<DiagramSessionContext value={diagramStore}>
 				<CanvasRuntimeContext value={runtimeStore}>
-					<CanvasNextToolbar />
+					<CanvasActionBar />
 				</CanvasRuntimeContext>
 			</DiagramSessionContext>,
 		);
@@ -75,11 +77,11 @@ function renderToolbar(
 	return { container, diagramStore, runtimeStore };
 }
 
-describe("CanvasNextToolbar", () => {
+describe("CanvasActionBar", () => {
 	it("renders an Add sticky note button", () => {
 		const { container } = renderToolbar();
 		const btn = container.querySelector<HTMLButtonElement>(
-			"[data-testid='canvas-next-add-sticky']",
+			'[aria-label="Add sticky note"]',
 		);
 		expect(btn).not.toBeNull();
 	});
@@ -87,7 +89,7 @@ describe("CanvasNextToolbar", () => {
 	it("disables the button until a React Flow instance is attached", () => {
 		const { container } = renderToolbar();
 		const btn = container.querySelector<HTMLButtonElement>(
-			"[data-testid='canvas-next-add-sticky']",
+			'[aria-label="Add sticky note"]',
 		);
 		expect(btn?.disabled).toBe(true);
 	});
@@ -95,7 +97,7 @@ describe("CanvasNextToolbar", () => {
 	it("spawns a sticky note via Diagram Session when clicked after instance attaches", () => {
 		const { container, diagramStore } = renderToolbar({ x: 75, y: 125 });
 		const btn = container.querySelector<HTMLButtonElement>(
-			"[data-testid='canvas-next-add-sticky']",
+			'[aria-label="Add sticky note"]',
 		);
 		expect(btn?.disabled).toBe(false);
 

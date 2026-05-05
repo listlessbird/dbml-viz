@@ -9,7 +9,7 @@ import {
 	useDiagramSessionStore,
 } from "@/diagram-session/diagram-session-context";
 
-export interface AutoArrangeCommand {
+interface AutoArrangeCommand {
 	readonly run: () => Promise<void>;
 	readonly isAvailable: boolean;
 }

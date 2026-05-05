@@ -12,7 +12,7 @@ import { DiagramSessionContext } from "@/diagram-session/diagram-session-context
 import { emptyDiagram } from "@/diagram-session/diagram-session-store";
 import type { DiagramRouteState } from "@/lib/draftPersistence";
 
-export interface UseSharePersistenceOptions {
+interface UseSharePersistenceOptions {
 	readonly viewedRoute: DiagramRouteState;
 	readonly currentShareBaseline: ShareBaseline | null;
 	readonly setShareBaseline: (baseline: ShareBaseline | null) => void;
