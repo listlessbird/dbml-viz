@@ -5,6 +5,60 @@ import {
 	parseSchemaSource,
 } from "../../src/parser-worker/schema-source-parser";
 
+describe("schema-source-parser source ranges", () => {
+	it("returns line/column/offset ranges for DBML tables keyed by table id", () => {
+		const source = [
+			"Table users {",
+			"  id int [pk]",
+			"}",
+			"",
+			"Table orders {",
+			"  id int [pk]",
+			"  user_id int",
+			"}",
+		].join("\n");
+
+		const result = parseSchemaSource(source);
+
+		expect(result.sourceRanges).not.toBeNull();
+		expect(result.sourceRanges?.tablesById.users).toMatchObject({
+			start: { line: 1, column: 1 },
+		});
+		expect(result.sourceRanges?.tablesById.orders).toMatchObject({
+			start: { line: 5, column: 1 },
+		});
+	});
+
+	it("returns ranges for DBML refs keyed by the same id used in ParsedSchema.refs", () => {
+		const source = [
+			"Table users {",
+			"  id int [pk]",
+			"}",
+			"",
+			"Table orders {",
+			"  id int [pk]",
+			"  user_id int",
+			"}",
+			"",
+			"Ref: orders.user_id > users.id",
+		].join("\n");
+
+		const result = parseSchemaSource(source);
+
+		expect(result.parsed.refs).toHaveLength(1);
+		const refId = result.parsed.refs[0].id;
+		expect(result.sourceRanges?.refsById[refId]).toMatchObject({
+			start: { line: 10, column: 1 },
+		});
+	});
+
+	it("returns null source ranges for SQL because tokens are unavailable", () => {
+		const result = parseSchemaSource("CREATE TABLE users (id int primary key);");
+
+		expect(result.sourceRanges).toBeNull();
+	});
+});
+
 describe("schema-source-parser", () => {
 	it("detects DBML first when the source uses DBML syntax", () => {
 		expect(getSchemaParseCandidates("Table users {\n  id int [pk]\n}")[0]).toEqual({

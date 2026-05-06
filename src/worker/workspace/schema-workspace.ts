@@ -1,8 +1,11 @@
 import { DurableObject } from "cloudflare:workers";
 import { createMcpHandler } from "agents/mcp";
+import { log } from "evlog";
 import { nanoid } from "nanoid";
 
-import { createWorkspaceMcpServer } from "./mcp-tools.ts";
+import { createParserClient } from "../lib/parser-client.ts";
+import type { CanvasPresence } from "./mcp/context.ts";
+import { createWorkspaceMcpServer } from "./mcp/server.ts";
 import { makeSnapshot, WorkspaceStorage } from "./workspace-storage.ts";
 import {
 	MAX_SCHEMA_SOURCE_LENGTH,
@@ -25,6 +28,11 @@ export class SchemaWorkspaceDO extends DurableObject<Env> {
 				try { ws.send(payload); } catch { /* gone */ }
 			}
 		}
+	}
+
+	private getCanvasPresence(): CanvasPresence {
+		const connectionCount = this.ctx.getWebSockets("browser").length;
+		return { connected: connectionCount > 0, connectionCount };
 	}
 
 
@@ -89,13 +97,6 @@ export class SchemaWorkspaceDO extends DurableObject<Env> {
 
 			case "set-notes":
 				return void await this.handlePatch(ws, { notes: [...msg.notes] });
-
-			case "set-diagnostics":
-				return void await this.store.saveBrowserMutation({
-					diagnostics: [...msg.diagnostics],
-					parsedTableCount: msg.tableCount,
-					parsedRefCount: msg.refCount,
-				});
 
 			case "share-request":
 				return void await this.handleShare(ws);
@@ -185,14 +186,21 @@ export class SchemaWorkspaceDO extends DurableObject<Env> {
 				ws,
 			);
 		} catch (error) {
-			console.error("Share failed", error);
+			log.error({ scope: "workspace_share", op: "save", cause: error });
 			ws.send(JSON.stringify({ type: "share-error", error: "Failed to save shared schema" } satisfies ServerMessage));
 		}
 	}
 
 
 	private getMcpHandler(route: string): McpFetchHandler {
-		const server = createWorkspaceMcpServer(this.store, (msg) => this.broadcast(msg));
+		const server = createWorkspaceMcpServer({
+			storage: this.store,
+			getCanvasPresence: () => this.getCanvasPresence(),
+			parserClient: createParserClient({
+				parserService: this.env.SCHEMA_PARSER,
+			}),
+			broadcast: (msg) => this.broadcast(msg),
+		});
 		return createMcpHandler(server, { route });
 	}
 

@@ -16,6 +16,7 @@ export const parseSchema = async (source: string): Promise<ParsedSourceResult> =
 		return {
 			parsed: EMPTY_SCHEMA,
 			metadata: { format: "dbml" },
+			sourceRanges: null,
 		};
 	}
 
@@ -40,6 +41,7 @@ export const parseSchema = async (source: string): Promise<ParsedSourceResult> =
 		return {
 			parsed: payload.parsed,
 			metadata: payload.metadata,
+			sourceRanges: payload.sourceRanges ?? null,
 		};
 	}
 

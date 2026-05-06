@@ -11,7 +11,7 @@ import { getColumnConstraintBadges } from "@/lib/table-constraints";
 
 describe("buildParsedSchemaFromDatabase", () => {
 	it("preserves composite keys, indexes, and foreign keys from SQL", () => {
-		const parsed = buildParsedSchemaFromDatabase(
+		const { parsed } = buildParsedSchemaFromDatabase(
 			Parser.parse(
 				`
 					CREATE TABLE parent (
@@ -92,7 +92,7 @@ describe("buildParsedSchemaFromDatabase", () => {
 
 describe("parseDbmlSource", () => {
 	it("maps DBML composite indexes into column flags and table constraints", () => {
-		const parsed = parseDbmlSource(`
+		const { parsed } = parseDbmlSource(`
 			Table memberships {
 			  tenant_id int [not null]
 			  user_id int [not null]

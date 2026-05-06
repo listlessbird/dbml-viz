@@ -72,12 +72,6 @@ export type ClientMessage =
 	| { readonly type: "set-source"; readonly source: string }
 	| { readonly type: "set-positions"; readonly positions: DiagramPositions }
 	| { readonly type: "set-notes"; readonly notes: readonly SharedStickyNote[] }
-	| {
-			readonly type: "set-diagnostics";
-			readonly diagnostics: readonly ParseDiagnostic[];
-			readonly tableCount: number;
-			readonly refCount: number;
-	  }
 	| { readonly type: "share-request" }
 	| { readonly type: "ping" };
 
