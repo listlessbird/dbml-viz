@@ -10,9 +10,26 @@ export const EMPTY_SCHEMA: ParsedSchema = {
 	errors: [],
 };
 
+export interface SourcePosition {
+	readonly line: number;
+	readonly column: number;
+	readonly offset: number;
+}
+
+export interface SourceRange {
+	readonly start: SourcePosition;
+	readonly end: SourcePosition;
+}
+
+export interface ParsedSchemaSourceRanges {
+	readonly tablesById: Readonly<Record<string, SourceRange>>;
+	readonly refsById: Readonly<Record<string, SourceRange>>;
+}
+
 export interface ParsedSourceResult {
 	readonly parsed: ParsedSchema;
 	readonly metadata: SchemaSourceMetadata;
+	readonly sourceRanges?: ParsedSchemaSourceRanges | null;
 }
 
 export class SchemaParseError extends Error {

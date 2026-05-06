@@ -1,6 +1,10 @@
 import { Parser, type Database as DbmlDatabase } from "@dbml/core";
 
-import { EMPTY_SCHEMA } from "@/lib/parser-shared";
+import {
+	EMPTY_SCHEMA,
+	type ParsedSchemaSourceRanges,
+	type SourceRange,
+} from "@/lib/parser-shared";
 import type { ParsedSchema, RefData, RefType, TableData } from "@/types";
 
 import {
@@ -110,20 +114,69 @@ const buildTables = (
 	);
 };
 
-export const buildParsedSchemaFromDatabase = (database: DbmlDatabase): ParsedSchema => {
+interface DbmlParseOutput {
+	readonly parsed: ParsedSchema;
+	readonly sourceRanges: ParsedSchemaSourceRanges;
+}
+
+const tokenToSourceRange = (token: {
+	start: { line: number; column: number; offset: number };
+	end: { line: number; column: number; offset: number };
+}): SourceRange => ({
+	start: { line: token.start.line, column: token.start.column, offset: token.start.offset },
+	end: { line: token.end.line, column: token.end.column, offset: token.end.offset },
+});
+
+const collectSourceRanges = (
+	database: DbmlDatabase,
+	parsed: ParsedSchema,
+): ParsedSchemaSourceRanges => {
+	const tablesById: Record<string, SourceRange> = {};
+	const refsById: Record<string, SourceRange> = {};
+
+	for (const schema of database.schemas) {
+		for (const table of schema.tables) {
+			const tableId = tableIdFromParts(schema.name, table.name);
+			if (table.token) {
+				tablesById[tableId] = tokenToSourceRange(table.token);
+			}
+		}
+	}
+
+	let refIndex = 0;
+	for (const schema of database.schemas) {
+		for (const ref of schema.refs) {
+			const refData = parsed.refs[refIndex];
+			refIndex += 1;
+			if (refData && ref.token) {
+				refsById[refData.id] = tokenToSourceRange(ref.token);
+			}
+		}
+	}
+
+	return { tablesById, refsById };
+};
+
+export const buildParsedSchemaFromDatabase = (
+	database: DbmlDatabase,
+): DbmlParseOutput => {
 	const exported = database.export();
 	const refs = buildRefs(exported.schemas);
-
-	return {
+	const parsed: ParsedSchema = {
 		tables: buildTables(exported.schemas, refs),
 		refs,
 		errors: [],
 	};
+
+	return {
+		parsed,
+		sourceRanges: collectSourceRanges(database, parsed),
+	};
 };
 
-export const parseDbmlSource = (dbml: string): ParsedSchema => {
+export const parseDbmlSource = (dbml: string): DbmlParseOutput => {
 	if (dbml.trim().length === 0) {
-		return EMPTY_SCHEMA;
+		return { parsed: EMPTY_SCHEMA, sourceRanges: { tablesById: {}, refsById: {} } };
 	}
 
 	return buildParsedSchemaFromDatabase(Parser.parse(dbml, "dbmlv2"));

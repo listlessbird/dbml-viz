@@ -1,4 +1,4 @@
-import type { SchemaWorkspaceDO } from "./schema-workspace.ts";
+import type { SchemaWorkspaceDO } from "../workspace/schema-workspace.ts";
 
 export async function callWorkspace<T>(
 	env: Env,

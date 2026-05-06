@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { decideWorkspaceAttach } from "../../src/worker/durable-objects/workspace-attach";
-import type { WorkspaceSeed, WorkspaceState } from "../../src/worker/durable-objects/workspace-types";
+import { decideWorkspaceAttach } from "../../src/worker/workspace/workspace-attach";
+import type { WorkspaceSeed, WorkspaceState } from "../../src/worker/workspace/workspace-types";
 
 const browserSeed: WorkspaceSeed = {
 	source: "Table browser {}",

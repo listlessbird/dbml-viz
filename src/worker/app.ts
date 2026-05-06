@@ -2,13 +2,17 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { nanoid } from "nanoid";
 import { z } from "zod";
+import { initWorkersLogger } from "evlog/workers";
+import { evlog, type EvlogVariables } from "evlog/hono";
 
 import {
 	SHARE_TTL_SECONDS,
 	sharedSchemaPayloadSchema,
 	type ShareErrorResponse,
 } from "./domain/schema-share";
-import { callWorkspace } from "./durable-objects/call-workspace";
+import { callWorkspace } from "./lib/call-workspace";
+
+initWorkersLogger({ env: { service: "dbml-viz" } });
 
 const loadParamsSchema = z.object({
 	id: z.string().min(1, "A shared schema id is required."),
@@ -17,7 +21,8 @@ const loadParamsSchema = z.object({
 const validationError = (message: string) =>
 	({ error: message }) satisfies ShareErrorResponse;
 
-export const app = new Hono<{ Bindings: Env }>()
+export const app = new Hono<{ Bindings: Env } & EvlogVariables>()
+	.use(evlog())
 	.get("/api/health", (c) => c.json({ ok: true as const }, 200))
 	.all("/api/parse", (c) => c.env.SCHEMA_PARSER.fetch(c.req.raw))
 	.all("/api/agent/:workspaceId/ws", (c) =>
@@ -50,7 +55,7 @@ export const app = new Hono<{ Bindings: Env }>()
 				});
 				return c.json({ id }, 201);
 			} catch (error) {
-				console.error("error saving shared schema", error);
+				c.get("log").error(error instanceof Error ? error : new Error(String(error)));
 				return c.json(
 					{ error: "Unable to access the shared schema store." } satisfies ShareErrorResponse,
 					500,
@@ -80,7 +85,7 @@ export const app = new Hono<{ Bindings: Env }>()
 
 				const result = sharedSchemaPayloadSchema.safeParse(rawPayload);
 				if (!result.success) {
-					console.error("error decoding shared schema", result.error);
+					c.get("log").error(result.error);
 					return c.json(
 						{ error: "Unable to access the shared schema store." } satisfies ShareErrorResponse,
 						500,
@@ -89,7 +94,7 @@ export const app = new Hono<{ Bindings: Env }>()
 
 				return c.json(result.data, 200);
 			} catch (error) {
-				console.error("error loading shared schema", error);
+				c.get("log").error(error instanceof Error ? error : new Error(String(error)));
 				return c.json(
 					{ error: "Unable to access the shared schema store." } satisfies ShareErrorResponse,
 					500,

@@ -26,15 +26,19 @@ const parseWithCandidate = (
 	candidate: SchemaParseCandidate,
 ): ParsedSourceResult => {
 	if (candidate.format === "dbml") {
+		const dbml = parseDbmlSource(source);
 		return {
-			parsed: parseDbmlSource(source),
+			parsed: dbml.parsed,
 			metadata: toSchemaSourceMetadata(candidate),
+			sourceRanges: dbml.sourceRanges,
 		};
 	}
 
+	const sql = buildParsedSchemaFromDatabase(Parser.parse(source, candidate.dialect));
 	return {
-		parsed: buildParsedSchemaFromDatabase(Parser.parse(source, candidate.dialect)),
+		parsed: sql.parsed,
 		metadata: toSchemaSourceMetadata(candidate),
+		sourceRanges: null,
 	};
 };
 
@@ -64,6 +68,7 @@ export const parseSchemaSource = (source: string): ParsedSourceResult => {
 		return {
 			parsed: EMPTY_SCHEMA,
 			metadata: getPreferredSourceMetadata(source),
+			sourceRanges: { tablesById: {}, refsById: {} },
 		};
 	}
 

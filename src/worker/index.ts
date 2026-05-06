@@ -7,4 +7,4 @@ export type { AppType } from "./app";
 export {
 	SchemaWorkspaceDO,
 	SchemaWorkspaceDO as SchemaSessionDO,
-} from "./durable-objects/schema-workspace";
+} from "./workspace/schema-workspace";
