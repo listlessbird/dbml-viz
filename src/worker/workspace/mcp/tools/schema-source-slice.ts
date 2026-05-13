@@ -280,34 +280,38 @@ export const schemaSourceSliceTool = {
 	name: "schema_source_slice",
 	config: {
 		description:
-			"Returns a bounded Schema Source Slice with line numbers, exact text suitable as oldString for schema_edit (or expectedCurrentText for schema_apply_patch), and current Workspace freshness. Use this — not full Schema Source — to inspect a specific Table, Relationship, diagnostic, or line range. Pick a target after schema_overview. If the response is truncated, request a narrower target. To read the entire Schema Source, paginate by calling schema_source_slice repeatedly with { kind: \"lines\", startLine, endLine }, advancing startLine/endLine each call and watching the truncated flag and maxLines cap.",
+			"Returns a bounded Schema Source Slice with line numbers, exact text suitable as oldString for schema_edit (or expectedCurrentText for schema_apply_patch), and current Workspace freshness. Use this — not full Schema Source — to inspect a specific Table, Relationship, diagnostic, or line range. Pick a target after schema_overview. target must be an object of one of these shapes: { kind: \"table\", tableId } | { kind: \"relationship\", relationshipId } | { kind: \"diagnostic\", index, contextLines? } | { kind: \"lines\", startLine, endLine } — never a bare id string, and never a JSON-stringified value. If the response is truncated, request a narrower target. When preparing a schema_edit call, slice only around the region you are about to change (the specific table/relationship, or a narrow lines window around your anchor) — do not read the whole source just to build oldString. Reading the entire Schema Source is reserved for review/export workflows; in that case, paginate by calling schema_source_slice repeatedly with { kind: \"lines\", startLine, endLine }, advancing startLine/endLine each call and watching the truncated flag and maxLines cap.",
 		inputSchema: {
-			target: z.discriminatedUnion("kind", [
-				z.object({
-					kind: z.literal("table"),
-					tableId: z.string().describe("Table id from schema_overview"),
-				}),
-				z.object({
-					kind: z.literal("relationship"),
-					relationshipId: z
-						.string()
-						.describe("Relationship id from schema_overview"),
-				}),
-				z.object({
-					kind: z.literal("diagnostic"),
-					index: z
-						.number()
-						.int()
-						.nonnegative()
-						.describe("Index into schema_overview.diagnostics"),
-					contextLines: z.number().int().nonnegative().optional(),
-				}),
-				z.object({
-					kind: z.literal("lines"),
-					startLine: z.number().int().min(1),
-					endLine: z.number().int().min(1),
-				}),
-			]),
+			target: z
+				.discriminatedUnion("kind", [
+					z.object({
+						kind: z.literal("table"),
+						tableId: z.string().describe("Table id from schema_overview"),
+					}),
+					z.object({
+						kind: z.literal("relationship"),
+						relationshipId: z
+							.string()
+							.describe("Relationship id from schema_overview"),
+					}),
+					z.object({
+						kind: z.literal("diagnostic"),
+						index: z
+							.number()
+							.int()
+							.nonnegative()
+							.describe("Index into schema_overview.diagnostics"),
+						contextLines: z.number().int().nonnegative().optional(),
+					}),
+					z.object({
+						kind: z.literal("lines"),
+						startLine: z.number().int().min(1),
+						endLine: z.number().int().min(1),
+					}),
+				])
+				.describe(
+					'Slice target as a discriminated union on `kind`. Use { kind: "table", tableId } or { kind: "relationship", relationshipId } with ids from schema_overview; { kind: "diagnostic", index, contextLines? } to read around a parser diagnostic; { kind: "lines", startLine, endLine } for a raw 1-based line range (also the pagination shape for reading the whole source). Passing a bare id string is invalid.',
+				),
 			maxLines: z
 				.number()
 				.int()
