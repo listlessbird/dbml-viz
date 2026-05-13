@@ -7,6 +7,7 @@ import {
 	emptyParsedSchema,
 	type DiagramSessionStore,
 } from "@/diagram-session/diagram-session-store";
+import { getPreferredSourceMetadata } from "@/lib/schema-source-detection";
 import type { Diagram } from "@/diagram-session/diagram-session-context";
 import type { CanvasRuntimeStore } from "@/canvas-next/canvas-runtime-store";
 import type {
@@ -110,7 +111,7 @@ export function createWorkspaceStore({
 	requestFocus,
 	handleShareResult,
 	createWorkspaceId = getOrCreateDeviceId,
-	getLastUpdatedAt = () => 0,
+	getLastUpdatedAt = () => Date.now(),
 	setLastUpdatedAt,
 	reconnectDelayMs = DEFAULT_RECONNECT_DELAY_MS,
 }: WorkspaceStoreAdapters): WorkspaceStore {
@@ -281,7 +282,20 @@ export function createWorkspaceStore({
 
 export const createDiagramSessionWorkspaceHydrator =
 	(diagramStore: DiagramSessionStore) => (snapshot: WorkspaceSnapshot) => {
-		diagramStore.getState().hydrateDiagram(diagramFromWorkspaceSnapshot(snapshot));
+		const state = diagramStore.getState();
+		const currentDiagram = state.diagram;
+		const isSameSource = currentDiagram.source === snapshot.source;
+		state.hydrateDiagram(
+			{
+				...diagramFromWorkspaceSnapshot(snapshot),
+				parsedSchema: isSameSource
+					? currentDiagram.parsedSchema
+					: emptyParsedSchema,
+			},
+			isSameSource
+				? state.sourceMetadata
+				: getPreferredSourceMetadata(snapshot.source),
+		);
 	};
 
 export const createDiagramSessionWorkspacePatchApplier =
