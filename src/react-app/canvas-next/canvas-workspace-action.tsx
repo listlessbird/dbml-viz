@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 import { WorkspaceStatusPill } from "@/components/agent-connectivity/WorkspaceStatusPill";
 import { ConnectAgentModal } from "@/components/agent-connectivity/ConnectAgentModal";
@@ -32,7 +33,14 @@ const workspaceLabel = (status: WorkspaceStatus) => {
 
 export function CanvasNextWorkspaceAction() {
 	const status = useWorkspace((state) => state.status);
-	const workspaceId = useWorkspace((state) => state.workspaceId);
+	const workspaceUrl = useWorkspace((state) => state.workspaceUrl);
+	const mcpClientPresence = useWorkspace((state) => state.mcpClientPresence);
+	const disconnectedClientName = useWorkspace((state) =>
+		state.mcpClientPresence.status === "disconnected"
+			? state.mcpClientPresence.clientInfo.title ??
+				state.mcpClientPresence.clientInfo.name
+			: null,
+	);
 	const attach = useWorkspace((state) => state.attach);
 	const detach = useWorkspace((state) => state.detach);
 	const [isModalOpen, setIsModalOpen] = useState(false);
@@ -49,6 +57,11 @@ export function CanvasNextWorkspaceAction() {
 		setIsModalOpen(true);
 	};
 
+	useEffect(() => {
+		if (!disconnectedClientName) return;
+		toast(`${disconnectedClientName} disconnected`);
+	}, [disconnectedClientName]);
+
 	return (
 		<>
 			<WorkspaceStatusPill
@@ -56,12 +69,13 @@ export function CanvasNextWorkspaceAction() {
 				tone="light"
 				label={workspaceLabel(status)}
 				hint={status}
+				mcpClientPresence={mcpClientPresence}
 				onClick={handleClick}
 			/>
 			<ConnectAgentModal
 				open={isModalOpen}
 				status={status}
-				workspaceUrl={workspaceId}
+				workspaceUrl={workspaceUrl}
 				onOpenChange={setIsModalOpen}
 			/>
 			<AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>

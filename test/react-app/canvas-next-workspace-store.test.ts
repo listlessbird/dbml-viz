@@ -165,6 +165,51 @@ describe("canvas-next Workspace Module Store", () => {
 			tablePositions: snapshot.positions,
 			stickyNotes: snapshot.notes,
 		});
+		expect(store.getState().mcpClientPresence).toEqual({
+			status: "waiting",
+			clientInfo: null,
+		});
+	});
+
+	it("tracks MCP Client Presence from connected and disconnected updates", () => {
+		const { store, transports } = createHarness();
+		store.getState().attach();
+		transports[0]!.open();
+		transports[0]!.serverMessage({ type: "state-ack", state: snapshot });
+
+		transports[0]!.serverMessage({
+			type: "mcp-client-update",
+			status: "connected",
+			clientInfo: {
+				name: "inspector-client",
+				version: "0.21.2",
+			},
+		});
+
+		expect(store.getState().mcpClientPresence).toEqual({
+			status: "connected",
+			clientInfo: {
+				name: "inspector-client",
+				version: "0.21.2",
+			},
+		});
+
+		transports[0]!.serverMessage({
+			type: "mcp-client-update",
+			status: "disconnected",
+			clientInfo: {
+				name: "inspector-client",
+				version: "0.21.2",
+			},
+		});
+
+		expect(store.getState().mcpClientPresence).toEqual({
+			status: "disconnected",
+			clientInfo: {
+				name: "inspector-client",
+				version: "0.21.2",
+			},
+		});
 	});
 
 	it("routes remote Focus through Canvas Runtime without mutating durable Diagram state", () => {

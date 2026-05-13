@@ -1,12 +1,11 @@
 import type { ButtonHTMLAttributes, CSSProperties } from "react";
-import { forwardRef, useMemo, useState } from "react";
+import { forwardRef, useMemo } from "react";
 
 import { cn } from "@/lib/utils";
-import type { WorkspaceStatus } from "@/types/workspace";
+import type { McpClientPresence, WorkspaceStatus } from "@/types/workspace";
 
 type WorkspacePillTone = "light" | "dark";
 
-/** Brand color palette for a client — derived from their icon's dominant color. */
 interface ClientBrand {
 	/** Light mode: pill background */
 	bg: string;
@@ -36,12 +35,7 @@ interface WorkspaceStatusPillProps
 	readonly kbd?: string;
 	readonly tone?: WorkspacePillTone;
 	readonly active?: boolean;
-	readonly clientInfo?: {
-		readonly name: string;
-		readonly ver?: string | null;
-		readonly icon?: string;
-		readonly iconSlug?: string;
-	};
+	readonly mcpClientPresence?: McpClientPresence;
 }
 
 const baseClasses =
@@ -49,19 +43,19 @@ const baseClasses =
 
 const lightTones: Record<WorkspaceStatus, string> = {
 	offline:
-		"border-[var(--gray-300)] bg-[var(--paper)] text-[var(--gray-700)] hover:bg-[var(--gray-100)]",
+		"border-(--gray-300) bg-(--paper) text-(--gray-700) hover:bg-(--gray-100)",
 	connecting:
 		"border-[oklch(0.825_0.07_255)] bg-[oklch(0.965_0.014_255)] text-[oklch(0.38_0.14_260)]",
 	live: "", // handled dynamically per-client brand
 	reconnecting:
 		"border-[oklch(0.82_0.08_60)] bg-[oklch(0.97_0.025_60)] text-[oklch(0.47_0.14_60)]",
 	ended:
-		"border-[oklch(0.86_0.04_25)] bg-[oklch(0.975_0.014_25)] text-[var(--crimson-700)]",
+		"border-[oklch(0.86_0.04_25)] bg-[oklch(0.975_0.014_25)] text-(--crimson-700)",
 };
 
 const darkTones: Record<WorkspaceStatus, string> = {
 	offline:
-		"border-white/[0.14] bg-[var(--gray-800)] text-[var(--gray-100)] hover:border-white/25 hover:bg-[var(--gray-700)]",
+		"border-white/[0.14] bg-(--gray-800) text-(--gray-100) hover:border-white/25 hover:bg-(--gray-700)",
 	connecting:
 		"border-[oklch(0.38_0.14_260)] bg-[oklch(0.225_0.08_260)] text-[oklch(0.91_0.038_255)]",
 	live: "", // handled dynamically per-client brand
@@ -72,13 +66,12 @@ const darkTones: Record<WorkspaceStatus, string> = {
 };
 
 const dotTones: Record<WorkspaceStatus, { light: string; dark: string }> = {
-	offline: { light: "bg-[var(--gray-400)]", dark: "bg-[var(--gray-400)]" },
+	offline: { light: "bg-(--gray-400)", dark: "bg-(--gray-400)" },
 	connecting: {
 		light: "bg-[oklch(0.38_0.14_260)]",
 		dark: "bg-[oklch(0.68_0.12_255)]",
 	},
 	live: {
-		// overridden by brand dot color when live
 		light: "",
 		dark: "",
 	},
@@ -87,7 +80,7 @@ const dotTones: Record<WorkspaceStatus, { light: string; dark: string }> = {
 		dark: "bg-[oklch(0.78_0.15_60)]",
 	},
 	ended: {
-		light: "bg-[var(--crimson-500)]",
+		light: "bg-(--crimson-500)",
 		dark: "bg-[oklch(0.625_0.17_25)]",
 	},
 };
@@ -100,9 +93,7 @@ const dotAnimationClass: Record<WorkspaceStatus, string> = {
 	ended: "",
 };
 
-/* ─── Per-client brand palettes ─────────────────────────────────────── */
 
-// Claude Code — warm terracotta (#D97757, hue ≈ 45)
 const BRAND_CLAUDE: ClientBrand = {
 	bg: "oklch(0.955 0.035 45)",
 	bgHover: "oklch(0.935 0.05 45)",
@@ -118,7 +109,6 @@ const BRAND_CLAUDE: ClientBrand = {
 	},
 };
 
-// Cursor — monochrome/dark icon (currentColor), hue ≈ 250 (cool neutral)
 const BRAND_CURSOR: ClientBrand = {
 	bg: "oklch(0.96 0.006 250)",
 	bgHover: "oklch(0.94 0.01 250)",
@@ -134,7 +124,6 @@ const BRAND_CURSOR: ClientBrand = {
 	},
 };
 
-// Codex (OpenAI) — purple-blue gradient (#B1A7FF → #7A9DFF → #3941FF, hue ≈ 275)
 const BRAND_CODEX: ClientBrand = {
 	bg: "oklch(0.955 0.03 275)",
 	bgHover: "oklch(0.935 0.05 275)",
@@ -150,7 +139,6 @@ const BRAND_CODEX: ClientBrand = {
 	},
 };
 
-// Antigravity — vibrant multicolor, dominant blue-green (#3186FF + #00B95C, hue ≈ 200)
 const BRAND_ANTIGRAVITY: ClientBrand = {
 	bg: "oklch(0.955 0.03 200)",
 	bgHover: "oklch(0.935 0.045 200)",
@@ -166,7 +154,6 @@ const BRAND_ANTIGRAVITY: ClientBrand = {
 	},
 };
 
-// MCP — neutral (uses currentColor in icon, keep slate)
 const BRAND_MCP: ClientBrand = {
 	bg: "oklch(0.965 0.005 260)",
 	bgHover: "oklch(0.94 0.008 260)",
@@ -191,13 +178,18 @@ function brandForClient(name: string): ClientBrand {
 	return BRAND_MCP;
 }
 
-const SAMPLE_CLIENTS = [
-	{ name: "Claude Code", ver: "0.45.2", icon: "/cc.svg" },
-	{ name: "Cursor", ver: "0.42", icon: "/cursor.svg" },
-	{ name: "Codex", ver: "1.0", icon: "/codex.svg" },
-	{ name: "Antigravity", ver: "0.1", icon: "/antigravity.svg" },
-	{ name: "MCP client", ver: null, icon: "/mcp.svg" },
-];
+function displayNameForClient(clientName: string, title?: string): string {
+	return title || clientName;
+}
+
+function iconForClient(clientName: string): string {
+	const n = clientName.toLowerCase();
+	if (n.includes("claude")) return "/cc.svg";
+	if (n.includes("cursor")) return "/cursor.svg";
+	if (n.includes("codex")) return "/codex.svg";
+	if (n.includes("antigravity")) return "/antigravity.svg";
+	return "/mcp.svg";
+}
 
 export const WorkspaceStatusPill = forwardRef<
 	HTMLButtonElement,
@@ -210,7 +202,7 @@ export const WorkspaceStatusPill = forwardRef<
 		kbd,
 		tone = "light",
 		active = false,
-		clientInfo,
+		mcpClientPresence = { status: "waiting", clientInfo: null },
 		className,
 		type = "button",
 		style,
@@ -220,40 +212,36 @@ export const WorkspaceStatusPill = forwardRef<
 ) {
 	const isInteractive = typeof rest.onClick === "function";
 
-	const [randomClient] = useState(
-		() => SAMPLE_CLIENTS[Math.floor(Math.random() * SAMPLE_CLIENTS.length)],
-	);
+	const clientInfo = mcpClientPresence.clientInfo;
+	const clientName =
+		mcpClientPresence.status === "connected" && clientInfo
+			? displayNameForClient(clientInfo.name, clientInfo.title)
+			: mcpClientPresence.status === "disconnected"
+			? "MCP client disconnected"
+			: "Waiting for MCP client";
+	const clientVer =
+		mcpClientPresence.status === "connected" ? clientInfo?.version ?? null : null;
+	const clientIcon = clientInfo ? iconForClient(clientInfo.name) : "/mcp.svg";
 
-	const clientName = clientInfo?.name || randomClient.name;
-	const clientVer = clientInfo?.ver ?? randomClient.ver;
-	const clientIcon =
-		clientInfo?.icon ||
-		(clientInfo?.iconSlug
-			? `https://unpkg.com/@lobehub/icons-static-svg@latest/icons/${clientInfo.iconSlug}.svg`
-			: randomClient.icon);
+	const fullClientTitle = clientVer ? `${clientName} ${clientVer}` : clientName;
 
 	const brand = useMemo(() => brandForClient(clientName), [clientName]);
 
-	// Build inline style + classes for the live state
-	const liveStyle = useMemo((): CSSProperties | undefined => {
+	const buttonStyle = useMemo((): CSSProperties | undefined => {
 		if (status !== "live") return undefined;
 		const b = tone === "dark" ? brand.dark : brand;
 		return {
-			backgroundColor: b.bg,
-			borderColor: b.border,
-			color: b.text,
+			...style,
+			"--acnx-pill-bg": b.bg,
+			"--acnx-pill-bg-hover": b.bgHover,
+			"--acnx-pill-border": b.border,
+			"--acnx-pill-text": b.text,
 			boxShadow:
 				tone === "dark"
 					? `inset 0 1px 0 rgba(255,255,255,0.06), 0 0 0 0.5px ${b.border}`
 					: `inset 0 1px 0 rgba(255,255,255,0.7), 0 1px 2px rgba(0,0,0,0.06), 0 0 0 0.5px ${b.border}`,
-		};
-	}, [status, tone, brand]);
-
-	const liveHoverStyle = useMemo((): string | undefined => {
-		if (status !== "live") return undefined;
-		const b = tone === "dark" ? brand.dark : brand;
-		return `background-color: ${b.bgHover}`;
-	}, [status, tone, brand]);
+		} as CSSProperties;
+	}, [status, tone, brand, style]);
 
 	const toneClass =
 		status === "live"
@@ -265,7 +253,6 @@ export const WorkspaceStatusPill = forwardRef<
 	const dotColor =
 		status === "live" ? "" : dotTones[status][tone];
 
-	// Dot style for brand-colored live dot
 	const liveDotStyle = useMemo((): CSSProperties | undefined => {
 		if (status !== "live") return undefined;
 		const b = tone === "dark" ? brand.dark : brand;
@@ -276,9 +263,12 @@ export const WorkspaceStatusPill = forwardRef<
 		<button
 			ref={ref}
 			type={type}
+			title={fullClientTitle}
 			className={cn(
 				baseClasses,
 				status === "live" ? "pl-1 pr-2.5" : "px-2.5",
+				status === "live" &&
+					"border-(--acnx-pill-border) bg-(--acnx-pill-bg) text-(--acnx-pill-text) hover:bg-(--acnx-pill-bg-hover)",
 				toneClass,
 				isInteractive
 					? "cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-current/30"
@@ -289,24 +279,7 @@ export const WorkspaceStatusPill = forwardRef<
 			aria-pressed={active || undefined}
 			data-status={status}
 			data-tone={tone}
-			style={{ ...style, ...liveStyle }}
-			onMouseEnter={
-				liveHoverStyle && isInteractive
-					? (e) => {
-							e.currentTarget.setAttribute("style", `${e.currentTarget.getAttribute("style") ?? ""}; ${liveHoverStyle}`);
-						}
-					: undefined
-			}
-			onMouseLeave={
-				liveStyle && isInteractive
-					? (e) => {
-							// Reset to base live style
-							const s = e.currentTarget.style;
-							const b = tone === "dark" ? brand.dark : brand;
-							s.backgroundColor = b.bg;
-						}
-					: undefined
-			}
+			style={status === "live" ? buttonStyle : style}
 			{...rest}
 		>
 			{status === "live" ? (
@@ -316,7 +289,7 @@ export const WorkspaceStatusPill = forwardRef<
 							"inline-flex items-center justify-center size-[18px] shrink-0 border mr-0.5",
 							tone === "dark"
 								? "border-white/18 bg-white/8"
-								: "border-current/12 bg-current/[0.06]",
+								: "border-current/12 bg-current/6",
 						)}
 					>
 						<img
@@ -369,8 +342,8 @@ export const WorkspaceStatusPill = forwardRef<
 					className={cn(
 						"ml-1 inline-flex h-4 items-center justify-center border px-1 font-mono text-[10px] leading-none tracking-tight shrink-0",
 						tone === "dark"
-							? "border-white/15 bg-black/30 text-[var(--gray-300)]"
-							: "border-[var(--gray-200)] bg-[var(--gray-100)] text-[var(--gray-500)]",
+							? "border-white/15 bg-black/30 text-(--gray-300)"
+							: "border-(--gray-200) bg-(--gray-100) text-(--gray-500)",
 					)}
 				>
 					{kbd}
@@ -379,5 +352,3 @@ export const WorkspaceStatusPill = forwardRef<
 		</button>
 	);
 });
-
-

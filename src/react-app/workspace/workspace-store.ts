@@ -12,6 +12,7 @@ import type { Diagram } from "@/diagram-session/diagram-session-context";
 import type { CanvasRuntimeStore } from "@/canvas-next/canvas-runtime-store";
 import type {
 	ClientWorkspaceMessage,
+	McpClientPresence,
 	ServerWorkspaceMessage,
 	WorkspaceSeed,
 	WorkspaceSnapshot,
@@ -55,12 +56,7 @@ export interface WorkspaceState {
 	readonly status: WorkspaceStatus;
 	readonly workspaceId: string | null;
 	readonly workspaceUrl: string | null;
-	readonly clientInfo?: {
-		readonly name: string;
-		readonly ver?: string | null;
-		readonly icon?: string;
-		readonly iconSlug?: string;
-	} | null;
+	readonly mcpClientPresence: McpClientPresence;
 	readonly reconnectAttempt: number;
 	readonly lastError: string | null;
 	readonly attach: () => void;
@@ -155,9 +151,17 @@ export function createWorkspaceStore({
 							set({
 								status: "live",
 								workspaceUrl: makeWorkspaceMcpUrl(workspaceId),
-								clientInfo: message.state.clientInfo ?? null,
+								mcpClientPresence: { status: "waiting", clientInfo: null },
 								reconnectAttempt: 0,
 								lastError: null,
+							});
+							return;
+						case "mcp-client-update":
+							set({
+								mcpClientPresence:
+									message.status === "connected"
+										? { status: "connected", clientInfo: message.clientInfo }
+										: { status: "disconnected", clientInfo: message.clientInfo },
 							});
 							return;
 						case "focus":
@@ -182,7 +186,7 @@ export function createWorkspaceStore({
 									status: "ended",
 									workspaceId: null,
 									workspaceUrl: null,
-									clientInfo: null,
+									mcpClientPresence: { status: "waiting", clientInfo: null },
 									reconnectAttempt: 0,
 									lastError: "workspace-expired",
 								});
@@ -210,7 +214,7 @@ export function createWorkspaceStore({
 							status: "offline",
 							workspaceId: null,
 							workspaceUrl: null,
-							clientInfo: null,
+							mcpClientPresence: { status: "waiting", clientInfo: null },
 							lastError: "Workspace connection lost.",
 							reconnectAttempt: 0,
 						});
@@ -239,7 +243,7 @@ export function createWorkspaceStore({
 			status: "offline",
 			workspaceId: null,
 			workspaceUrl: null,
-			clientInfo: null,
+			mcpClientPresence: { status: "waiting", clientInfo: null },
 			reconnectAttempt: 0,
 			lastError: null,
 			attach: () => {
@@ -252,7 +256,7 @@ export function createWorkspaceStore({
 					status: "connecting",
 					workspaceId,
 					workspaceUrl: null,
-					clientInfo: null,
+					mcpClientPresence: { status: "waiting", clientInfo: null },
 					reconnectAttempt: 0,
 					lastError: null,
 				});
@@ -267,7 +271,7 @@ export function createWorkspaceStore({
 					status: "offline",
 					workspaceId: null,
 					workspaceUrl: null,
-					clientInfo: null,
+					mcpClientPresence: { status: "waiting", clientInfo: null },
 					reconnectAttempt: 0,
 					lastError: null,
 				});
@@ -282,7 +286,7 @@ export function createWorkspaceStore({
 					status: "offline",
 					workspaceId: null,
 					workspaceUrl: null,
-					clientInfo: null,
+					mcpClientPresence: { status: "waiting", clientInfo: null },
 					reconnectAttempt: 0,
 					lastError: null,
 				});

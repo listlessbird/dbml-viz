@@ -40,6 +40,12 @@ export interface WorkspaceSnapshot {
 	readonly updatedAt: number;
 }
 
+export interface McpClientInfo {
+	readonly name: string;
+	readonly title?: string | undefined;
+	readonly version?: string;
+}
+
 export interface WorkspaceSeed {
 	readonly source: string;
 	readonly positions: DiagramPositions;
@@ -57,6 +63,8 @@ export type ClientMessage =
 
 export type ServerMessage =
 	| { readonly type: "state-ack"; readonly state: WorkspaceSnapshot }
+	| { readonly type: "mcp-client-update"; readonly status: "connected"; readonly clientInfo: McpClientInfo }
+	| { readonly type: "mcp-client-update"; readonly status: "disconnected"; readonly clientInfo: McpClientInfo }
 	| { readonly type: "state-update"; readonly patch: Partial<WorkspaceSnapshot> }
 	| { readonly type: "focus"; readonly tableIds: readonly string[] }
 	| { readonly type: "share-result"; readonly id: string }
