@@ -55,6 +55,12 @@ export interface WorkspaceState {
 	readonly status: WorkspaceStatus;
 	readonly workspaceId: string | null;
 	readonly workspaceUrl: string | null;
+	readonly clientInfo?: {
+		readonly name: string;
+		readonly ver?: string | null;
+		readonly icon?: string;
+		readonly iconSlug?: string;
+	} | null;
 	readonly reconnectAttempt: number;
 	readonly lastError: string | null;
 	readonly attach: () => void;
@@ -149,6 +155,7 @@ export function createWorkspaceStore({
 							set({
 								status: "live",
 								workspaceUrl: makeWorkspaceMcpUrl(workspaceId),
+								clientInfo: message.state.clientInfo ?? null,
 								reconnectAttempt: 0,
 								lastError: null,
 							});
@@ -175,6 +182,7 @@ export function createWorkspaceStore({
 									status: "ended",
 									workspaceId: null,
 									workspaceUrl: null,
+									clientInfo: null,
 									reconnectAttempt: 0,
 									lastError: "workspace-expired",
 								});
@@ -202,6 +210,7 @@ export function createWorkspaceStore({
 							status: "offline",
 							workspaceId: null,
 							workspaceUrl: null,
+							clientInfo: null,
 							lastError: "Workspace connection lost.",
 							reconnectAttempt: 0,
 						});
@@ -230,6 +239,7 @@ export function createWorkspaceStore({
 			status: "offline",
 			workspaceId: null,
 			workspaceUrl: null,
+			clientInfo: null,
 			reconnectAttempt: 0,
 			lastError: null,
 			attach: () => {
@@ -242,6 +252,7 @@ export function createWorkspaceStore({
 					status: "connecting",
 					workspaceId,
 					workspaceUrl: null,
+					clientInfo: null,
 					reconnectAttempt: 0,
 					lastError: null,
 				});
@@ -256,6 +267,7 @@ export function createWorkspaceStore({
 					status: "offline",
 					workspaceId: null,
 					workspaceUrl: null,
+					clientInfo: null,
 					reconnectAttempt: 0,
 					lastError: null,
 				});
@@ -270,6 +282,7 @@ export function createWorkspaceStore({
 					status: "offline",
 					workspaceId: null,
 					workspaceUrl: null,
+					clientInfo: null,
 					reconnectAttempt: 0,
 					lastError: null,
 				});
