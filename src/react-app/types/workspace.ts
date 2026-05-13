@@ -27,6 +27,12 @@ export interface WorkspaceSnapshot {
 	readonly notes: readonly SharedStickyNote[];
 	readonly baseline: { readonly shareId: string } | null;
 	readonly updatedAt?: number;
+	readonly clientInfo?: {
+		readonly name: string;
+		readonly ver?: string | null;
+		readonly icon?: string;
+		readonly iconSlug?: string;
+	} | null;
 }
 
 export type ClientWorkspaceMessage =
