@@ -1,5 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
-import { createMcpHandler } from "agents/mcp";
+import { WorkerTransport, type TransportState } from "agents/mcp";
 import { log } from "evlog";
 import { nanoid } from "nanoid";
 
@@ -12,13 +12,15 @@ import {
 	WORKSPACE_EVICTION_MS,
 	SHARE_TTL_SECONDS,
 	type ClientMessage,
+	type McpClientInfo,
 	type ServerMessage,
 } from "./workspace-types.ts";
 
-type McpFetchHandler = (request: Request, env: unknown, ctx: ExecutionContext) => Promise<Response>;
+const MCP_TRANSPORT_STATE_KEY = "mcp:transport-state";
 
 export class SchemaWorkspaceDO extends DurableObject<Env> {
 	private store = new WorkspaceStorage(this.ctx.storage);
+	private mcpClientInfo: McpClientInfo | null = null;
 
 
 	private broadcast(message: ServerMessage, exclude?: WebSocket): void {
@@ -118,11 +120,17 @@ export class SchemaWorkspaceDO extends DurableObject<Env> {
 		const decision = await this.store.attachBrowser(msg.state, msg.updatedAt);
 		if (decision.winner === "remote") {
 			ws.send(JSON.stringify({ type: "state-ack", state: makeSnapshot(decision.workspace) } satisfies ServerMessage));
+			if (this.mcpClientInfo) {
+				ws.send(JSON.stringify({ type: "mcp-client-update", status: "connected", clientInfo: this.mcpClientInfo } satisfies ServerMessage));
+			}
 			return;
 		}
 
 		const nextWorkspace = this.store.cached!;
 		ws.send(JSON.stringify({ type: "state-ack", state: makeSnapshot(nextWorkspace) } satisfies ServerMessage));
+		if (this.mcpClientInfo) {
+			ws.send(JSON.stringify({ type: "mcp-client-update", status: "connected", clientInfo: this.mcpClientInfo } satisfies ServerMessage));
+		}
 	}
 
 	private async handleSetSource(ws: WebSocket, source: string): Promise<void> {
@@ -191,8 +199,14 @@ export class SchemaWorkspaceDO extends DurableObject<Env> {
 		}
 	}
 
+	private async handleMcpRequest(request: Request): Promise<Response> {
+		// A missing Mcp-Session-Id means this is a new initialize request.
+		// Clear any persisted transport state so the fresh connection isn't rejected
+		// with "Server already initialized" from a previous session.
+		if (!request.headers.get("mcp-session-id")) {
+			await this.ctx.storage.delete(MCP_TRANSPORT_STATE_KEY);
+		}
 
-	private getMcpHandler(route: string): McpFetchHandler {
 		const server = createWorkspaceMcpServer({
 			storage: this.store,
 			getCanvasPresence: () => this.getCanvasPresence(),
@@ -201,9 +215,56 @@ export class SchemaWorkspaceDO extends DurableObject<Env> {
 			}),
 			broadcast: (msg) => this.broadcast(msg),
 		});
-		return createMcpHandler(server, { route });
-	}
+		const transport = new WorkerTransport({
+			sessionIdGenerator: () => crypto.randomUUID(),
+			storage: {
+				// WorkerTransport persists initializeParams here; the session callback
+				// below reads them back to tell attached browsers which MCP client arrived.
+				get: () => this.ctx.storage.get<TransportState>(MCP_TRANSPORT_STATE_KEY),
+				set: (state) => this.ctx.storage.put(MCP_TRANSPORT_STATE_KEY, state),
+			},
+			onsessioninitialized: () => {
+				this.ctx.waitUntil(
+					this.ctx.storage
+						.get<TransportState>(MCP_TRANSPORT_STATE_KEY)
+						.then((state) => {
+							const clientInfo = state?.initializeParams?.clientInfo ?? null;
+							if (!clientInfo) return;
+							if (
+								this.mcpClientInfo?.name === clientInfo?.name &&
+								this.mcpClientInfo?.title === clientInfo?.title &&
+								this.mcpClientInfo?.version === clientInfo?.version
+							) {
+								return;
+							}
 
+							this.mcpClientInfo = clientInfo;
+							this.broadcast({
+								type: "mcp-client-update",
+								status: "connected",
+								clientInfo,
+							});
+						}),
+				);
+			},
+			onsessionclosed: () => {
+				this.ctx.waitUntil(
+					Promise.resolve().then(() => {
+						const clientInfo = this.mcpClientInfo;
+						if (clientInfo === null) return;
+						this.mcpClientInfo = null;
+						this.broadcast({
+							type: "mcp-client-update",
+							status: "disconnected",
+							clientInfo,
+						});
+					}),
+				);
+			},
+		});
+		await server.connect(transport);
+		return transport.handleRequest(request);
+	}
 
 	override async fetch(request: Request): Promise<Response> {
 		const url = new URL(request.url);
@@ -213,9 +274,7 @@ export class SchemaWorkspaceDO extends DurableObject<Env> {
 		}
 
 		if (url.pathname.endsWith("/mcp") || url.pathname.includes("/mcp/")) {
-			const handler = this.getMcpHandler(url.pathname);
-			const ctx = { waitUntil: (p: Promise<unknown>) => this.ctx.waitUntil(p), passThroughOnException: () => {} } as ExecutionContext;
-			return handler(request, this.env, ctx);
+			return this.handleMcpRequest(request);
 		}
 
 		return new Response("Not found", { status: 404 });

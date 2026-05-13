@@ -7,6 +7,17 @@ export type WorkspaceStatus =
 	| "reconnecting"
 	| "ended";
 
+export interface McpClientInfo {
+	readonly name: string;
+	readonly title?: string;
+	readonly version?: string;
+}
+
+export type McpClientPresence =
+	| { readonly status: "waiting"; readonly clientInfo: null }
+	| { readonly status: "connected"; readonly clientInfo: McpClientInfo }
+	| { readonly status: "disconnected"; readonly clientInfo: McpClientInfo };
+
 interface WorkspaceBaseline {
 	readonly shareId: string;
 	readonly source: string;
@@ -27,12 +38,6 @@ export interface WorkspaceSnapshot {
 	readonly notes: readonly SharedStickyNote[];
 	readonly baseline: { readonly shareId: string } | null;
 	readonly updatedAt?: number;
-	readonly clientInfo?: {
-		readonly name: string;
-		readonly ver?: string | null;
-		readonly icon?: string;
-		readonly iconSlug?: string;
-	} | null;
 }
 
 export type ClientWorkspaceMessage =
@@ -45,6 +50,8 @@ export type ClientWorkspaceMessage =
 
 export type ServerWorkspaceMessage =
 	| { readonly type: "state-ack"; readonly state: WorkspaceSnapshot }
+	| { readonly type: "mcp-client-update"; readonly status: "connected"; readonly clientInfo: McpClientInfo }
+	| { readonly type: "mcp-client-update"; readonly status: "disconnected"; readonly clientInfo: McpClientInfo }
 	| { readonly type: "state-update"; readonly patch: Partial<WorkspaceSnapshot> }
 	| { readonly type: "focus"; readonly tableIds: readonly string[] }
 	| { readonly type: "share-result"; readonly id: string }
