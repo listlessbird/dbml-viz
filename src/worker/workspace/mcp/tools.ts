@@ -3,6 +3,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { WorkspaceStorage } from "../workspace-storage.ts";
 import type { ServerMessage } from "../workspace-types.ts";
 import type { WorkspaceMcpContext } from "./context.ts";
+import { canvasFocusTool } from "./tools/canvas-focus.ts";
 import { noteCreateTool } from "./tools/note-create.ts";
 import { schemaApplyPatchTool } from "./tools/schema-apply-patch.ts";
 import { schemaOverviewTool } from "./tools/schema-overview.ts";
@@ -52,5 +53,10 @@ export const registerWorkspaceMcpTools = ({
 		noteCreateTool.name,
 		noteCreateTool.config,
 		noteCreateTool.handler({ context, storage, broadcast }),
+	);
+	server.registerTool(
+		canvasFocusTool.name,
+		canvasFocusTool.config,
+		canvasFocusTool.handler({ context, broadcast }),
 	);
 };
