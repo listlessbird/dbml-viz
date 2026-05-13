@@ -6,8 +6,8 @@ import type { WorkspaceMcpContext } from "./context.ts";
 import { canvasFocusTool } from "./tools/canvas-focus.ts";
 import { noteCreateTool } from "./tools/note-create.ts";
 import { schemaApplyPatchTool } from "./tools/schema-apply-patch.ts";
+import { schemaEditTool } from "./tools/schema-edit.ts";
 import { schemaOverviewTool } from "./tools/schema-overview.ts";
-import { schemaReplaceSourceTool } from "./tools/schema-replace-source.ts";
 import { schemaSourceSliceTool } from "./tools/schema-source-slice.ts";
 import { workspaceStatusTool } from "./tools/workspace-status.ts";
 
@@ -40,14 +40,14 @@ export const registerWorkspaceMcpTools = ({
 		schemaSourceSliceTool.handler(context),
 	);
 	server.registerTool(
+		schemaEditTool.name,
+		schemaEditTool.config,
+		schemaEditTool.handler({ context, storage, broadcast }),
+	);
+	server.registerTool(
 		schemaApplyPatchTool.name,
 		schemaApplyPatchTool.config,
 		schemaApplyPatchTool.handler({ context, storage, broadcast }),
-	);
-	server.registerTool(
-		schemaReplaceSourceTool.name,
-		schemaReplaceSourceTool.config,
-		schemaReplaceSourceTool.handler({ context, storage, broadcast }),
 	);
 	server.registerTool(
 		noteCreateTool.name,

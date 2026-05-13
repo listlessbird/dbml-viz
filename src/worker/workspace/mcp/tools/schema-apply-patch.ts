@@ -272,7 +272,7 @@ export const schemaApplyPatchTool = {
 	name: "schema_apply_patch",
 	config: {
 		description:
-			"Applies one or more exact Schema Source Patch replacements after checking that the edited schema is valid. Use this for targeted Schema Editing after schema_source_slice. Requires Canvas Presence and current Workspace freshness. Do not use for full-source replacement. If expected text is missing, ambiguous, or the edited schema has diagnostics, no source is changed and no Canvas update is broadcast.",
+			"Applies several exact Schema Source Patch replacements atomically: either all patches apply or none do. Reserved for the atomic multi-replacement case where N exact replacements must succeed together. For a single targeted edit, or for replacing the entire Schema Source, prefer schema_edit. Use schema_source_slice first to capture the exact current text for each patch. Requires Canvas Presence and current Workspace freshness. If any expectedCurrentText is missing, ambiguous, or the edited schema has diagnostics, no source is changed and no Canvas update is broadcast.",
 		inputSchema: {
 			knownSourceUpdatedAt: z
 				.number()

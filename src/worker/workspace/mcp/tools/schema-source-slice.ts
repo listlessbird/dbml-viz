@@ -280,7 +280,7 @@ export const schemaSourceSliceTool = {
 	name: "schema_source_slice",
 	config: {
 		description:
-			"Returns a bounded Schema Source Slice with line numbers, exact text for schema_apply_patch, and current Workspace freshness. Use this — not full Schema Source — to inspect a specific Table, Relationship, diagnostic, or line range. Pick a target after schema_overview. If the response is truncated, request a narrower target.",
+			"Returns a bounded Schema Source Slice with line numbers, exact text suitable as oldString for schema_edit (or expectedCurrentText for schema_apply_patch), and current Workspace freshness. Use this — not full Schema Source — to inspect a specific Table, Relationship, diagnostic, or line range. Pick a target after schema_overview. If the response is truncated, request a narrower target. To read the entire Schema Source, paginate by calling schema_source_slice repeatedly with { kind: \"lines\", startLine, endLine }, advancing startLine/endLine each call and watching the truncated flag and maxLines cap.",
 		inputSchema: {
 			target: z.discriminatedUnion("kind", [
 				z.object({
