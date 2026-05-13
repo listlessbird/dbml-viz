@@ -1,4 +1,4 @@
-import type { DiagramPositions, ParseDiagnostic, SharedStickyNote } from "@/types";
+import type { DiagramPositions, SharedStickyNote } from "@/types";
 
 export type WorkspaceStatus =
 	| "offline"
@@ -25,9 +25,6 @@ export interface WorkspaceSnapshot {
 	readonly source: string;
 	readonly positions: DiagramPositions;
 	readonly notes: readonly SharedStickyNote[];
-	readonly diagnostics: readonly ParseDiagnostic[];
-	readonly tableCount: number;
-	readonly refCount: number;
 	readonly baseline: { readonly shareId: string } | null;
 	readonly updatedAt?: number;
 }

@@ -54,9 +54,6 @@ const snapshot: WorkspaceSnapshot = {
 			text: "remote",
 		},
 	],
-	diagnostics: [],
-	tableCount: 1,
-	refCount: 0,
 	baseline: null,
 	updatedAt: 123,
 };

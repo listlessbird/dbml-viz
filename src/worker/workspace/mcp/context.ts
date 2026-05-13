@@ -15,10 +15,13 @@ export interface CanvasPresence {
 	readonly connectionCount: number;
 }
 
-export interface WorkspaceMcpStatus {
+export interface WorkspaceAvailabilityStatus {
 	readonly workspaceActive: boolean;
 	readonly canvasPresence: CanvasPresence;
 	readonly updatedAt: number | null;
+}
+
+export interface WorkspaceMcpStatus extends WorkspaceAvailabilityStatus {
 	readonly tableCount: number;
 	readonly refCount: number;
 	readonly diagnosticCount: number;
@@ -26,7 +29,7 @@ export interface WorkspaceMcpStatus {
 
 interface WorkspaceMcpReady {
 	readonly workspace: WorkspaceState;
-	readonly status: WorkspaceMcpStatus;
+	readonly status: WorkspaceAvailabilityStatus;
 }
 
 interface RequireWorkspaceOptions {
@@ -39,16 +42,13 @@ interface WorkspaceMcpContextOptions {
 	readonly parserClient: ParserClient;
 }
 
-export const describeWorkspaceMcpStatus = (
+export const describeWorkspaceAvailability = (
 	workspace: WorkspaceState | null,
 	canvasPresence: CanvasPresence,
-): WorkspaceMcpStatus => ({
+): WorkspaceAvailabilityStatus => ({
 	workspaceActive: Boolean(workspace),
 	canvasPresence,
 	updatedAt: workspace?.updatedAt ?? null,
-	tableCount: workspace?.parsedTableCount ?? 0,
-	refCount: workspace?.parsedRefCount ?? 0,
-	diagnosticCount: workspace?.diagnostics.length ?? 0,
 });
 
 export const createWorkspaceMcpContext = ({
@@ -56,18 +56,13 @@ export const createWorkspaceMcpContext = ({
 	getCanvasPresence,
 	parserClient,
 }: WorkspaceMcpContextOptions) => {
-	const getStatus = async (): Promise<WorkspaceMcpStatus> => {
-		const workspace = await storage.load();
-		return describeWorkspaceMcpStatus(workspace, getCanvasPresence());
-	};
-
 	const requireWorkspace = async ({
 		requireCanvasPresence = false,
 	}: RequireWorkspaceOptions = {}): Promise<
 		Result<WorkspaceMcpReady, WorkspaceMcpAvailabilityError>
 	> => {
 		const workspace = await storage.load();
-		const status = describeWorkspaceMcpStatus(workspace, getCanvasPresence());
+		const status = describeWorkspaceAvailability(workspace, getCanvasPresence());
 
 		if (!workspace) {
 			return Result.err(unavailable("workspace_not_active", status));
@@ -81,7 +76,6 @@ export const createWorkspaceMcpContext = ({
 	};
 
 	return {
-		getStatus,
 		requireWorkspace,
 		createAvailabilityErrorResult,
 		parserClient,

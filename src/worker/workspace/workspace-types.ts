@@ -3,20 +3,6 @@ interface SharePosition {
 	readonly y: number;
 }
 
-interface EditorPosition {
-	readonly line: number;
-	readonly column: number;
-}
-
-export interface ParseDiagnostic {
-	readonly message: string;
-	readonly code?: number;
-	readonly location?: {
-		readonly start: EditorPosition;
-		readonly end?: EditorPosition;
-	};
-}
-
 export interface SharedStickyNote {
 	readonly id: string;
 	readonly x: number;
@@ -40,9 +26,6 @@ export interface WorkspaceState {
 	source: string;
 	positions: DiagramPositions;
 	notes: SharedStickyNote[];
-	diagnostics: ParseDiagnostic[];
-	parsedTableCount: number;
-	parsedRefCount: number;
 	baseline: WorkspaceBaseline | null;
 	createdAt: number;
 	updatedAt: number;
@@ -53,9 +36,6 @@ export interface WorkspaceSnapshot {
 	readonly source: string;
 	readonly positions: DiagramPositions;
 	readonly notes: readonly SharedStickyNote[];
-	readonly diagnostics: readonly ParseDiagnostic[];
-	readonly tableCount: number;
-	readonly refCount: number;
 	readonly baseline: { readonly shareId: string } | null;
 	readonly updatedAt: number;
 }

@@ -1,6 +1,5 @@
 import type {
 	DiagramPositions,
-	ParseDiagnostic,
 	WorkspaceBaseline,
 	WorkspaceSnapshot,
 	WorkspaceState,
@@ -12,16 +11,12 @@ export const makeSnapshot = (s: WorkspaceState): WorkspaceSnapshot => ({
 	source: s.source,
 	positions: s.positions,
 	notes: s.notes,
-	diagnostics: s.diagnostics,
-	tableCount: s.parsedTableCount,
-	refCount: s.parsedRefCount,
 	baseline: s.baseline ? { shareId: s.baseline.shareId } : null,
 	updatedAt: s.updatedAt,
 });
 
 const STORAGE_KEYS = [
-	"source", "positions", "notes", "diagnostics",
-	"parsedTableCount", "parsedRefCount", "baseline",
+	"source", "positions", "notes", "baseline",
 	"createdAt", "updatedAt", "lastActivityAt",
 ] as const;
 
@@ -31,9 +26,6 @@ type WorkspaceMutation = Partial<
 		| "source"
 		| "positions"
 		| "notes"
-		| "diagnostics"
-		| "parsedTableCount"
-		| "parsedRefCount"
 		| "baseline"
 	>
 >;
@@ -59,9 +51,6 @@ export class WorkspaceStorage {
 			source: (values.get("source") as string) ?? "",
 			positions: (values.get("positions") as DiagramPositions) ?? {},
 			notes: (values.get("notes") as SharedStickyNote[]) ?? [],
-			diagnostics: (values.get("diagnostics") as ParseDiagnostic[]) ?? [],
-			parsedTableCount: (values.get("parsedTableCount") as number) ?? 0,
-			parsedRefCount: (values.get("parsedRefCount") as number) ?? 0,
 			baseline: (values.get("baseline") as WorkspaceBaseline | null) ?? null,
 			createdAt,
 			updatedAt: (values.get("updatedAt") as number) ?? createdAt,
@@ -115,9 +104,6 @@ export class WorkspaceStorage {
 			source: seed.source,
 			positions: seed.positions,
 			notes: [...seed.notes],
-			diagnostics: [],
-			parsedTableCount: 0,
-			parsedRefCount: 0,
 			baseline: seed.baseline,
 			createdAt: now,
 			updatedAt,
@@ -128,9 +114,6 @@ export class WorkspaceStorage {
 			source: this.cache.source,
 			positions: this.cache.positions,
 			notes: this.cache.notes,
-			diagnostics: this.cache.diagnostics,
-			parsedTableCount: 0,
-			parsedRefCount: 0,
 			baseline: this.cache.baseline,
 			createdAt: now,
 			updatedAt: this.cache.updatedAt,
@@ -155,9 +138,6 @@ export class WorkspaceStorage {
 			source: seed.source,
 			positions: seed.positions,
 			notes: [...seed.notes],
-			diagnostics: [],
-			parsedTableCount: 0,
-			parsedRefCount: 0,
 			baseline: seed.baseline,
 			updatedAt,
 			lastActivityAt: now,
@@ -167,9 +147,6 @@ export class WorkspaceStorage {
 			source: this.cache.source,
 			positions: this.cache.positions,
 			notes: this.cache.notes,
-			diagnostics: this.cache.diagnostics,
-			parsedTableCount: this.cache.parsedTableCount,
-			parsedRefCount: this.cache.parsedRefCount,
 			baseline: this.cache.baseline,
 			updatedAt,
 			lastActivityAt: now,
