@@ -1,7 +1,7 @@
 import { Result, TaggedError } from "better-result";
 
 import type { ParserClientError } from "../../lib/parser-client.ts";
-import type { WorkspaceMcpStatus } from "./context.ts";
+import type { WorkspaceAvailabilityStatus } from "./context.ts";
 import { toWorkspaceMcpResult } from "./result.ts";
 
 export type WorkspaceMcpUnavailableReason =
@@ -14,9 +14,9 @@ export class WorkspaceNotActiveError extends TaggedError(
 	readonly reason: "workspace_not_active";
 	readonly message: string;
 	readonly recovery: string;
-	readonly status: WorkspaceMcpStatus;
+	readonly status: WorkspaceAvailabilityStatus;
 }>() {
-	constructor(status: WorkspaceMcpStatus) {
+	constructor(status: WorkspaceAvailabilityStatus) {
 		super({
 			reason: "workspace_not_active",
 			message: "No active Workspace exists.",
@@ -33,9 +33,9 @@ export class CanvasNotConnectedError extends TaggedError(
 	readonly reason: "canvas_not_connected";
 	readonly message: string;
 	readonly recovery: string;
-	readonly status: WorkspaceMcpStatus;
+	readonly status: WorkspaceAvailabilityStatus;
 }>() {
-	constructor(status: WorkspaceMcpStatus) {
+	constructor(status: WorkspaceAvailabilityStatus) {
 		super({
 			reason: "canvas_not_connected",
 			message:
@@ -53,7 +53,7 @@ export type WorkspaceMcpAvailabilityError =
 
 export const unavailable = (
 	reason: WorkspaceMcpUnavailableReason,
-	status: WorkspaceMcpStatus,
+	status: WorkspaceAvailabilityStatus,
 ): WorkspaceMcpAvailabilityError =>
 	reason === "workspace_not_active"
 		? new WorkspaceNotActiveError(status)
@@ -74,7 +74,7 @@ export const createAvailabilityErrorResult = (
 
 export const createParserUnreachableResult = (
 	error: ParserClientError,
-	status: WorkspaceMcpStatus,
+	status: WorkspaceAvailabilityStatus,
 ) =>
 	toWorkspaceMcpResult(
 		Result.err({
