@@ -98,7 +98,7 @@ export const applySchemaEdit = (
 			message:
 				"oldString was not found in the current Schema Source; no edit was applied.",
 			recovery:
-				"Call schema_source_slice again and use the returned exact source text as oldString. Matching is exact, including whitespace and indentation.",
+				"Re-slice the specific region you want to edit (schema_source_slice with the table/relationship target, or a narrow lines window around your anchor) and copy the exact text — including whitespace, indentation, and line endings — as oldString. Do not widen oldString to the whole Schema Source.",
 		});
 	}
 
@@ -186,7 +186,7 @@ export const runSchemaEditTool = async (
 				message:
 					"The Workspace freshness value is stale; Schema Source was not changed.",
 				recovery:
-					"Call schema_source_slice again to inspect the current Schema Source before retrying schema_edit.",
+					"Re-slice only around your edit anchor (schema_source_slice with a narrow { kind: \"lines\", startLine, endLine } window, or the table/relationship target you are editing) to confirm oldString still matches, then retry schema_edit with the new freshness. You do not need to re-read the whole Schema Source.",
 				currentUpdatedAt: workspace.updatedAt,
 				knownSourceUpdatedAt: input.knownSourceUpdatedAt,
 			}),
@@ -302,9 +302,14 @@ export const runSchemaEditTool = async (
 const SCHEMA_EDIT_DESCRIPTION = [
 	"Applies a single exact-string Schema Source Patch to the current Schema Source, after checking that the edited schema is valid.",
 	"This is the default tool for Schema Editing: inspect with schema_source_slice first, then call schema_edit with an exact oldString and replacement newString.",
-	"Matching is exact — whitespace, indentation, and line endings must match. The edit FAILS if oldString is not found (expand context or re-slice) and FAILS if oldString is found multiple times unless replaceAll: true is set; expand surrounding context to disambiguate.",
+	"Keep oldString as small as possible while still matching exactly once — typically a single line or a short anchor block. Do NOT paste the entire Schema Source into oldString; that wastes tokens and re-broadcasts the whole source as if it were a fresh edit. Slice only around the region you intend to change.",
+	"Matching is exact — whitespace, indentation, and line endings must match. The edit FAILS if oldString is not found (re-slice the region; do not widen to the whole source) and FAILS if oldString is found multiple times unless replaceAll: true is set; on ambiguous matches add one or two more lines of surrounding context, not the whole file.",
 	"Use replaceAll: true to rename every occurrence of a symbol.",
-	"If oldString === \"\", the entire Schema Source is replaced by newString — use this empty-oldString shape only for import, reset, or broad redesign workflows.",
+	"Common workflows:",
+	"  • Edit a single table or ref: oldString = the exact slice of that table/ref from schema_source_slice; newString = the replacement.",
+	"  • Append a new table or ref: anchor on the LAST existing line you want to insert after (e.g. the final Ref line), and put both that anchor and the new content in newString. Do not paste the whole source.",
+	"  • Rename a symbol everywhere: oldString = the symbol, replaceAll: true.",
+	"  • Import / reset / broad redesign only: oldString = \"\" replaces the entire Schema Source with newString. Do not use the empty-oldString shape for an append or a single-table edit.",
 	"For atomic multi-replacement (several edits that must all succeed or none), use schema_apply_patch instead.",
 	"Requires Canvas Presence and current Workspace freshness. On any failure no source is changed and no Canvas update is broadcast.",
 ].join(" ");
@@ -322,7 +327,7 @@ export const schemaEditTool = {
 			oldString: z
 				.string()
 				.describe(
-					"Exact current Schema Source text returned by schema_source_slice. Use an empty string to replace the entire Schema Source with newString (import / reset / broad redesign).",
+					"Exact current Schema Source text returned by schema_source_slice. Keep this as small as possible while still matching exactly once — usually a single line or short block, never the whole source. For appends, anchor on the last existing line you are inserting after. Use an empty string ONLY for import / reset / broad redesign of the entire Schema Source.",
 				),
 			newString: z
 				.string()

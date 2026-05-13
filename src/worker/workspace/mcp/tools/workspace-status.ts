@@ -16,6 +16,48 @@ export const workspaceMcpStatusSchema = z.object({
 	diagnosticCount: z.number().int().nonnegative(),
 });
 
+export const runWorkspaceStatusTool = async (
+	context: WorkspaceMcpContext,
+) => {
+	const ready = await context.requireWorkspace();
+	if (Result.isError(ready)) {
+		return context.createAvailabilityErrorResult(ready.error);
+	}
+
+	const { workspace, status } = ready.value;
+	const parsed = await context.parserClient.parseSchemaSource(workspace.source);
+
+	if (Result.isOk(parsed)) {
+		return toWorkspaceMcpResult(
+			Result.ok({
+				ok: true as const,
+				status: {
+					...status,
+					tableCount: parsed.value.parsed.tables.length,
+					refCount: parsed.value.parsed.refs.length,
+					diagnosticCount: 0,
+				},
+			}),
+		);
+	}
+
+	if (parsed.error._tag === "ParserSyntaxError") {
+		return toWorkspaceMcpResult(
+			Result.ok({
+				ok: true as const,
+				status: {
+					...status,
+					tableCount: 0,
+					refCount: 0,
+					diagnosticCount: parsed.error.diagnostics.length,
+				},
+			}),
+		);
+	}
+
+	return context.createParserUnreachableResult(parsed.error, status);
+};
+
 export const workspaceStatusTool = {
 	name: "workspace_status",
 	config: {
@@ -27,10 +69,5 @@ export const workspaceStatusTool = {
 		},
 		annotations: { readOnlyHint: true },
 	},
-	handler:
-		(context: WorkspaceMcpContext) =>
-		async () => {
-			const status = await context.getStatus();
-			return toWorkspaceMcpResult(Result.ok({ ok: true, status }));
-		},
+	handler: (context: WorkspaceMcpContext) => () => runWorkspaceStatusTool(context),
 } as const;
