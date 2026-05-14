@@ -60,6 +60,7 @@ export interface WorkspaceState {
 	readonly reconnectAttempt: number;
 	readonly lastError: string | null;
 	readonly attach: () => void;
+	readonly endWorkspace: () => void;
 	readonly detach: () => void;
 	readonly dispose: () => void;
 }
@@ -113,7 +114,7 @@ export function createWorkspaceStore({
 	requestFocus,
 	handleShareResult,
 	createWorkspaceId = getOrCreateDeviceId,
-	getLastUpdatedAt = () => Date.now(),
+	getLastUpdatedAt = () => 0,
 	setLastUpdatedAt,
 	reconnectDelayMs = DEFAULT_RECONNECT_DELAY_MS,
 }: WorkspaceStoreAdapters): WorkspaceStore {
@@ -197,6 +198,20 @@ export function createWorkspaceStore({
 						case "share-error":
 							set({ lastError: message.error });
 							return;
+						case "workspace-ended":
+							intentionalClose = true;
+							activeTransport?.close(1000, "Workspace ended");
+							activeTransport = null;
+							clearReconnectTimer();
+							set({
+								status: "ended",
+								workspaceId: null,
+								workspaceUrl: null,
+								mcpClientPresence: { status: "waiting", clientInfo: null },
+								reconnectAttempt: 0,
+								lastError: "workspace-ended",
+							});
+							return;
 						case "pong":
 							return;
 					}
@@ -261,6 +276,13 @@ export function createWorkspaceStore({
 					lastError: null,
 				});
 				connect(workspaceId);
+			},
+			endWorkspace: () => {
+				const transport = activeTransport;
+				if (!transport || get().status !== "live") return;
+				if (!transport.send({ type: "end-workspace" })) {
+					set({ lastError: "Workspace connection is not open." });
+				}
 			},
 			detach: () => {
 				intentionalClose = true;

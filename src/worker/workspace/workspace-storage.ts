@@ -173,7 +173,7 @@ export class WorkspaceStorage {
 	}
 
 	async clear(): Promise<void> {
-		await this.storage.deleteAll();
+		await this.storage.delete(STORAGE_KEYS as unknown as string[]);
 		this.cache = null;
 	}
 }

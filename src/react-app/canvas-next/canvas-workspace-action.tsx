@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { IconPlugConnectedX } from "@tabler/icons-react";
 
@@ -33,7 +33,7 @@ const workspaceLabel = (status: WorkspaceStatus) => {
 		case "reconnecting":
 			return "Reconnecting";
 		case "ended":
-			return "Workspace expired";
+			return "Workspace ended";
 	}
 };
 
@@ -48,7 +48,7 @@ export function CanvasNextWorkspaceAction() {
 			: null,
 	);
 	const attach = useWorkspace((state) => state.attach);
-	const detach = useWorkspace((state) => state.detach);
+	const endWorkspace = useWorkspace((state) => state.endWorkspace);
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [isAlertOpen, setIsAlertOpen] = useState(false);
 
@@ -61,7 +61,7 @@ export function CanvasNextWorkspaceAction() {
 	const clientIcon = clientInfo ? iconForClient(clientInfo.name) : "/mcp.svg";
 	const brand = useMemo(() => brandForClient(clientName), [clientName]);
 
-	const handleClick = () => {
+	const handleClick = useCallback(() => {
 		if (status === "live") {
 			setIsAlertOpen(true);
 			return;
@@ -70,7 +70,12 @@ export function CanvasNextWorkspaceAction() {
 			attach();
 		}
 		setIsModalOpen(true);
-	};
+	}, [attach, status]);
+
+	const handleEndWorkspace = useCallback(() => {
+		endWorkspace();
+		setIsAlertOpen(false);
+	}, [endWorkspace]);
 
 	useEffect(() => {
 		if (!disconnectedClientName) return;
@@ -97,10 +102,10 @@ export function CanvasNextWorkspaceAction() {
 				<AlertDialogContent size="sm" style={{ maxWidth: "400px" }}>
 					<AlertDialogHeader className="place-items-start text-left gap-1">
 						<AlertDialogTitle className="font-heading text-[17px] font-semibold tracking-[-0.012em] leading-snug">
-							Disconnect {clientName}?
+							End workspace?
 						</AlertDialogTitle>
 						<AlertDialogDescription>
-							Would you like to disconnect your agent from the workspace?
+							This will end the live workspace and close {clientName}'s MCP session.
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					{clientInfo ? (
@@ -141,13 +146,10 @@ export function CanvasNextWorkspaceAction() {
 							variant="destructive"
 							size="sm"
 							className="bg-(--crimson-500) border border-(--crimson-500) text-white hover:bg-(--crimson-600) hover:border-(--crimson-600) gap-1.5"
-							onClick={() => {
-								detach();
-								setIsAlertOpen(false);
-							}}
+							onClick={handleEndWorkspace}
 						>
 							<IconPlugConnectedX size={13} />
-							Disconnect
+							End workspace
 						</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>
