@@ -45,7 +45,6 @@ export interface WorkspaceStoreAdapters {
 	readonly hydrateSnapshot: (snapshot: WorkspaceSnapshot) => void;
 	readonly applyPatch: (patch: Partial<WorkspaceSnapshot>) => void;
 	readonly requestFocus: (tableIds: readonly string[]) => void;
-	readonly handleShareResult: (shareId: string) => void;
 	readonly createWorkspaceId?: () => string;
 	readonly getLastUpdatedAt?: () => number;
 	readonly setLastUpdatedAt?: (updatedAt: number) => void;
@@ -112,7 +111,6 @@ export function createWorkspaceStore({
 	hydrateSnapshot,
 	applyPatch,
 	requestFocus,
-	handleShareResult,
 	createWorkspaceId = getOrCreateDeviceId,
 	getLastUpdatedAt = () => 0,
 	setLastUpdatedAt,
@@ -174,9 +172,6 @@ export function createWorkspaceStore({
 							}
 							applyPatch(message.patch);
 							return;
-						case "share-result":
-							handleShareResult(message.id);
-							return;
 						case "error":
 							if (message.message === "workspace-expired") {
 								intentionalClose = true;
@@ -194,9 +189,6 @@ export function createWorkspaceStore({
 								return;
 							}
 							set({ lastError: message.message });
-							return;
-						case "share-error":
-							set({ lastError: message.error });
 							return;
 						case "workspace-ended":
 							intentionalClose = true;

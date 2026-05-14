@@ -78,10 +78,6 @@ export class WorkspaceStorage {
 		await this.storage.put(entries);
 	}
 
-	async saveBrowserMutation(partial: WorkspaceMutation): Promise<void> {
-		await this.saveMutation(partial);
-	}
-
 	async saveAgentMutation(partial: WorkspaceMutation): Promise<void> {
 		await this.saveMutation(partial);
 	}

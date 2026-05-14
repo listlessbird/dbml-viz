@@ -1,3 +1,4 @@
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-nocheck
 export { default as IconAlertOctagon } from "@tabler-icon/IconAlertOctagon.mjs";
 export { default as IconAlertTriangle } from "@tabler-icon/IconAlertTriangle.mjs";

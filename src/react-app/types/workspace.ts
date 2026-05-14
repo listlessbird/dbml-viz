@@ -42,10 +42,6 @@ export interface WorkspaceSnapshot {
 
 export type ClientWorkspaceMessage =
 	| { readonly type: "attach"; readonly state: WorkspaceSeed; readonly updatedAt: number }
-	| { readonly type: "set-source"; readonly source: string }
-	| { readonly type: "set-positions"; readonly positions: DiagramPositions }
-	| { readonly type: "set-notes"; readonly notes: readonly SharedStickyNote[] }
-	| { readonly type: "share-request" }
 	| { readonly type: "end-workspace" }
 	| { readonly type: "ping" };
 
@@ -55,8 +51,6 @@ export type ServerWorkspaceMessage =
 	| { readonly type: "mcp-client-update"; readonly status: "disconnected"; readonly clientInfo: McpClientInfo }
 	| { readonly type: "state-update"; readonly patch: Partial<WorkspaceSnapshot> }
 	| { readonly type: "focus"; readonly tableIds: readonly string[] }
-	| { readonly type: "share-result"; readonly id: string }
-	| { readonly type: "share-error"; readonly error: string }
 	| { readonly type: "workspace-ended" }
 	| { readonly type: "error"; readonly message: string }
 	| { readonly type: "pong" };

@@ -85,7 +85,6 @@ class FakeTransport implements WorkspaceTransport {
 
 const createHarness = () => {
 	const transports: FakeTransport[] = [];
-	const shareResults: string[] = [];
 	const diagramStore = createDiagramSessionStore({
 		source: "Table stale_table { id int }",
 		parsedSchema,
@@ -114,14 +113,11 @@ const createHarness = () => {
 		applyPatch: createDiagramSessionWorkspacePatchApplier(diagramStore),
 		requestFocus: (tableIds) =>
 			runtimeStore.getState().requestFocus(tableIds),
-		handleShareResult: (shareId) => {
-			shareResults.push(shareId);
-		},
 		createWorkspaceId: () => "workspace-1",
 		getLastUpdatedAt: () => 77,
 		reconnectDelayMs: 25,
 	});
-	return { store, diagramStore, runtimeStore, transports, shareResults };
+	return { store, diagramStore, runtimeStore, transports };
 };
 
 afterEach(() => {
@@ -316,16 +312,6 @@ describe("canvas-next Workspace Module Store", () => {
 		expect(diagramStore.getState().diagram.stickyNotes[0]).toEqual(
 			expect.objectContaining(nextNotes[0]),
 		);
-	});
-
-	it("routes Share results through Diagram Persistence policy", () => {
-		const { store, transports, shareResults } = createHarness();
-		store.getState().attach();
-		transports[0]!.open();
-
-		transports[0]!.serverMessage({ type: "share-result", id: "share-new" });
-
-		expect(shareResults).toEqual(["share-new"]);
 	});
 
 	it("scopes live transport state and ignores messages after dispose", () => {

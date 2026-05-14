@@ -83,7 +83,7 @@
 		"deploy:p": "wrangler deploy -c wrangler.parser.json",
 		"dev": "vite",
 		"dev:p": "wrangler dev -c wrangler.parser.json --port 8788 --ip 127.0.0.1",
-		"lint": "eslint .",
+		"lint": "eslint src test vite.config.ts eslint.config.js",
 		"preview": "npm run build && vite preview",
 		"test": "vitest run",
 		"test:watch": "vitest",

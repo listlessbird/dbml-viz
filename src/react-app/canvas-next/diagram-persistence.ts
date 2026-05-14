@@ -70,34 +70,6 @@ export async function saveDiagramSessionShare({
 	};
 }
 
-interface ApplyWorkspaceShareResultOptions {
-	readonly adapter: DiagramPersistenceAdapter;
-	readonly sessionStore: DiagramSessionStore;
-	readonly shareId: string;
-	readonly currentShareId: string | null;
-	readonly setShareBaseline: (baseline: ShareBaseline) => void;
-	readonly pushViewedRoute: (route: DiagramRouteState) => void;
-}
-
-export function applyWorkspaceShareResult({
-	adapter,
-	sessionStore,
-	shareId,
-	currentShareId,
-	setShareBaseline,
-	pushViewedRoute,
-}: ApplyWorkspaceShareResultOptions): ShareBaseline {
-	const payload = sessionStore.getState().toSchemaPayload();
-	if (currentShareId !== null) {
-		adapter.clearDraft(currentShareId);
-	}
-	adapter.clearDraft(shareId);
-	const baseline = { shareId, payload };
-	setShareBaseline(baseline);
-	pushViewedRoute({ shareId, isDirty: false });
-	return baseline;
-}
-
 interface ResolveShareRouteDecisionOptions {
 	readonly route: DiagramRouteState;
 	readonly payload: SchemaPayload;
