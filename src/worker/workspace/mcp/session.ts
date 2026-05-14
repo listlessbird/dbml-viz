@@ -22,19 +22,6 @@ interface TrackedMcpTransport {
 	onclose?: (() => void) | undefined;
 }
 
-const sessionNotFoundResponse = () =>
-	new Response(
-		JSON.stringify({
-			jsonrpc: "2.0",
-			error: { code: -32001, message: "Session not found" },
-			id: null,
-		}),
-		{
-			status: 404,
-			headers: { "Content-Type": "application/json" },
-		},
-	);
-
 export class WorkspaceMcpSession {
 	private readonly activeTransports = new Set<TrackedMcpTransport>();
 
@@ -71,7 +58,19 @@ export class WorkspaceMcpSession {
 		const terminatedSessionId = await this.storage.get<string>(
 			MCP_SESSION_TERMINATED_KEY,
 		);
-		return terminatedSessionId === sessionId ? sessionNotFoundResponse() : null;
+		if (terminatedSessionId !== sessionId) return null;
+
+		return new Response(
+			JSON.stringify({
+				jsonrpc: "2.0",
+				error: { code: -32001, message: "Session not found" },
+				id: null,
+			}),
+			{
+				status: 404,
+				headers: { "Content-Type": "application/json" },
+			},
+		);
 	}
 
 	trackTransport(transport: TrackedMcpTransport): void {
