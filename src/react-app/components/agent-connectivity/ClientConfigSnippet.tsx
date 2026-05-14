@@ -7,6 +7,7 @@ import {
         type AgentClient,
         type AgentClientId,
 } from "@/lib/agent-client-snippets";
+import { brandForClient, iconForClient } from "./client-brands";
 
 interface ClientConfigSnippetProps {
         readonly endpoint: string;
@@ -44,7 +45,7 @@ function highlightSnippet(
                 segments.push({
                         text: matched,
                         className: isComment
-                                ? "text-[var(--gray-500)]"
+                                ? "text-(--gray-500)"
                                 : isKey
                                         ? "text-[oklch(0.77_0.09_230)]"
                                         : "text-[oklch(0.8_0.08_100)]",
@@ -74,32 +75,41 @@ export function ClientConfigSnippet({ endpoint }: ClientConfigSnippetProps) {
 
         return (
                 <div className="flex min-w-0 flex-col gap-1.5">
-                        <label className="font-mono text-[9px] font-bold uppercase tracking-[0.16em] text-[var(--gray-500)]">
+                        <label className="font-mono text-[9px] font-bold uppercase tracking-[0.16em] text-(--gray-500)">
                                 Add to your agent
                         </label>
-                        <div className="flex gap-0.5 border-b border-[var(--gray-200)]">
+                        <div className="flex gap-0.5 border-b border-(--gray-200)">
                                 {AGENT_CLIENTS.map((client) => {
                                         const isActive = client.id === activeId;
+                                        const brand = brandForClient(client.label);
+                                        const icon = iconForClient(client.label);
+
                                         return (
                                                 <button
                                                         key={client.id}
                                                         type="button"
                                                         className={cn(
-                                                                "-mb-px cursor-pointer border-0 bg-transparent px-2.5 py-1.5 text-[11px] font-medium transition-colors",
+                                                                "-mb-px cursor-pointer border-0 bg-transparent px-2.5 py-1.5 text-[11px] font-medium transition-colors flex items-center gap-1.5",
                                                                 isActive
-                                                                        ? "border-b-2 border-[var(--gray-900)] text-[var(--gray-900)]"
-                                                                        : "border-b-2 border-transparent text-[var(--gray-500)] hover:text-[var(--gray-700)]",
+                                                                        ? "border-b-2 text-(--gray-900)"
+                                                                        : "border-b-2 border-transparent text-(--gray-500) hover:text-(--gray-700)",
                                                         )}
+                                                        style={isActive ? { borderBottomColor: brand.dot } : undefined}
                                                         aria-pressed={isActive}
                                                         onClick={() => setActiveId(client.id)}
                                                 >
+                                                        <img
+                                                                src={icon}
+                                                                alt=""
+                                                                className="size-3.5 object-contain"
+                                                        />
                                                         {client.label}
                                                 </button>
                                         );
                                 })}
                         </div>
                         <div className="relative min-w-0">
-                                <pre className="m-0 max-h-44 overflow-x-auto overflow-y-auto bg-[var(--gray-900)] p-2.5 font-mono text-[11px] leading-[1.55] text-[oklch(0.91_0.02_75)]">
+                                <pre className="m-0 max-h-44 overflow-x-auto overflow-y-auto bg-(--gray-900) p-2.5 font-mono text-[11px] leading-[1.55] text-[oklch(0.91_0.02_75)]">
                                         {segments.map((segment, index) => (
                                                 <span key={index} className={segment.className}>
                                                         {segment.text}
