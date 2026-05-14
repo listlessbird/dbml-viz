@@ -13,6 +13,9 @@ import type {
 	SharedStickyNote,
 } from "@/types";
 import { placeMissingTablePositions } from "@/diagram-layout/fallback-placement";
+import { placeStickyNotes } from "@/diagram-layout/note-placer";
+import { getCheapStickyNoteLayout } from "@/canvas-next/sticky-note/measure";
+import { getTableNodeLayout } from "@/components/table-node/layout";
 
 export const emptyParsedSchema: ParsedSchema = Object.freeze({
 	tables: [],
@@ -111,6 +114,27 @@ const seedMissingTablePositions = (
 ): DiagramPositions =>
 	placeMissingTablePositions(parsedSchema, tablePositions).tablePositions;
 
+const hasFiniteNoteCoordinates = (note: SharedStickyNote): boolean =>
+	typeof note.x === "number" &&
+	typeof note.y === "number" &&
+	Number.isFinite(note.x) &&
+	Number.isFinite(note.y);
+
+const seedMissingNotePositions = (
+	parsedSchema: ParsedSchema,
+	tablePositions: DiagramPositions,
+	stickyNotes: readonly SharedStickyNote[],
+): readonly SharedStickyNote[] => {
+	if (stickyNotes.every(hasFiniteNoteCoordinates)) return stickyNotes;
+	return placeStickyNotes({
+		parsedSchema,
+		tablePositions,
+		stickyNotes,
+		getNoteLayout: getCheapStickyNoteLayout,
+		getTableLayout: getTableNodeLayout,
+	}).stickyNotes;
+};
+
 const hydrateTablePositions = (diagram: Diagram): DiagramPositions => {
 	if (diagram.parsedSchema.tables.length === 0) {
 		return diagram.tablePositions;
@@ -119,6 +143,15 @@ const hydrateTablePositions = (diagram: Diagram): DiagramPositions => {
 		diagram.parsedSchema,
 		prunePositionsForTables(diagram.tablePositions, diagram.parsedSchema),
 	);
+};
+
+const hydrateStickyNotes = (
+	parsedSchema: ParsedSchema,
+	tablePositions: DiagramPositions,
+	stickyNotes: readonly SharedStickyNote[],
+): readonly SharedStickyNote[] => {
+	if (stickyNotes.length === 0) return stickyNotes;
+	return seedMissingNotePositions(parsedSchema, tablePositions, stickyNotes);
 };
 
 export function createDiagramSessionStore(
@@ -131,10 +164,16 @@ export function createDiagramSessionStore(
 		parseDiagnostics: noDiagnostics,
 		lastParseTableDiff: emptyTableDiff,
 		hydrateDiagram: (diagram, metadata = defaultSourceMetadata) => {
+			const tablePositions = hydrateTablePositions(diagram);
 			set({
 				diagram: {
 					...diagram,
-					tablePositions: hydrateTablePositions(diagram),
+					tablePositions,
+					stickyNotes: hydrateStickyNotes(
+						diagram.parsedSchema,
+						tablePositions,
+						diagram.stickyNotes,
+					),
 				},
 				sourceMetadata: metadata,
 				parseDiagnostics: noDiagnostics,
@@ -270,7 +309,11 @@ export function createDiagramSessionStore(
 			set((state) => ({
 				diagram: {
 					...state.diagram,
-					stickyNotes,
+					stickyNotes: seedMissingNotePositions(
+						state.diagram.parsedSchema,
+						state.diagram.tablePositions,
+						stickyNotes,
+					),
 				},
 			}));
 		},

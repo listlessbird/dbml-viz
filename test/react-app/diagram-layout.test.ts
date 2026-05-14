@@ -8,7 +8,7 @@ import {
 } from "@/diagram-layout/diagram-layout";
 import { placeMissingTablePositions } from "@/diagram-layout/fallback-placement";
 import { createDiagramSessionStore } from "@/diagram-session/diagram-session-store";
-import type { ParsedSchema } from "@/types";
+import type { ParsedSchema, SharedStickyNote } from "@/types";
 
 const table = (id: string) => ({
 	id,
@@ -124,6 +124,7 @@ describe("Diagram Layout auto-layout", () => {
 		const result = await runDiagramAutoLayout({
 			parsedSchema: usersOrdersAndProducts,
 			tablePositions: {},
+			stickyNotes: [],
 		});
 
 		if (!result.ok) {
@@ -146,6 +147,7 @@ describe("Diagram Layout auto-layout", () => {
 			tablePositions: {
 				users: { x: 0, y: 0 },
 			},
+			stickyNotes: [],
 		});
 
 		expect(result).toEqual({
@@ -155,6 +157,7 @@ describe("Diagram Layout auto-layout", () => {
 				orders: expect.any(Object),
 				products: expect.any(Object),
 			},
+			stickyNotes: [],
 		});
 	});
 
@@ -168,6 +171,7 @@ describe("Diagram Layout auto-layout", () => {
 		const result = await runDiagramAutoLayout({
 			parsedSchema: diagramStore.getState().diagram.parsedSchema,
 			tablePositions: diagramStore.getState().diagram.tablePositions,
+			stickyNotes: diagramStore.getState().diagram.stickyNotes,
 		});
 
 		if (!result.ok) {
@@ -180,6 +184,125 @@ describe("Diagram Layout auto-layout", () => {
 			"orders",
 			"products",
 		]);
+	});
+});
+
+describe("Diagram Layout two-phase orchestration with Sticky Notes", () => {
+	it("places both Tables and Sticky Notes in a single auto-layout call", async () => {
+		const stickyNotes: readonly SharedStickyNote[] = [
+			{ id: "n1", color: "yellow", text: "About #users" },
+			{ id: "n2", color: "blue", text: "Plain orphan" },
+		];
+		const result = await runDiagramAutoLayout({
+			parsedSchema: usersOrdersAndProducts,
+			tablePositions: {},
+			stickyNotes,
+		});
+
+		if (!result.ok) throw new Error(result.diagnostic.message);
+		expect(Object.keys(result.tablePositions).sort()).toEqual([
+			"orders",
+			"products",
+			"users",
+		]);
+		expect(result.stickyNotes).toHaveLength(2);
+		for (const note of result.stickyNotes) {
+			expect(typeof note.x).toBe("number");
+			expect(typeof note.y).toBe("number");
+		}
+	});
+
+	it("re-places Sticky Notes even when they already carry manual coordinates (symmetric reset)", async () => {
+		const stickyNotes: readonly SharedStickyNote[] = [
+			{
+				id: "n1",
+				color: "yellow",
+				text: "About #users",
+				x: 9999,
+				y: 9999,
+			},
+		];
+		const result = await runDiagramAutoLayout({
+			parsedSchema: usersOrdersAndProducts,
+			tablePositions: {},
+			stickyNotes,
+		});
+
+		if (!result.ok) throw new Error(result.diagnostic.message);
+		expect(result.stickyNotes).toHaveLength(1);
+		expect(result.stickyNotes[0]!.x).not.toBe(9999);
+		expect(result.stickyNotes[0]!.y).not.toBe(9999);
+	});
+
+	it("is deterministic across two auto-layout runs over the same input", async () => {
+		const stickyNotes: readonly SharedStickyNote[] = [
+			{ id: "n1", color: "yellow", text: "About #users" },
+			{ id: "n2", color: "blue", text: "About #orders" },
+		];
+		const args = {
+			parsedSchema: usersOrdersAndProducts,
+			tablePositions: {},
+			stickyNotes,
+		};
+		const a = await runDiagramAutoLayout(args);
+		const b = await runDiagramAutoLayout(args);
+
+		if (!a.ok || !b.ok) throw new Error("expected ok results");
+		expect(a.tablePositions).toEqual(b.tablePositions);
+		expect(a.stickyNotes.map((n) => ({ x: n.x, y: n.y }))).toEqual(
+			b.stickyNotes.map((n) => ({ x: n.x, y: n.y })),
+		);
+	});
+
+	it("returns the same Sticky Notes array reference when none are provided", async () => {
+		const result = await runDiagramAutoLayout({
+			parsedSchema: usersOrdersAndProducts,
+			tablePositions: {},
+			stickyNotes: [],
+		});
+		if (!result.ok) throw new Error(result.diagnostic.message);
+		expect(result.stickyNotes).toEqual([]);
+	});
+
+	it("repairOverlappingTablePositions returns the requested Sticky Notes when there are no overlaps", async () => {
+		const stickyNotes: readonly SharedStickyNote[] = [
+			{ id: "n1", color: "yellow", text: "About #users", x: 500, y: 500 },
+		];
+		const result = await repairOverlappingTablePositions({
+			parsedSchema: usersOrdersAndProducts,
+			tablePositions: {
+				users: { x: 0, y: 0 },
+				orders: { x: 600, y: 0 },
+				products: { x: 1200, y: 0 },
+			},
+			stickyNotes,
+		});
+
+		if (!result.ok) throw new Error(result.diagnostic.message);
+		expect(result.stickyNotes).toBe(stickyNotes);
+	});
+
+	it("repairOverlappingTablePositions re-places both Tables and Sticky Notes when an overlap is detected", async () => {
+		const stickyNotes: readonly SharedStickyNote[] = [
+			{ id: "n1", color: "yellow", text: "About #users" },
+		];
+		const result = await repairOverlappingTablePositions({
+			parsedSchema: threeTables,
+			tablePositions: {
+				users: { x: 0, y: 0 },
+				orders: { x: 20, y: 20 },
+				products: { x: 1000, y: 0 },
+			},
+			stickyNotes,
+		});
+
+		if (!result.ok) throw new Error(result.diagnostic.message);
+		expect(
+			detectOverlappingTablePositions(threeTables, result.tablePositions)
+				.hasOverlaps,
+		).toBe(false);
+		expect(result.stickyNotes).toHaveLength(1);
+		expect(typeof result.stickyNotes[0]!.x).toBe("number");
 	});
 });
 
@@ -206,6 +329,7 @@ describe("Diagram Layout overlap recovery", () => {
 				orders: { x: 20, y: 20 },
 				products: { x: 1000, y: 0 },
 			},
+			stickyNotes: [],
 		});
 
 		if (!result.ok) {

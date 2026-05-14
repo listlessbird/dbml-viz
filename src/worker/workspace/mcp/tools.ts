@@ -4,11 +4,10 @@ import type { WorkspaceStorage } from "../workspace-storage.ts";
 import type { ServerMessage } from "../workspace-types.ts";
 import type { WorkspaceMcpContext } from "./context.ts";
 import { canvasFocusTool } from "./tools/canvas-focus.ts";
-import { noteCreateTool } from "./tools/note-create.ts";
 import {
 	notesApplyChangesTool,
 	notesOverviewTool,
-} from "./tools/note-maintenance.ts";
+} from "./tools/sticky-note.ts";
 import { schemaApplyPatchTool } from "./tools/schema-apply-patch.ts";
 import { schemaEditTool } from "./tools/schema-edit.ts";
 import { schemaOverviewTool } from "./tools/schema-overview.ts";
@@ -52,11 +51,6 @@ export const registerWorkspaceMcpTools = ({
 		schemaApplyPatchTool.name,
 		schemaApplyPatchTool.config,
 		schemaApplyPatchTool.handler({ context, storage, broadcast }),
-	);
-	server.registerTool(
-		noteCreateTool.name,
-		noteCreateTool.config,
-		noteCreateTool.handler({ context, storage, broadcast }),
 	);
 	server.registerTool(
 		notesOverviewTool.name,
