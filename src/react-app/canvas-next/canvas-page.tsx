@@ -16,7 +16,6 @@ import {
 	type DraftPersistenceAdapter,
 	withSharePersistenceAdapter,
 } from "@/canvas-next/diagram-persistence-adapter";
-import { applyWorkspaceShareResult } from "@/canvas-next/diagram-persistence";
 import { DraftPersistenceProvider } from "@/canvas-next/diagram-persistence-context";
 import { useDraftPersistence } from "@/canvas-next/use-draft-persistence";
 import { useSharePersistence } from "@/canvas-next/use-share-persistence";
@@ -99,12 +98,10 @@ interface CanvasNextContentProps {
 
 function CanvasNextWorkspaceProvider({
 	routing,
-	persistenceAdapter,
 	workspaceAdapter,
 	children,
 }: PropsWithChildren<{
 	readonly routing: ReturnType<typeof useRouting>;
-	readonly persistenceAdapter: DiagramPersistenceAdapter;
 	readonly workspaceAdapter?: Partial<WorkspaceStoreAdapters>;
 }>) {
 	const diagramStore = useContext(DiagramSessionContext);
@@ -124,49 +121,28 @@ function CanvasNextWorkspaceProvider({
 			baseline:
 				shareBaseline && routing.viewedRoute.shareId !== null
 					? {
-							shareId: routing.viewedRoute.shareId,
-							source: shareBaseline.source,
-							positions: shareBaseline.positions,
-							notes: shareBaseline.notes.map(({ id, color, text }) => ({
-								id,
-								color,
-								text,
-							})),
-						}
+						shareId: routing.viewedRoute.shareId,
+						source: shareBaseline.source,
+						positions: shareBaseline.positions,
+						notes: shareBaseline.notes.map(({ id, color, text }) => ({
+							id,
+							color,
+							text,
+						})),
+					}
 					: null,
 		};
 	}, [diagramStore, routing.currentShareBaseline, routing.viewedRoute.shareId]);
-	const handleShareResult = useCallback(
-		(shareId: string) => {
-			applyWorkspaceShareResult({
-				adapter: persistenceAdapter,
-				sessionStore: diagramStore,
-				shareId,
-				currentShareId: routing.viewedRoute.shareId,
-				setShareBaseline: routing.setShareBaseline,
-				pushViewedRoute: routing.pushViewedRoute,
-			});
-		},
-		[
-			diagramStore,
-			persistenceAdapter,
-			routing.pushViewedRoute,
-			routing.setShareBaseline,
-			routing.viewedRoute.shareId,
-		],
-	);
 
 	return (
 		<WorkspaceProvider
 			getCurrentSeed={getCurrentSeed}
-			handleShareResult={handleShareResult}
 			adapter={workspaceAdapter}
 		>
 			{children}
 		</WorkspaceProvider>
 	);
 }
-
 
 function CanvasNextHeader({
 	isSharing,
@@ -294,7 +270,6 @@ export function CanvasNextPage({
 				<CanvasRuntimeProvider>
 					<CanvasNextWorkspaceProvider
 						routing={routing}
-						persistenceAdapter={adapter}
 						workspaceAdapter={workspaceAdapter}
 					>
 						<DraftPersistenceBridge routing={routing} />

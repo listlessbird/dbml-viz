@@ -1,7 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
 import { WorkerTransport } from "agents/mcp";
-import { log } from "evlog";
-import { nanoid } from "nanoid";
 
 import { createParserClient } from "../lib/parser-client.ts";
 import type { CanvasPresence } from "./mcp/context.ts";
@@ -9,9 +7,7 @@ import { createWorkspaceMcpServer } from "./mcp/server.ts";
 import { WorkspaceMcpSession } from "./mcp/session.ts";
 import { makeSnapshot, WorkspaceStorage } from "./workspace-storage.ts";
 import {
-	MAX_SCHEMA_SOURCE_LENGTH,
 	WORKSPACE_EVICTION_MS,
-	SHARE_TTL_SECONDS,
 	type ClientMessage,
 	type McpClientInfo,
 	type ServerMessage,
@@ -94,18 +90,6 @@ export class SchemaWorkspaceDO extends DurableObject<Env> {
 			case "attach":
 				return void await this.handleAttach(ws, msg);
 
-			case "set-source":
-				return void await this.handleSetSource(ws, msg.source);
-
-			case "set-positions":
-				return void await this.handlePatch(ws, { positions: msg.positions });
-
-			case "set-notes":
-				return void await this.handlePatch(ws, { notes: [...msg.notes] });
-
-			case "share-request":
-				return void await this.handleShare(ws);
-
 			case "end-workspace":
 				return void await this.handleEndWorkspace();
 		}
@@ -136,72 +120,6 @@ export class SchemaWorkspaceDO extends DurableObject<Env> {
 		ws.send(JSON.stringify({ type: "state-ack", state: makeSnapshot(nextWorkspace) } satisfies ServerMessage));
 		if (this.mcpClientInfo) {
 			ws.send(JSON.stringify({ type: "mcp-client-update", status: "connected", clientInfo: this.mcpClientInfo } satisfies ServerMessage));
-		}
-	}
-
-	private async handleSetSource(ws: WebSocket, source: string): Promise<void> {
-		if (!(await this.store.load())) return;
-
-		if (source.length > MAX_SCHEMA_SOURCE_LENGTH) {
-			ws.send(JSON.stringify({ type: "error", message: `Source exceeds ${MAX_SCHEMA_SOURCE_LENGTH} chars` } satisfies ServerMessage));
-			return;
-		}
-
-		await this.store.saveBrowserMutation({ source });
-		this.broadcast(
-			{
-				type: "state-update",
-				patch: { source, updatedAt: this.store.cached!.updatedAt },
-			},
-			ws,
-		);
-	}
-
-	private async handlePatch(ws: WebSocket, partial: Parameters<WorkspaceStorage["saveBrowserMutation"]>[0]): Promise<void> {
-		if (!(await this.store.load())) return;
-		await this.store.saveBrowserMutation(partial);
-		this.broadcast(
-			{
-				type: "state-update",
-				patch: {
-					...(partial as Partial<import("./workspace-types.ts").WorkspaceSnapshot>),
-					updatedAt: this.store.cached!.updatedAt,
-				},
-			},
-			ws,
-		);
-	}
-
-	private async handleShare(ws: WebSocket): Promise<void> {
-		const workspace = await this.store.load();
-		if (!workspace) {
-			ws.send(JSON.stringify({ type: "share-error", error: "No active workspace" } satisfies ServerMessage));
-			return;
-		}
-
-		try {
-			const shareId = nanoid(8);
-			const payload = { source: workspace.source, positions: workspace.positions, notes: workspace.notes, version: 3 as const };
-
-			await this.env.SCHEMAS.put(shareId, JSON.stringify(payload), { expirationTtl: SHARE_TTL_SECONDS });
-			await this.store.saveBrowserMutation({
-				baseline: { shareId, source: workspace.source, positions: workspace.positions, notes: workspace.notes },
-			});
-
-			ws.send(JSON.stringify({ type: "share-result", id: shareId } satisfies ServerMessage));
-			this.broadcast(
-				{
-					type: "state-update",
-					patch: {
-						baseline: { shareId },
-						updatedAt: this.store.cached!.updatedAt,
-					},
-				},
-				ws,
-			);
-		} catch (error) {
-			log.error({ scope: "workspace_share", op: "save", cause: error });
-			ws.send(JSON.stringify({ type: "share-error", error: "Failed to save shared schema" } satisfies ServerMessage));
 		}
 	}
 

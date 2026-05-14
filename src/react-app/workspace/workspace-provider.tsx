@@ -15,14 +15,12 @@ import type { WorkspaceSeed } from "@/types/workspace";
 
 interface WorkspaceProviderProps extends PropsWithChildren {
 	readonly getCurrentSeed: () => WorkspaceSeed;
-	readonly handleShareResult: (shareId: string) => void;
 	readonly adapter?: Partial<WorkspaceStoreAdapters>;
 }
 
 export function WorkspaceProvider({
 	children,
 	getCurrentSeed,
-	handleShareResult,
 	adapter,
 }: WorkspaceProviderProps) {
 	const diagramStore = useContext(DiagramSessionContext);
@@ -50,7 +48,6 @@ export function WorkspaceProvider({
 		requestFocus:
 			adapter?.requestFocus ??
 			createCanvasRuntimeFocusRequester(runtimeStore),
-		handleShareResult: adapter?.handleShareResult ?? handleShareResult,
 	});
 
 	useEffect(() => {
