@@ -1,6 +1,5 @@
 import {
 	Handle,
-	NodeResizer,
 	Position,
 	useReactFlow,
 	type NodeProps,
@@ -40,7 +39,6 @@ import type {
 	CanvasNode,
 	StickyNoteColor,
 	StickyNoteNode as StickyNoteNodeType,
-	StickyNoteWidthMode,
 	TableData,
 } from "@/types";
 
@@ -85,10 +83,6 @@ const buildTableValidator = (
 	};
 };
 
-const resolveWidthMode = (
-	mode: StickyNoteWidthMode | undefined,
-): StickyNoteWidthMode => mode ?? "auto";
-
 export const CanvasNextStickyNoteNode = memo(function CanvasNextStickyNoteNode({
 	id,
 	data,
@@ -106,9 +100,9 @@ export const CanvasNextStickyNoteNode = memo(function CanvasNextStickyNoteNode({
 	const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
 	const text = note?.text ?? "";
-	const widthMode = resolveWidthMode(note?.widthMode);
-	const currentWidth = width ?? note?.width ?? STICKY_NOTE_MIN_WIDTH;
-	const currentHeight = height ?? note?.height ?? STICKY_NOTE_MIN_HEIGHT;
+	const widthMode = "auto";
+	const currentWidth = width ?? STICKY_NOTE_MIN_WIDTH;
+	const currentHeight = height ?? STICKY_NOTE_MIN_HEIGHT;
 	const [isEditing, setIsEditing] = useState(() => text.length === 0);
 
 	const isValidRef = useMemo(() => buildTableValidator(tables), [tables]);
@@ -117,7 +111,6 @@ export const CanvasNextStickyNoteNode = memo(function CanvasNextStickyNoteNode({
 		[text, isValidRef],
 	);
 	const layout = useStickyLayout({
-		id,
 		text,
 		isEditing,
 		selected: Boolean(selected),
@@ -204,10 +197,7 @@ export const CanvasNextStickyNoteNode = memo(function CanvasNextStickyNoteNode({
 		[],
 	);
 
-	const renderedHeight =
-		widthMode === "manual"
-			? Math.max(currentHeight, layout.nodeHeight)
-			: layout.nodeHeight;
+	const renderedHeight = layout.nodeHeight;
 	const renderedWidth = layout.nodeWidth;
 
 	if (!note) return null;
@@ -229,20 +219,6 @@ export const CanvasNextStickyNoteNode = memo(function CanvasNextStickyNoteNode({
 				enterEditMode();
 			}}
 		>
-			<NodeResizer
-				isVisible={selected}
-				minWidth={STICKY_NOTE_MIN_WIDTH}
-				minHeight={STICKY_NOTE_MIN_HEIGHT}
-				lineClassName="!border-current/40"
-				handleClassName="!size-2 !border !border-current/50 !bg-background"
-				onResizeEnd={(_, params) => {
-					updateStickyNote(id, {
-						width: params.width,
-						height: params.height,
-						widthMode: "manual",
-					});
-				}}
-			/>
 			<Handle
 				type="source"
 				position={Position.Right}

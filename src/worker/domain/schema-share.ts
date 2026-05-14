@@ -12,10 +12,6 @@ const sharePositionSchema = z.object({
 
 const sharedStickyNoteSchema = z.object({
 	id: z.string(),
-	x: z.number(),
-	y: z.number(),
-	width: z.number(),
-	height: z.number(),
 	color: stickyNoteColorSchema,
 	text: z.string(),
 });

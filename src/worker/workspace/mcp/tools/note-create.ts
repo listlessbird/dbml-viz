@@ -10,8 +10,6 @@ import type {
 	SharedStickyNote,
 } from "../../workspace-types.ts";
 
-const STICKY_NOTE_DEFAULT_WIDTH = 220;
-const STICKY_NOTE_DEFAULT_HEIGHT = 160;
 const MAX_NOTE_TEXT_LENGTH = 4000;
 
 const stickyNoteColors = ["yellow", "pink", "blue", "green"] as const;
@@ -19,17 +17,11 @@ type StickyNoteColor = (typeof stickyNoteColors)[number];
 
 export interface NoteCreateInput {
 	readonly text: string;
-	readonly x?: number;
-	readonly y?: number;
 	readonly color?: StickyNoteColor;
 }
 
 const stickyNoteSchema = z.object({
 	id: z.string(),
-	x: z.number(),
-	y: z.number(),
-	width: z.number().positive(),
-	height: z.number().positive(),
 	color: z.enum(stickyNoteColors),
 	text: z.string(),
 });
@@ -77,10 +69,6 @@ export const runNoteCreateTool = async (
 	const { workspace } = ready.value;
 	const note: SharedStickyNote = {
 		id: `sticky-${nanoid(10)}`,
-		x: input.x ?? 0,
-		y: input.y ?? 0,
-		width: STICKY_NOTE_DEFAULT_WIDTH,
-		height: STICKY_NOTE_DEFAULT_HEIGHT,
 		color: input.color ?? "yellow",
 		text: input.text,
 	};
@@ -98,7 +86,7 @@ export const runNoteCreateTool = async (
 		Result.ok({
 			ok: true as const,
 			freshness: { updatedAt },
-			note,
+			note: { id: note.id, color: note.color, text: note.text },
 		}),
 	);
 };
@@ -115,18 +103,6 @@ export const noteCreateTool = {
 				.max(MAX_NOTE_TEXT_LENGTH)
 				.describe(
 					"Sticky Note body text. May contain `#table` and `#table.column` tokens.",
-				),
-			x: z
-				.number()
-				.optional()
-				.describe(
-					"Optional Canvas x coordinate. Defaults to a sensible Canvas location when omitted.",
-				),
-			y: z
-				.number()
-				.optional()
-				.describe(
-					"Optional Canvas y coordinate. Defaults to a sensible Canvas location when omitted.",
 				),
 			color: z
 				.enum(stickyNoteColors)

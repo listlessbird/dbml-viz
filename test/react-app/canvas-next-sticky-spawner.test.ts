@@ -32,7 +32,7 @@ describe("spawnStickyNote", () => {
 		expect(addStickyNote).not.toHaveBeenCalled();
 	});
 
-	it("creates a sticky note at the screen-mapped flow position", () => {
+	it("creates a content-only sticky note", () => {
 		const flow = makeFlow({ x: 50, y: 80 });
 		const addStickyNote = vi.fn<(note: SharedStickyNote) => void>();
 		const id = spawnStickyNote({
@@ -45,12 +45,8 @@ describe("spawnStickyNote", () => {
 		expect(id).not.toBeNull();
 		expect(addStickyNote).toHaveBeenCalledOnce();
 		const note = addStickyNote.mock.calls[0]![0]!;
-		expect(note.x).toBe(50);
-		expect(note.y).toBe(80);
 		expect(note.text).toBe("");
 		expect(note.color).toBe("yellow");
-		expect(note.width).toBeGreaterThan(0);
-		expect(note.height).toBeGreaterThan(0);
 		expect(note.id).toBe(id);
 	});
 

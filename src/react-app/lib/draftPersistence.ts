@@ -113,7 +113,6 @@ const arePositionsEqual = (
 const areSharedStickyNotesEqual = (
 	left: readonly SharedStickyNote[],
 	right: readonly SharedStickyNote[],
-	options?: { readonly ignoreDimensions?: boolean },
 ) => {
 	if (left.length !== right.length) {
 		return false;
@@ -124,11 +123,10 @@ const areSharedStickyNotesEqual = (
 		const r = right[index];
 		if (
 			l.id !== r.id ||
-			l.x !== r.x ||
-			l.y !== r.y ||
-			(!options?.ignoreDimensions && (l.width !== r.width || l.height !== r.height)) ||
 			l.color !== r.color ||
-			l.text !== r.text
+			l.text !== r.text ||
+			l.x !== r.x ||
+			l.y !== r.y
 		) {
 			return false;
 		}
@@ -140,14 +138,11 @@ const areSharedStickyNotesEqual = (
 export const areSchemaPayloadsEqual = (
 	left: SchemaPayload,
 	right: SchemaPayload,
-	options?: { readonly ignoreNoteDimensions?: boolean },
 ) =>
 	left.version === right.version &&
 	left.source === right.source &&
 	arePositionsEqual(left.positions, right.positions) &&
-	areSharedStickyNotesEqual(left.notes, right.notes, {
-		ignoreDimensions: options?.ignoreNoteDimensions,
-	});
+	areSharedStickyNotesEqual(left.notes, right.notes);
 
 export const getInitialDraftState = ({
 	route,
@@ -248,9 +243,7 @@ export const resolveDraftPersistence = ({
 				notes: [],
 				version: 3,
 			} satisfies SchemaPayload);
-		const shouldClearRootDraft = areSchemaPayloadsEqual(payload, sampleBaseline, {
-			ignoreNoteDimensions: true,
-		});
+		const shouldClearRootDraft = areSchemaPayloadsEqual(payload, sampleBaseline);
 
 		return {
 			shouldStoreDraft: !shouldClearRootDraft,

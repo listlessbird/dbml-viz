@@ -120,14 +120,18 @@ function CanvasNextWorkspaceProvider({
 		return {
 			source: payload.source,
 			positions: payload.positions,
-			notes: payload.notes,
+			notes: payload.notes.map(({ id, color, text }) => ({ id, color, text })),
 			baseline:
 				shareBaseline && routing.viewedRoute.shareId !== null
 					? {
 							shareId: routing.viewedRoute.shareId,
 							source: shareBaseline.source,
 							positions: shareBaseline.positions,
-							notes: shareBaseline.notes,
+							notes: shareBaseline.notes.map(({ id, color, text }) => ({
+								id,
+								color,
+								text,
+							})),
 						}
 					: null,
 		};

@@ -328,10 +328,6 @@ describe("draftPersistence", () => {
 			notes: [
 				{
 					id: "sample-note-tenant-spine",
-					x: -120,
-					y: 48,
-					width: 276,
-					height: 172,
 					color: "yellow",
 					text: "#tenants -> #memberships",
 				},

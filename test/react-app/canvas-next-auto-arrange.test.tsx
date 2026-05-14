@@ -97,11 +97,7 @@ interface RenderOptions {
 		readonly source?: string;
 		readonly parsedSchema: ParsedSchema;
 		readonly tablePositions?: Record<string, { x: number; y: number }>;
-		readonly stickyNotes?: ReadonlyArray<{
-			readonly id: string;
-			readonly x: number;
-			readonly y: number;
-		}>;
+		readonly stickyNotes?: ReadonlyArray<{ readonly id: string }>;
 	};
 	readonly fitView?: ReturnType<typeof vi.fn>;
 }
@@ -118,10 +114,6 @@ function renderToolbar(options: RenderOptions = {}): RenderResult {
 		stickyNotes:
 			options.diagram?.stickyNotes?.map((note) => ({
 				id: note.id,
-				x: note.x,
-				y: note.y,
-				width: 200,
-				height: 120,
 				color: "yellow",
 				text: "",
 			})) ?? [],
@@ -198,7 +190,7 @@ describe("CanvasActionBar Auto-arrange", () => {
 				source: "Table users {}\nTable orders {}",
 				parsedSchema: usersAndOrders,
 				tablePositions: { users: { x: 0, y: 0 }, orders: { x: 0, y: 0 } },
-				stickyNotes: [{ id: "note-1", x: 50, y: 60 }],
+				stickyNotes: [{ id: "note-1" }],
 			},
 			fitView,
 		});

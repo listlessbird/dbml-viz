@@ -496,10 +496,6 @@ describe("Canvas Projection Sticky Notes", () => {
 	it("projects durable Sticky Notes as Canvas nodes", () => {
 		const note: SharedStickyNote = {
 			id: "sticky-1",
-			x: 40,
-			y: 80,
-			width: 220,
-			height: 180,
 			color: "yellow",
 			text: "Review users",
 		};
@@ -512,9 +508,7 @@ describe("Canvas Projection Sticky Notes", () => {
 		expect(stickyNode).toMatchObject({
 			id: "sticky-1",
 			type: "sticky",
-			position: { x: 40, y: 80 },
-			width: 220,
-			height: 180,
+			position: { x: 0, y: 0 },
 			data: { note },
 		});
 	});
@@ -522,10 +516,6 @@ describe("Canvas Projection Sticky Notes", () => {
 	it("derives sticky link edges from Sticky Note text and Tables", () => {
 		const note: SharedStickyNote = {
 			id: "sticky-1",
-			x: 40,
-			y: 80,
-			width: 220,
-			height: 180,
 			color: "blue",
 			text: "Review #users.id and #missing",
 		};
@@ -559,10 +549,6 @@ describe("Canvas Projection Sticky Notes", () => {
 	it("removes derived sticky link edges when the Sticky Note is absent", () => {
 		const note: SharedStickyNote = {
 			id: "sticky-1",
-			x: 40,
-			y: 80,
-			width: 220,
-			height: 180,
 			color: "green",
 			text: "Review #users",
 		};

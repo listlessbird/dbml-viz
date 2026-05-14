@@ -219,10 +219,8 @@ const buildRelationshipEdge = (
 const buildStickyNoteNode = (note: SharedStickyNote): StickyNoteNode => ({
 	id: note.id,
 	type: "sticky",
-	position: { x: note.x, y: note.y },
+	position: { x: note.x ?? 0, y: note.y ?? 0 },
 	data: { note },
-	width: note.width,
-	height: note.height,
 	draggable: true,
 	selectable: true,
 });

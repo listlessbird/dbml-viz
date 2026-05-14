@@ -36,10 +36,6 @@ const schemaWithUsers: ParsedSchema = {
 
 const yellowNote: SharedStickyNote = {
 	id: "sticky-1",
-	x: 0,
-	y: 0,
-	width: 220,
-	height: 160,
 	color: "yellow",
 	text: "",
 };
@@ -91,14 +87,12 @@ function renderNode({
 		selected,
 		dragging: false,
 		isConnectable: false,
-		positionAbsoluteX: note.x,
-		positionAbsoluteY: note.y,
+		positionAbsoluteX: 0,
+		positionAbsoluteY: 0,
 		zIndex: 0,
 		selectable: true,
 		deletable: true,
 		draggable: true,
-		width: note.width,
-		height: note.height,
 	};
 
 	act(() => {
