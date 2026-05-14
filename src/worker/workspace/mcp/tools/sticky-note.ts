@@ -587,11 +587,18 @@ export const runNotesApplyChangesTool = async (
 	);
 };
 
+const NOTES_OVERVIEW_DESCRIPTION = [
+	"Lists Sticky Notes on the Canvas with id, color, a short text preview, a textHash, and mention status. Use this before any notes_apply_changes call that targets existing notes (edit_text, replace_text, update_color, delete) so you have current ids and can detect drift.",
+	"Mentions are `#table` and `#table.column` tokens parsed from each note body; `resolved` reports whether the token matches the live Parsed Schema. Use unresolvedOnly: true to surface notes pointing at renamed or deleted tables/columns after a Schema edit.",
+	"responseFormat defaults to `concise` and returns previews + hashes only. Set responseFormat: \"detailed\" with a narrow noteIds list to get the full note text needed for edit_text (exact oldString) or replace_text (expectedText / expectedTextHash).",
+	"Filters compose: noteIds, mentionedTable, mentionedColumn, unresolvedOnly, textSearch. Output caps at 50 notes; if `truncated: true`, narrow the filters.",
+	"Read-only. Does not require Canvas Presence and does not mutate the Workspace.",
+].join(" ");
+
 export const notesOverviewTool = {
 	name: "notes_overview",
 	config: {
-		description:
-			"Returns compact Sticky Note inventory and mention status for durable Diagram notes. Use after schema edits that rename, delete, or supersede Tables or Columns so stale notes can be cleaned up intentionally. Works without Canvas Presence. Use responseFormat: \"detailed\" only for selected notes when preparing exact note edits.",
+		description: NOTES_OVERVIEW_DESCRIPTION,
 		inputSchema: {
 			noteIds: z
 				.array(z.string().min(1))
@@ -678,11 +685,22 @@ const noteDeleteOperationSchema = z.object({
 	expectedTextHash: z.string().optional(),
 });
 
+const NOTES_APPLY_CHANGES_DESCRIPTION = [
+	"Single write tool for Sticky Notes. Applies an ordered, bounded list of create / edit_text / replace_text / update_color / delete operations atomically — all succeed or none apply.",
+	"Operation guide:",
+	"  • create — new note with `text` (1–4000 chars) and optional `color`. Note text may contain `#table` and `#table.column` tokens which render as clickable chips against the live Parsed Schema; unresolved tokens render as plain text.",
+	"  • edit_text — exact-string patch (like schema_edit). Provide `oldString` (must match the current note body exactly once, or set `replaceAll: true`) and `newString`. If the match is ambiguous, expand `oldString` with surrounding text rather than the whole note.",
+	"  • replace_text — full-body rewrite with optimistic locking. Pass `expectedTextHash` (cheaper) or `expectedText` from a recent notes_overview; the call fails if the note text drifted.",
+	"  • update_color — cycle between yellow / pink / blue / green.",
+	"  • delete — remove a note. Requires `expectedTextHash` or `expectedText` so you cannot delete a note whose contents changed under you.",
+	"Inspect first when targeting existing notes: call notes_overview to get current ids and (for edit_text / replace_text / delete) the current text or textHash. Pure-create calls do not need a prior overview.",
+	"Requires Canvas Presence and current Workspace freshness (`knownWorkspaceUpdatedAt` from notes_overview, schema_overview, or workspace_status). Operations are capped at 32 per call. Mutates Sticky Notes only — Schema Source, Table Positions, Viewport, Focus, and Selection are untouched.",
+].join(" ");
+
 export const notesApplyChangesTool = {
 	name: "notes_apply_changes",
 	config: {
-		description:
-			"Applies bounded Sticky Note maintenance operations atomically. Use after notes_overview to update or delete stale notes after Schema Editing renames, deletes, or supersedes Tables or Columns. Requires Canvas Presence and current Workspace freshness. Mutates Sticky Note text, color, and existence only; never changes Schema Source, Table Positions, Viewport, Focus, or Selection.",
+		description: NOTES_APPLY_CHANGES_DESCRIPTION,
 		inputSchema: {
 			knownWorkspaceUpdatedAt: z
 				.number()

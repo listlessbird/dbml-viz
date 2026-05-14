@@ -2,13 +2,17 @@ import { getTableNodeLayout } from "@/components/table-node/layout";
 import type {
 	DiagramPositions,
 	ParsedSchema,
+	SharedStickyNote,
 	TableData,
 } from "@/types";
 import { placeTables } from "@/diagram-layout/table-placer";
+import { placeStickyNotes } from "@/diagram-layout/note-placer";
+import { createAccurateStickyNoteLayoutCache } from "@/canvas-next/sticky-note/measure";
 
 interface DiagramAutoLayoutRequest {
 	readonly parsedSchema: ParsedSchema;
 	readonly tablePositions: DiagramPositions;
+	readonly stickyNotes: readonly SharedStickyNote[];
 }
 
 interface DiagramLayoutDiagnostic {
@@ -19,6 +23,7 @@ type DiagramAutoLayoutResult =
 	| {
 			readonly ok: true;
 			readonly tablePositions: DiagramPositions;
+			readonly stickyNotes: readonly SharedStickyNote[];
 	  }
 	| {
 			readonly ok: false;
@@ -164,12 +169,36 @@ export const runDiagramAutoLayout = async (
 	request: DiagramAutoLayoutRequest,
 ): Promise<DiagramAutoLayoutResult> => {
 	try {
+		const tablePositions = placeTables({
+			parsedSchema: request.parsedSchema,
+			tablePositions: request.tablePositions,
+		}).tablePositions;
+
+		if (request.stickyNotes.length === 0) {
+			return {
+				ok: true,
+				tablePositions,
+				stickyNotes: request.stickyNotes,
+			};
+		}
+
+		const getNoteLayout = createAccurateStickyNoteLayoutCache(
+			request.parsedSchema,
+		);
+		const noteIdsToPlace = request.stickyNotes.map((note) => note.id);
+		const noteResult = placeStickyNotes({
+			parsedSchema: request.parsedSchema,
+			tablePositions,
+			stickyNotes: request.stickyNotes,
+			noteIdsToPlace,
+			getNoteLayout,
+			getTableLayout: getTableNodeLayout,
+		});
+
 		return {
 			ok: true,
-			tablePositions: placeTables({
-				parsedSchema: request.parsedSchema,
-				tablePositions: request.tablePositions,
-			}).tablePositions,
+			tablePositions,
+			stickyNotes: noteResult.stickyNotes,
 		};
 	} catch (error) {
 		return {
@@ -190,6 +219,7 @@ export const repairOverlappingTablePositions = async (
 		return {
 			ok: true,
 			tablePositions: request.tablePositions,
+			stickyNotes: request.stickyNotes,
 		};
 	}
 

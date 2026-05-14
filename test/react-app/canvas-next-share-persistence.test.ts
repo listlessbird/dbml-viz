@@ -101,12 +101,20 @@ describe("canvas-next Share persistence", () => {
 		});
 
 		expect(loaded).toEqual(remotePayload);
-		expect(store.getState().diagram).toEqual({
-			source: remotePayload.source,
-			parsedSchema: emptyDiagram.parsedSchema,
-			tablePositions: remotePayload.positions,
-			stickyNotes: remotePayload.notes,
-		});
+		const hydratedDiagram = store.getState().diagram;
+		expect(hydratedDiagram.source).toBe(remotePayload.source);
+		expect(hydratedDiagram.parsedSchema).toBe(emptyDiagram.parsedSchema);
+		expect(hydratedDiagram.tablePositions).toEqual(remotePayload.positions);
+		expect(hydratedDiagram.stickyNotes).toHaveLength(remotePayload.notes.length);
+		for (let index = 0; index < remotePayload.notes.length; index += 1) {
+			expect(hydratedDiagram.stickyNotes[index]).toEqual(
+				expect.objectContaining({
+					id: remotePayload.notes[index]!.id,
+					color: remotePayload.notes[index]!.color,
+					text: remotePayload.notes[index]!.text,
+				}),
+			);
+		}
 	});
 
 	it("rejects invalid remote Share payloads without replacing durable state", async () => {

@@ -105,6 +105,11 @@ export interface TableNodeLayout {
 	readonly typeColumnWidth: number;
 }
 
+export interface StickyNoteLayout {
+	readonly width: number;
+	readonly height: number;
+}
+
 export interface RelationAnchorData {
 	readonly id: string;
 	readonly columns: readonly string[];

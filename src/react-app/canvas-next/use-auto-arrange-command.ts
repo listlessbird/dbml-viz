@@ -28,10 +28,13 @@ export function useAutoArrangeCommand(): AutoArrangeCommand {
 		const result = await runDiagramAutoLayout({
 			parsedSchema: session.diagram.parsedSchema,
 			tablePositions: session.diagram.tablePositions,
+			stickyNotes: session.diagram.stickyNotes,
 		});
 		if (!result.ok) return;
 
-		sessionStore.getState().commitTablePositions(result.tablePositions);
+		const afterLayout = sessionStore.getState();
+		afterLayout.commitTablePositions(result.tablePositions);
+		afterLayout.replaceStickyNotes(result.stickyNotes);
 		runtimeStore.getState().requestFitView();
 	}, [sessionStore, runtimeStore]);
 

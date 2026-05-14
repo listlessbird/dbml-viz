@@ -84,7 +84,11 @@ const fakeFlowInstance = (
 interface RenderOptions {
 	readonly tablePositions: Record<string, { x: number; y: number }>;
 	readonly source?: string;
-	readonly stickyNotes?: ReadonlyArray<{ readonly id: string }>;
+	readonly stickyNotes?: ReadonlyArray<{
+		readonly id: string;
+		readonly color?: "yellow" | "pink" | "blue" | "green";
+		readonly text?: string;
+	}>;
 	readonly fitView?: ReturnType<typeof vi.fn>;
 }
 
@@ -102,8 +106,8 @@ function renderToolbar(options: RenderOptions): RenderResult {
 		stickyNotes:
 			options.stickyNotes?.map((note) => ({
 				id: note.id,
-				color: "yellow",
-				text: "",
+				color: note.color ?? "yellow",
+				text: note.text ?? "",
 			})) ?? [],
 	});
 	const runtimeStore = createCanvasRuntimeStore();
@@ -215,7 +219,7 @@ describe("CanvasActionBar Repair overlaps", () => {
 		expect(diagramStore.getState().diagram).toBe(beforeDiagram);
 	});
 
-	it("does not change Schema Source or Sticky Notes when repairing", async () => {
+	it("does not change Schema Source when repairing and re-places Sticky Notes alongside Tables", async () => {
 		stubAnimationFrame();
 		const { container, diagramStore } = renderToolbar({
 			source: "Table users {}",
@@ -224,17 +228,19 @@ describe("CanvasActionBar Repair overlaps", () => {
 				orders: { x: 20, y: 20 },
 				products: { x: 1600, y: 0 },
 			},
-			stickyNotes: [{ id: "note-1" }],
+			stickyNotes: [{ id: "note-1", color: "yellow", text: "About #users" }],
 		});
 		const beforeSource = diagramStore.getState().diagram.source;
-		const beforeNotes = diagramStore.getState().diagram.stickyNotes;
 
 		await act(async () => {
 			findRepair(container)!.click();
 		});
 
 		expect(diagramStore.getState().diagram.source).toBe(beforeSource);
-		expect(diagramStore.getState().diagram.stickyNotes).toBe(beforeNotes);
+		const afterNotes = diagramStore.getState().diagram.stickyNotes;
+		expect(afterNotes).toHaveLength(1);
+		expect(typeof afterNotes[0]!.x).toBe("number");
+		expect(typeof afterNotes[0]!.y).toBe("number");
 	});
 
 	it("disables the button when there are no Tables", () => {

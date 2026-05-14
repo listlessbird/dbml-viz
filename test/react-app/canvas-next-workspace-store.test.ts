@@ -151,12 +151,18 @@ describe("canvas-next Workspace Module Store", () => {
 		expect(store.getState().workspaceUrl).toContain(
 			"/api/agent/workspace-1/mcp",
 		);
-		expect(diagramStore.getState().diagram).toEqual({
-			source: snapshot.source,
-			parsedSchema: emptyDiagram.parsedSchema,
-			tablePositions: snapshot.positions,
-			stickyNotes: snapshot.notes,
-		});
+		const hydrated = diagramStore.getState().diagram;
+		expect(hydrated.source).toBe(snapshot.source);
+		expect(hydrated.parsedSchema).toBe(emptyDiagram.parsedSchema);
+		expect(hydrated.tablePositions).toEqual(snapshot.positions);
+		expect(hydrated.stickyNotes).toHaveLength(snapshot.notes.length);
+		expect(hydrated.stickyNotes[0]).toEqual(
+			expect.objectContaining({
+				id: snapshot.notes[0]!.id,
+				color: snapshot.notes[0]!.color,
+				text: snapshot.notes[0]!.text,
+			}),
+		);
 		expect(store.getState().mcpClientPresence).toEqual({
 			status: "waiting",
 			clientInfo: null,
@@ -306,7 +312,10 @@ describe("canvas-next Workspace Module Store", () => {
 		expect(diagramStore.getState().diagram.tablePositions).toEqual(
 			beforePayload.positions,
 		);
-		expect(diagramStore.getState().diagram.stickyNotes).toEqual(nextNotes);
+		expect(diagramStore.getState().diagram.stickyNotes).toHaveLength(1);
+		expect(diagramStore.getState().diagram.stickyNotes[0]).toEqual(
+			expect.objectContaining(nextNotes[0]),
+		);
 	});
 
 	it("routes Share results through Diagram Persistence policy", () => {
@@ -380,7 +389,15 @@ describe("canvas-next Workspace Module Store", () => {
 
 		expect(store.getState().status).toBe("live");
 		expect(diagramStore.getState().diagram.source).toBe(snapshot.source);
-		expect(diagramStore.getState().diagram.stickyNotes).toEqual(snapshot.notes);
+		const reconnectedNotes = diagramStore.getState().diagram.stickyNotes;
+		expect(reconnectedNotes).toHaveLength(snapshot.notes.length);
+		expect(reconnectedNotes[0]).toEqual(
+			expect.objectContaining({
+				id: snapshot.notes[0]!.id,
+				color: snapshot.notes[0]!.color,
+				text: snapshot.notes[0]!.text,
+			}),
+		);
 	});
 
 	it("marks an expired Workspace ended without merging stale projection state", () => {

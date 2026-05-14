@@ -37,10 +37,13 @@ export function useRepairOverlapsCommand(): RepairOverlapsCommand {
 		const result = await repairOverlappingTablePositions({
 			parsedSchema,
 			tablePositions,
+			stickyNotes: session.diagram.stickyNotes,
 		});
 		if (!result.ok) return;
 
-		sessionStore.getState().commitTablePositions(result.tablePositions);
+		const afterLayout = sessionStore.getState();
+		afterLayout.commitTablePositions(result.tablePositions);
+		afterLayout.replaceStickyNotes(result.stickyNotes);
 		runtimeStore.getState().requestFitView();
 	}, [sessionStore, runtimeStore]);
 

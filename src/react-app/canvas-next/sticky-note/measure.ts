@@ -6,10 +6,12 @@ import {
 } from "@chenglou/pretext/rich-inline";
 
 import {
+	parseLinksFromText,
 	splitTextWithTokens,
 	type LinkValidator,
 	type StickyNoteLinkRef,
 } from "@/canvas-next/sticky-note/link-tokens";
+import type { ParsedSchema, SharedStickyNote, StickyNoteLayout } from "@/types";
 
 interface StickyTextMeasure {
 	readonly lineCount: number;
@@ -48,6 +50,97 @@ export const STICKY_NOTE_MIN_WIDTH = 220;
 export const STICKY_NOTE_MIN_HEIGHT = 160;
 export const STICKY_NOTE_MIN_BODY_WIDTH =
 	STICKY_NOTE_MIN_WIDTH - 2 * ROOT_BORDER - 2 * BODY_PAD_X;
+
+const CHEAP_STICKY_NOTE_LAYOUT: StickyNoteLayout = Object.freeze({
+	width: STICKY_NOTE_MIN_WIDTH,
+	height: STICKY_NOTE_MIN_HEIGHT,
+});
+
+export const getCheapStickyNoteLayout = (): StickyNoteLayout =>
+	CHEAP_STICKY_NOTE_LAYOUT;
+
+const buildLinkValidator = (parsedSchema: ParsedSchema): LinkValidator => {
+	const columnNamesByTable = new Map<string, Set<string>>();
+	for (const table of parsedSchema.tables) {
+		columnNamesByTable.set(
+			table.name,
+			new Set(table.columns.map((column) => column.name)),
+		);
+	}
+	return (table, column) => {
+		const columns = columnNamesByTable.get(table);
+		if (!columns) return false;
+		if (column === undefined) return true;
+		return columns.has(column);
+	};
+};
+
+const computeStickyNoteDisplayLayout = (
+	text: string,
+	isValidRef: LinkValidator,
+): StickyNoteLayout => {
+	const links = parseLinksFromText(text, isValidRef);
+
+	let bodyWidth = STICKY_NOTE_MIN_BODY_WIDTH;
+	for (let pass = 0; pass < 3; pass += 1) {
+		const proseStats = measureProseStats(text, bodyWidth, isValidRef);
+		const linksStats = measureLinksStats(links, bodyWidth);
+		const usedWidth = Math.max(
+			proseStats.maxLineWidth,
+			linksStats.maxLineWidth,
+		);
+		const next = Math.max(
+			STICKY_NOTE_MIN_BODY_WIDTH,
+			Math.ceil(usedWidth + STICKY_NOTE_AUTO_FIT_SLACK),
+		);
+		if (next === bodyWidth) break;
+		bodyWidth = next;
+	}
+
+	const proseStats = measureProseStats(text, bodyWidth, isValidRef);
+	const linksStats = measureLinksStats(links, bodyWidth);
+
+	const proseBlockH =
+		proseStats.lineCount * BODY_LINE_HEIGHT + BODY_PAD_TOP + BODY_PAD_BOTTOM;
+	const linksBlockH =
+		linksStats.lineCount === 0
+			? 0
+			: linksStats.lineCount * CHIP_LINE_HEIGHT +
+				(linksStats.lineCount - 1) * LINKS_ROW_GAP_Y +
+				LINKS_ROW_PAD_TOP +
+				LINKS_ROW_PAD_BOTTOM;
+
+	const nodeWidth = Math.max(
+		STICKY_NOTE_MIN_WIDTH,
+		Math.ceil(bodyWidth + 2 * ROOT_BORDER + 2 * BODY_PAD_X),
+	);
+	const nodeHeight = Math.max(
+		STICKY_NOTE_MIN_HEIGHT,
+		Math.ceil(HEADER_H + proseBlockH + linksBlockH + 2 * ROOT_BORDER),
+	);
+	return { width: nodeWidth, height: nodeHeight };
+};
+
+export const createAccurateStickyNoteLayoutGetter = (
+	parsedSchema: ParsedSchema,
+): ((note: SharedStickyNote) => StickyNoteLayout) => {
+	const isValidRef = buildLinkValidator(parsedSchema);
+	return (note) => computeStickyNoteDisplayLayout(note.text, isValidRef);
+};
+
+export const createAccurateStickyNoteLayoutCache = (
+	parsedSchema: ParsedSchema,
+): ((note: SharedStickyNote) => StickyNoteLayout) => {
+	const getter = createAccurateStickyNoteLayoutGetter(parsedSchema);
+	const cache = new Map<string, StickyNoteLayout>();
+	return (note) => {
+		const cached = cache.get(note.id);
+		if (cached) return cached;
+		const layout = getter(note);
+		cache.set(note.id, layout);
+		return layout;
+	};
+};
 
 export const PLACEHOLDER_TEXT = "Write a note… type # to link a table";
 const placeholderPrepared = prepare(PLACEHOLDER_TEXT, BODY_FONT, {

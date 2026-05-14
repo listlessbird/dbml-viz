@@ -567,4 +567,26 @@ describe("Canvas Projection Sticky Notes", () => {
 		expect(after.nodes.map((node) => node.id)).not.toContain("sticky-1");
 		expect(after.edges.filter((edge) => edge.type === "stickyLink")).toEqual([]);
 	});
+
+	it("preserves Sticky Note object identity through the projection so memos can skip work", () => {
+		const note: SharedStickyNote = {
+			id: "sticky-stable",
+			color: "yellow",
+			text: "About #users",
+			x: 400,
+			y: 300,
+		};
+		const projection = buildCanvasProjection(
+			buildDiagram(usersOnly, {}, [note]),
+			projectionRuntime,
+		);
+
+		const stickyNode = projection.nodes.find(
+			(node) => node.id === "sticky-stable",
+		);
+		expect(stickyNode).toBeDefined();
+		expect((stickyNode as { data: { note: SharedStickyNote } }).data.note).toBe(
+			note,
+		);
+	});
 });

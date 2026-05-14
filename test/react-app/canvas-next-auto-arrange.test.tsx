@@ -97,7 +97,11 @@ interface RenderOptions {
 		readonly source?: string;
 		readonly parsedSchema: ParsedSchema;
 		readonly tablePositions?: Record<string, { x: number; y: number }>;
-		readonly stickyNotes?: ReadonlyArray<{ readonly id: string }>;
+		readonly stickyNotes?: ReadonlyArray<{
+			readonly id: string;
+			readonly color?: "yellow" | "pink" | "blue" | "green";
+			readonly text?: string;
+		}>;
 	};
 	readonly fitView?: ReturnType<typeof vi.fn>;
 }
@@ -114,8 +118,8 @@ function renderToolbar(options: RenderOptions = {}): RenderResult {
 		stickyNotes:
 			options.diagram?.stickyNotes?.map((note) => ({
 				id: note.id,
-				color: "yellow",
-				text: "",
+				color: note.color ?? "yellow",
+				text: note.text ?? "",
 			})) ?? [],
 	});
 	const runtimeStore = createCanvasRuntimeStore();
@@ -182,7 +186,7 @@ describe("CanvasActionBar Auto-arrange", () => {
 		).toBe(true);
 	});
 
-	it("does not change Sticky Notes or Schema Source on arrange", async () => {
+	it("does not change Schema Source on arrange but re-places Sticky Notes (symmetric reset)", async () => {
 		const fitView = vi.fn();
 		stubAnimationFrame();
 		const { container, diagramStore } = renderToolbar({
@@ -190,19 +194,23 @@ describe("CanvasActionBar Auto-arrange", () => {
 				source: "Table users {}\nTable orders {}",
 				parsedSchema: usersAndOrders,
 				tablePositions: { users: { x: 0, y: 0 }, orders: { x: 0, y: 0 } },
-				stickyNotes: [{ id: "note-1" }],
+				stickyNotes: [
+					{ id: "note-1", color: "yellow", text: "About #users" },
+				],
 			},
 			fitView,
 		});
 
 		const beforeSource = diagramStore.getState().diagram.source;
-		const beforeNotes = diagramStore.getState().diagram.stickyNotes;
 		await act(async () => {
 			findAutoArrange(container)!.click();
 		});
 
 		expect(diagramStore.getState().diagram.source).toBe(beforeSource);
-		expect(diagramStore.getState().diagram.stickyNotes).toBe(beforeNotes);
+		const afterNotes = diagramStore.getState().diagram.stickyNotes;
+		expect(afterNotes).toHaveLength(1);
+		expect(typeof afterNotes[0]!.x).toBe("number");
+		expect(typeof afterNotes[0]!.y).toBe("number");
 	});
 
 	it("animates the Viewport to the arranged Tables after commit", async () => {
