@@ -1,11 +1,12 @@
 import { DurableObject } from "cloudflare:workers";
-import { WorkerTransport, type TransportState } from "agents/mcp";
+import { WorkerTransport } from "agents/mcp";
 import { log } from "evlog";
 import { nanoid } from "nanoid";
 
 import { createParserClient } from "../lib/parser-client.ts";
 import type { CanvasPresence } from "./mcp/context.ts";
 import { createWorkspaceMcpServer } from "./mcp/server.ts";
+import { WorkspaceMcpSession } from "./mcp/session.ts";
 import { makeSnapshot, WorkspaceStorage } from "./workspace-storage.ts";
 import {
 	MAX_SCHEMA_SOURCE_LENGTH,
@@ -16,10 +17,9 @@ import {
 	type ServerMessage,
 } from "./workspace-types.ts";
 
-const MCP_TRANSPORT_STATE_KEY = "mcp:transport-state";
-
 export class SchemaWorkspaceDO extends DurableObject<Env> {
 	private store = new WorkspaceStorage(this.ctx.storage);
+	private mcpSession = new WorkspaceMcpSession(this.ctx.storage);
 	private mcpClientInfo: McpClientInfo | null = null;
 
 
@@ -48,7 +48,10 @@ export class SchemaWorkspaceDO extends DurableObject<Env> {
 			return;
 		}
 
-		await this.store.clear();
+		await Promise.all([
+			this.store.clear(),
+			this.mcpSession.terminateActiveSession(),
+		]);
 	}
 
 	private async scheduleEvictionIfEmpty(): Promise<void> {
@@ -102,6 +105,9 @@ export class SchemaWorkspaceDO extends DurableObject<Env> {
 
 			case "share-request":
 				return void await this.handleShare(ws);
+
+			case "end-workspace":
+				return void await this.handleEndWorkspace();
 		}
 	}
 
@@ -199,13 +205,29 @@ export class SchemaWorkspaceDO extends DurableObject<Env> {
 		}
 	}
 
-	private async handleMcpRequest(request: Request): Promise<Response> {
-		// A missing Mcp-Session-Id means this is a new initialize request.
-		// Clear any persisted transport state so the fresh connection isn't rejected
-		// with "Server already initialized" from a previous session.
-		if (!request.headers.get("mcp-session-id")) {
-			await this.ctx.storage.delete(MCP_TRANSPORT_STATE_KEY);
+	private async handleEndWorkspace(): Promise<void> {
+		const terminated = await this.mcpSession.terminateActiveSession();
+		const clientInfo = this.mcpClientInfo ?? terminated.clientInfo;
+		this.mcpClientInfo = null;
+
+		await Promise.all([
+			this.store.clear(),
+			this.ctx.storage.deleteAlarm(),
+		]);
+
+		if (clientInfo) {
+			this.broadcast({
+				type: "mcp-client-update",
+				status: "disconnected",
+				clientInfo,
+			});
 		}
+		this.broadcast({ type: "workspace-ended" });
+	}
+
+	private async handleMcpRequest(request: Request): Promise<Response> {
+		const rejected = await this.mcpSession.prepareRequest(request);
+		if (rejected) return rejected;
 
 		const server = createWorkspaceMcpServer({
 			storage: this.store,
@@ -217,16 +239,13 @@ export class SchemaWorkspaceDO extends DurableObject<Env> {
 		});
 		const transport = new WorkerTransport({
 			sessionIdGenerator: () => crypto.randomUUID(),
-			storage: {
-				// WorkerTransport persists initializeParams here; the session callback
-				// below reads them back to tell attached browsers which MCP client arrived.
-				get: () => this.ctx.storage.get<TransportState>(MCP_TRANSPORT_STATE_KEY),
-				set: (state) => this.ctx.storage.put(MCP_TRANSPORT_STATE_KEY, state),
-			},
+			// WorkerTransport persists initializeParams here; the session callback
+			// below reads them back to tell attached browsers which MCP client arrived.
+			storage: this.mcpSession.transportStorage(),
 			onsessioninitialized: () => {
 				this.ctx.waitUntil(
-					this.ctx.storage
-						.get<TransportState>(MCP_TRANSPORT_STATE_KEY)
+					this.mcpSession
+						.loadTransportState()
 						.then((state) => {
 							const clientInfo = state?.initializeParams?.clientInfo ?? null;
 							if (!clientInfo) return;
@@ -262,8 +281,13 @@ export class SchemaWorkspaceDO extends DurableObject<Env> {
 				);
 			},
 		});
+		this.mcpSession.trackTransport(transport);
 		await server.connect(transport);
-		return transport.handleRequest(request);
+		const response = await transport.handleRequest(request);
+		if (!response.headers.get("content-type")?.includes("text/event-stream")) {
+			this.mcpSession.untrackTransport(transport);
+		}
+		return response;
 	}
 
 	override async fetch(request: Request): Promise<Response> {

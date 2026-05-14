@@ -349,6 +349,33 @@ describe("canvas-next Workspace Module Store", () => {
 		);
 	});
 
+	it("asks the Workspace to end and clears local connection state after confirmation", () => {
+		const { store, transports } = createHarness();
+		store.getState().attach();
+		transports[0]!.open();
+		transports[0]!.serverMessage({ type: "state-ack", state: snapshot });
+
+		store.getState().endWorkspace();
+
+		expect(transports[0]!.sent[transports[0]!.sent.length - 1]).toEqual({
+			type: "end-workspace",
+		});
+		expect(store.getState().status).toBe("live");
+
+		transports[0]!.serverMessage({ type: "workspace-ended" });
+
+		expect(transports[0]!.closeCalls).toEqual([
+			{ code: 1000, reason: "Workspace ended" },
+		]);
+		expect(store.getState()).toMatchObject({
+			status: "ended",
+			workspaceId: null,
+			workspaceUrl: null,
+			mcpClientPresence: { status: "waiting", clientInfo: null },
+			lastError: "workspace-ended",
+		});
+	});
+
 	it("enters reconnecting on unexpected close and replaces stale projection state after reconnect", () => {
 		vi.useFakeTimers();
 		const { store, diagramStore, transports } = createHarness();
