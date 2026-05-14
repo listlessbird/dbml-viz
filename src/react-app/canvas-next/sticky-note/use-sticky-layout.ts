@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo } from "react";
+import { useMemo } from "react";
 
 import type {
 	LinkValidator,
@@ -30,12 +30,10 @@ import {
 	measureProseStats,
 	measureTextareaLines,
 } from "@/canvas-next/sticky-note/measure";
-import { useDiagramSession } from "@/diagram-session/diagram-session-context";
 
 type StickyWidthMode = "auto" | "manual";
 
 export interface StickyLayoutInput {
-	readonly id: string;
 	readonly text: string;
 	readonly isEditing: boolean;
 	readonly selected: boolean;
@@ -81,7 +79,6 @@ const fitBodyWidth = (
 };
 
 export function useStickyLayout({
-	id,
 	text,
 	isEditing,
 	selected,
@@ -91,8 +88,6 @@ export function useStickyLayout({
 	links,
 	isValidRef,
 }: StickyLayoutInput): StickyLayoutOutput {
-	const updateStickyNote = useDiagramSession((state) => state.updateStickyNote);
-
 	const resolveBodyWidth = useMemo(() => {
 		if (isEditing || widthMode === "manual") {
 			return Math.max(
@@ -178,30 +173,11 @@ export function useStickyLayout({
 
 	const nodeHeight = isEditing
 		? Math.max(editNodeHeight, displayNodeHeight)
-		: displayNodeHeight;
+		: widthMode === "manual"
+			? Math.max(currentHeight, displayNodeHeight)
+			: displayNodeHeight;
 
 	const finalNodeWidth = Math.max(STICKY_NOTE_MIN_WIDTH, Math.ceil(nodeWidth));
-
-	useLayoutEffect(() => {
-		if (widthMode !== "auto") {
-			if (nodeHeight <= currentHeight) return;
-			updateStickyNote(id, {
-				height: nodeHeight,
-			});
-			return;
-		}
-		updateStickyNote(id, {
-			width: finalNodeWidth,
-			height: nodeHeight,
-		});
-	}, [
-		currentHeight,
-		finalNodeWidth,
-		id,
-		nodeHeight,
-		updateStickyNote,
-		widthMode,
-	]);
 
 	return { textareaBoxH, nodeHeight, nodeWidth: finalNodeWidth };
 }

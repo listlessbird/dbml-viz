@@ -1,52 +1,58 @@
-import { STICKY_NOTE_COLORS, type SchemaPayload, type SharePosition, type SharedStickyNote, type StickyNoteColor } from "@/types";
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-	typeof value === "object" && value !== null && !Array.isArray(value);
-
-const isFiniteNumber = (value: unknown): value is number =>
-	typeof value === "number" && Number.isFinite(value);
-
-const isSharePosition = (value: unknown): value is SharePosition =>
-	isRecord(value) && isFiniteNumber(value.x) && isFiniteNumber(value.y);
-
-const isPositionRecord = (
-	value: unknown,
-): value is Record<string, SharePosition> => {
-	if (!isRecord(value)) {
-		return false;
-	}
-
-	return Object.values(value).every(isSharePosition);
-};
-
-const isStickyNoteColor = (value: unknown): value is StickyNoteColor =>
-	typeof value === "string" &&
-	(STICKY_NOTE_COLORS as readonly string[]).includes(value);
-
-const isSharedStickyNote = (value: unknown): value is SharedStickyNote =>
-	isRecord(value) &&
-	typeof value.id === "string" &&
-	isFiniteNumber(value.x) &&
-	isFiniteNumber(value.y) &&
-	isFiniteNumber(value.width) &&
-	isFiniteNumber(value.height) &&
-	isStickyNoteColor(value.color) &&
-	typeof value.text === "string";
-
-const isSharedStickyNoteArray = (
-	value: unknown,
-): value is readonly SharedStickyNote[] =>
-	Array.isArray(value) && value.every(isSharedStickyNote);
-
-const isSchemaPayload = (value: unknown): value is SchemaPayload =>
-	isRecord(value) &&
-	value.version === 3 &&
-	typeof value.source === "string" &&
-	isPositionRecord(value.positions) &&
-	isSharedStickyNoteArray(value.notes);
+import { STICKY_NOTE_COLORS, type SchemaPayload } from "@/types";
 
 export const parseSchemaPayload = (
 	value: unknown,
 ): SchemaPayload | null => {
-	return isSchemaPayload(value) ? value : null;
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		return null;
+	}
+	const payload = value as Record<string, unknown>;
+	if (payload.version !== 3 || typeof payload.source !== "string") {
+		return null;
+	}
+	if (
+		typeof payload.positions !== "object" ||
+		payload.positions === null ||
+		Array.isArray(payload.positions)
+	) {
+		return null;
+	}
+	if (
+		!Object.values(payload.positions).every((position) => {
+			if (
+				typeof position !== "object" ||
+				position === null ||
+				Array.isArray(position)
+			) {
+				return false;
+			}
+			const record = position as Record<string, unknown>;
+			return (
+				typeof record.x === "number" &&
+				Number.isFinite(record.x) &&
+				typeof record.y === "number" &&
+				Number.isFinite(record.y)
+			);
+		})
+	) {
+		return null;
+	}
+	if (
+		!Array.isArray(payload.notes) ||
+		!payload.notes.every((note) => {
+			if (typeof note !== "object" || note === null || Array.isArray(note)) {
+				return false;
+			}
+			const record = note as Record<string, unknown>;
+			return (
+				typeof record.id === "string" &&
+				typeof record.text === "string" &&
+				typeof record.color === "string" &&
+				(STICKY_NOTE_COLORS as readonly string[]).includes(record.color)
+			);
+		})
+	) {
+		return null;
+	}
+	return payload as unknown as SchemaPayload;
 };

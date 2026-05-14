@@ -25,10 +25,6 @@ const baseSource = [
 
 const existingNote: SharedStickyNote = {
 	id: "sticky-existing",
-	x: -100,
-	y: -100,
-	width: 220,
-	height: 160,
 	color: "pink",
 	text: "earlier",
 };
@@ -146,7 +142,7 @@ describe("note_create", () => {
 		});
 	});
 
-	it("creates a Sticky Note with default Canvas coordinates and reports freshness", async () => {
+	it("creates a Sticky Note and reports freshness", async () => {
 		const { result, payload, mutable, broadcasts } = await runTool(
 			baseWorkspace,
 			{ text: "consider adding indexes" },
@@ -161,10 +157,6 @@ describe("note_create", () => {
 		});
 		expect(typeof created.id).toBe("string");
 		expect(created.id.length).toBeGreaterThan(0);
-		expect(typeof created.x).toBe("number");
-		expect(typeof created.y).toBe("number");
-		expect(created.width).toBeGreaterThan(0);
-		expect(created.height).toBeGreaterThan(0);
 		expect(broadcasts).toEqual([
 			{
 				type: "state-update",
@@ -181,32 +173,24 @@ describe("note_create", () => {
 				id: created.id,
 				text: "consider adding indexes",
 				color: "yellow",
-				x: created.x,
-				y: created.y,
-				width: created.width,
-				height: created.height,
 			},
 		});
 	});
 
-	it("uses explicit Canvas coordinates and color when provided", async () => {
+	it("uses explicit color when provided", async () => {
 		const { payload, mutable } = await runTool(baseWorkspace, {
 			text: "near the users table",
-			x: 480,
-			y: 96,
 			color: "blue",
 		});
 
 		const created = mutable.state!.notes.at(-1)!;
 		expect(created).toMatchObject({
 			text: "near the users table",
-			x: 480,
-			y: 96,
 			color: "blue",
 		});
 		expect(payload).toMatchObject({
 			ok: true,
-			note: { x: 480, y: 96, color: "blue" },
+			note: { color: "blue" },
 		});
 	});
 
@@ -220,8 +204,6 @@ describe("note_create", () => {
 	it("does not change Schema Source, Table Positions, or baseline", async () => {
 		const { mutable, broadcasts } = await runTool(baseWorkspace, {
 			text: "no source mutation",
-			x: 10,
-			y: 10,
 		});
 
 		expect(mutable.state?.source).toBe(baseWorkspace.source);

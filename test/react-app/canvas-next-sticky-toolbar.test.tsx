@@ -107,8 +107,6 @@ describe("CanvasActionBar", () => {
 
 		const notes = diagramStore.getState().diagram.stickyNotes;
 		expect(notes).toHaveLength(1);
-		expect(notes[0]?.x).toBe(75);
-		expect(notes[0]?.y).toBe(125);
 		expect(notes[0]?.color).toBe("yellow");
 		expect(notes[0]?.text).toBe("");
 	});

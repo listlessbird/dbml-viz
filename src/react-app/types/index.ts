@@ -28,17 +28,12 @@ export interface SchemaSourceMetadata {
 	readonly dialect?: SqlDialect;
 }
 
-export type StickyNoteWidthMode = "auto" | "manual";
-
 export interface SharedStickyNote {
 	readonly id: string;
-	readonly x: number;
-	readonly y: number;
-	readonly width: number;
-	readonly height: number;
 	readonly color: StickyNoteColor;
 	readonly text: string;
-	readonly widthMode?: StickyNoteWidthMode;
+	readonly x?: number;
+	readonly y?: number;
 }
 
 export interface SchemaPayload {

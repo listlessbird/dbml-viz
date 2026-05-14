@@ -28,13 +28,10 @@ export function spawnStickyNote({
 	const id = `sticky-${crypto.randomUUID()}`;
 	const note: SharedStickyNote = {
 		id,
-		x: flowPoint.x,
-		y: flowPoint.y,
-		width: STICKY_NOTE_MIN_WIDTH,
-		height: STICKY_NOTE_MIN_HEIGHT,
 		color: "yellow",
 		text: "",
-		widthMode: "auto",
+		x: flowPoint.x,
+		y: flowPoint.y,
 	};
 	addStickyNote(note);
 	void flowInstance.setCenter(

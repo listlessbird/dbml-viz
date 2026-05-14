@@ -46,10 +46,6 @@ const snapshot: WorkspaceSnapshot = {
 	notes: [
 		{
 			id: "remote-note",
-			x: 30,
-			y: 40,
-			width: 160,
-			height: 100,
 			color: "green",
 			text: "remote",
 		},
@@ -97,10 +93,6 @@ const createHarness = () => {
 		stickyNotes: [
 			{
 				id: "stale-note",
-				x: 1,
-				y: 2,
-				width: 100,
-				height: 80,
 				color: "yellow",
 				text: "stale",
 			},
@@ -300,10 +292,6 @@ describe("canvas-next Workspace Module Store", () => {
 		const nextNotes = [
 			{
 				id: "patched-note",
-				x: 5,
-				y: 6,
-				width: 120,
-				height: 90,
 				color: "blue" as const,
 				text: "patched",
 			},

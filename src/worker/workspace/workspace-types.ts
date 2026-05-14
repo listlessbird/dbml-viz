@@ -5,10 +5,6 @@ interface SharePosition {
 
 export interface SharedStickyNote {
 	readonly id: string;
-	readonly x: number;
-	readonly y: number;
-	readonly width: number;
-	readonly height: number;
 	readonly color: "yellow" | "pink" | "blue" | "green";
 	readonly text: string;
 }

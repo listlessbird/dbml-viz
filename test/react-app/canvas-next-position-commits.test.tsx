@@ -81,16 +81,6 @@ const usersAndOrders: ParsedSchema = {
 	errors: [],
 };
 
-const stickyNote: SharedStickyNote = {
-	id: "sticky-1",
-	x: 20,
-	y: 30,
-	width: 220,
-	height: 180,
-	color: "yellow",
-	text: "Review #users",
-};
-
 let activeRoot: Root | null = null;
 let activeContainer: HTMLDivElement | null = null;
 
@@ -164,26 +154,14 @@ describe("canvas-next Table Position commits", () => {
 		);
 	});
 
-	it("commits React Flow Table position changes through Diagram Session", () => {
-		const { diagramStore } = renderCanvasNext();
-
-		act(() => {
-			capturedOnNodesChange?.([
-				{
-					id: "users",
-					type: "position",
-					position: { x: 112, y: 244 },
-					dragging: false,
-				},
-			]);
-		});
-
-		expect(diagramStore.getState().diagram.tablePositions).toEqual({
-			users: { x: 112, y: 244 },
-		});
-	});
-
 	it("commits React Flow Sticky Note position changes through Diagram Session", () => {
+		const stickyNote: SharedStickyNote = {
+			id: "sticky-1",
+			color: "yellow",
+			text: "Review #users",
+			x: 20,
+			y: 30,
+		};
 		const { diagramStore } = renderCanvasNext({
 			stickyNotes: [stickyNote],
 		});
@@ -206,6 +184,25 @@ describe("canvas-next Table Position commits", () => {
 				y: 288,
 			},
 		]);
+	});
+
+	it("commits React Flow Table position changes through Diagram Session", () => {
+		const { diagramStore } = renderCanvasNext();
+
+		act(() => {
+			capturedOnNodesChange?.([
+				{
+					id: "users",
+					type: "position",
+					position: { x: 112, y: 244 },
+					dragging: false,
+				},
+			]);
+		});
+
+		expect(diagramStore.getState().diagram.tablePositions).toEqual({
+			users: { x: 112, y: 244 },
+		});
 	});
 
 	it("does not synthesize missing Table Positions from the Canvas", () => {

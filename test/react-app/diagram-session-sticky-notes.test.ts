@@ -5,10 +5,6 @@ import type { SharedStickyNote } from "@/types";
 
 const note = (id: string, text = "Review #users"): SharedStickyNote => ({
 	id,
-	x: 10,
-	y: 20,
-	width: 220,
-	height: 180,
 	color: "yellow",
 	text,
 });
@@ -19,8 +15,6 @@ describe("Diagram Session Sticky Notes", () => {
 
 		store.getState().addStickyNote(note("sticky-1"));
 		store.getState().updateStickyNote("sticky-1", {
-			x: 40,
-			y: 80,
 			color: "blue",
 			text: "Updated",
 		});
@@ -28,10 +22,6 @@ describe("Diagram Session Sticky Notes", () => {
 		expect(store.getState().toSchemaPayload().notes).toEqual([
 			{
 				id: "sticky-1",
-				x: 40,
-				y: 80,
-				width: 220,
-				height: 180,
 				color: "blue",
 				text: "Updated",
 			},

@@ -19,10 +19,6 @@ const payload = (source: string): SchemaPayload => ({
 	notes: [
 		{
 			id: "note-1",
-			x: 30,
-			y: 40,
-			width: 160,
-			height: 120,
 			color: "yellow",
 			text: "See [[users]]",
 		},
@@ -50,10 +46,6 @@ describe("canvas-next Share persistence", () => {
 			stickyNotes: [
 				{
 					id: "note-local",
-					x: 1,
-					y: 2,
-					width: 120,
-					height: 90,
 					color: "blue",
 					text: "local",
 				},
@@ -72,10 +64,6 @@ describe("canvas-next Share persistence", () => {
 			notes: [
 				{
 					id: "note-local",
-					x: 1,
-					y: 2,
-					width: 120,
-					height: 90,
 					color: "blue",
 					text: "local",
 				},
@@ -96,10 +84,6 @@ describe("canvas-next Share persistence", () => {
 			stickyNotes: [
 				{
 					id: "stale-note",
-					x: 1,
-					y: 2,
-					width: 100,
-					height: 80,
 					color: "pink",
 					text: "stale",
 				},
@@ -177,10 +161,6 @@ describe("canvas-next Share persistence", () => {
 			stickyNotes: [
 				{
 					id: "workspace-note",
-					x: 3,
-					y: 4,
-					width: 120,
-					height: 90,
 					color: "green",
 					text: "workspace",
 				},

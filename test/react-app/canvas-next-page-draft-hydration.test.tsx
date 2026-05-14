@@ -127,10 +127,6 @@ describe("CanvasNextPage draft hydration", () => {
 			notes: [
 				{
 					id: "stale-note",
-					x: 1,
-					y: 2,
-					width: 120,
-					height: 90,
 					color: "pink",
 					text: "stale",
 				},
@@ -143,10 +139,6 @@ describe("CanvasNextPage draft hydration", () => {
 			notes: [
 				{
 					id: "remote-note",
-					x: 3,
-					y: 4,
-					width: 140,
-					height: 100,
 					color: "green",
 					text: "remote",
 				},
@@ -193,10 +185,6 @@ describe("CanvasNextPage draft hydration", () => {
 			notes: [
 				{
 					id: "dirty-note",
-					x: 1,
-					y: 2,
-					width: 120,
-					height: 90,
 					color: "pink",
 					text: "dirty",
 				},
@@ -209,10 +197,6 @@ describe("CanvasNextPage draft hydration", () => {
 			notes: [
 				{
 					id: "remote-note",
-					x: 3,
-					y: 4,
-					width: 140,
-					height: 100,
 					color: "green",
 					text: "remote",
 				},

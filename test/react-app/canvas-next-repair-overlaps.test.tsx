@@ -84,7 +84,7 @@ const fakeFlowInstance = (
 interface RenderOptions {
 	readonly tablePositions: Record<string, { x: number; y: number }>;
 	readonly source?: string;
-	readonly stickyNotes?: ReadonlyArray<{ id: string; x: number; y: number }>;
+	readonly stickyNotes?: ReadonlyArray<{ readonly id: string }>;
 	readonly fitView?: ReturnType<typeof vi.fn>;
 }
 
@@ -102,10 +102,6 @@ function renderToolbar(options: RenderOptions): RenderResult {
 		stickyNotes:
 			options.stickyNotes?.map((note) => ({
 				id: note.id,
-				x: note.x,
-				y: note.y,
-				width: 200,
-				height: 120,
 				color: "yellow",
 				text: "",
 			})) ?? [],
@@ -228,7 +224,7 @@ describe("CanvasActionBar Repair overlaps", () => {
 				orders: { x: 20, y: 20 },
 				products: { x: 1600, y: 0 },
 			},
-			stickyNotes: [{ id: "note-1", x: 50, y: 60 }],
+			stickyNotes: [{ id: "note-1" }],
 		});
 		const beforeSource = diagramStore.getState().diagram.source;
 		const beforeNotes = diagramStore.getState().diagram.stickyNotes;
