@@ -1,37 +1,24 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
 import type { ParserClient } from "../../lib/parser-client.ts";
-import type { WorkspaceStorage } from "../workspace-storage.ts";
-import type { ServerMessage } from "../workspace-types.ts";
 import {
 	createWorkspaceMcpContext,
-	type CanvasPresence,
+	type WorkspaceAgentApi,
 } from "./context.ts";
 import { registerWorkspaceMcpTools } from "./tools.ts";
 
-interface WorkspaceMcpContextOptions {
-	readonly storage: WorkspaceStorage;
-	readonly getCanvasPresence: () => CanvasPresence;
+export interface WorkspaceMcpServerOptions {
+	readonly agent: WorkspaceAgentApi;
 	readonly parserClient: ParserClient;
 }
 
-export interface WorkspaceMcpServerOptions extends WorkspaceMcpContextOptions {
-	readonly broadcast: (message: ServerMessage) => void;
-}
-
 export function createWorkspaceMcpServer({
-	storage,
-	getCanvasPresence,
+	agent,
 	parserClient,
-	broadcast,
 }: WorkspaceMcpServerOptions): McpServer {
 	const server = new McpServer({ name: "dbml-canvas", version: "0.0.1" });
-	const context = createWorkspaceMcpContext({
-		storage,
-		getCanvasPresence,
-		parserClient,
-	});
+	const context = createWorkspaceMcpContext({ agent, parserClient });
 
-	registerWorkspaceMcpTools({ server, context, storage, broadcast });
+	registerWorkspaceMcpTools({ server, context, agent });
 	return server;
 }

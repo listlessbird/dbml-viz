@@ -1,187 +1,96 @@
-import { DurableObject } from "cloudflare:workers";
-import { WorkerTransport } from "agents/mcp";
+import { Agent, type Connection, type WSMessage } from "agents";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { createMcpHandler, WorkerTransport } from "agents/mcp";
+import { Result, TaggedError } from "better-result";
 
 import { createParserClient } from "../lib/parser-client.ts";
-import type { CanvasPresence } from "./mcp/context.ts";
+import type { CanvasPresence, WorkspaceAgentApi } from "./mcp/context.ts";
 import { createWorkspaceMcpServer } from "./mcp/server.ts";
 import { WorkspaceMcpSession } from "./mcp/session.ts";
-import { makeSnapshot, WorkspaceStorage } from "./workspace-storage.ts";
+import { decideWorkspaceAttach } from "./workspace-attach.ts";
 import {
 	WORKSPACE_EVICTION_MS,
 	type ClientMessage,
 	type McpClientInfo,
 	type ServerMessage,
+	type WorkspaceState,
 } from "./workspace-types.ts";
 
-export class SchemaWorkspaceDO extends DurableObject<Env> {
-	private store = new WorkspaceStorage(this.ctx.storage);
-	private mcpSession = new WorkspaceMcpSession(this.ctx.storage);
+class InvalidClientMessageError extends TaggedError("InvalidClientMessageError")<{
+	readonly message: string;
+}>() {
+	constructor() {
+		super({ message: "Invalid message" });
+	}
+}
+
+const parseClientMessage = (
+	raw: string,
+): Result<ClientMessage, InvalidClientMessageError> =>
+	Result.try({
+		try: () => {
+			const parsed: unknown = JSON.parse(raw);
+			if (!parsed || typeof parsed !== "object" || !("type" in parsed)) {
+				throw new InvalidClientMessageError();
+			}
+			return parsed as ClientMessage;
+		},
+		catch: (cause) =>
+			cause instanceof InvalidClientMessageError
+				? cause
+				: new InvalidClientMessageError(),
+	});
+
+const EVICT_CALLBACK = "evict";
+
+export class SchemaWorkspace extends Agent<Env, WorkspaceState | null> {
+	override initialState = null as WorkspaceState | null;
+
+	private mcpSession!: WorkspaceMcpSession;
+	private mcpServer!: McpServer;
+	private mcpTransport!: WorkerTransport;
 	private mcpClientInfo: McpClientInfo | null = null;
 
-
-	private broadcast(message: ServerMessage, exclude?: WebSocket): void {
-		const payload = JSON.stringify(message);
-		for (const ws of this.ctx.getWebSockets("browser")) {
-			if (ws !== exclude) {
-				try { ws.send(payload); } catch { /* gone */ }
-			}
-		}
+	private buildAgentApi(): WorkspaceAgentApi {
+		// eslint-disable-next-line @typescript-eslint/no-this-alias
+		const agent = this;
+		return {
+			get state() {
+				return agent.state;
+			},
+			get canvasPresence() {
+				return agent.getCanvasPresence();
+			},
+			mutate: (partial) => agent.applyMutation(partial),
+			broadcast: (message) => agent.broadcastServerMessage(message),
+		};
 	}
 
-	private getCanvasPresence(): CanvasPresence {
-		const connectionCount = this.ctx.getWebSockets("browser").length;
-		return { connected: connectionCount > 0, connectionCount };
-	}
+	override async onStart(): Promise<void> {
+		this.mcpSession = new WorkspaceMcpSession(this.ctx.storage);
 
-
-	override async alarm(): Promise<void> {
-		const workspace = await this.store.load();
-		if (!workspace) return;
-
-		const remaining = WORKSPACE_EVICTION_MS - (Date.now() - workspace.lastActivityAt);
-		if (remaining > 0) {
-			await this.ctx.storage.setAlarm(Date.now() + remaining);
-			return;
-		}
-
-		await Promise.all([
-			this.store.clear(),
-			this.mcpSession.terminateActiveSession(),
-		]);
-	}
-
-	private async scheduleEvictionIfEmpty(): Promise<void> {
-		if (this.ctx.getWebSockets("browser").length === 0) {
-			await this.ctx.storage.setAlarm(Date.now() + WORKSPACE_EVICTION_MS);
-		}
-	}
-
-
-	private handleWebSocketUpgrade(request: Request): Response {
-		if (request.headers.get("Upgrade") !== "websocket") {
-			return new Response("Expected WebSocket upgrade", { status: 426 });
-		}
-
-		const pair = new WebSocketPair();
-		this.ctx.acceptWebSocket(pair[1], ["browser"]);
-		void this.ctx.storage.deleteAlarm();
-
-		return new Response(null, { status: 101, webSocket: pair[0] });
-	}
-
-
-	override async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
-		if (typeof message !== "string") return;
-
-		let msg: ClientMessage;
-		try {
-			const parsed = JSON.parse(message);
-			if (!parsed || typeof parsed !== "object" || !("type" in parsed)) throw 0;
-			msg = parsed as ClientMessage;
-		} catch {
-			ws.send(JSON.stringify({ type: "error", message: "Invalid message" } satisfies ServerMessage));
-			return;
-		}
-
-		switch (msg.type) {
-			case "ping":
-				return void ws.send(JSON.stringify({ type: "pong" } satisfies ServerMessage));
-
-			case "attach":
-				return void await this.handleAttach(ws, msg);
-
-			case "end-workspace":
-				return void await this.handleEndWorkspace();
-		}
-	}
-
-	override async webSocketClose(ws: WebSocket): Promise<void> {
-		ws.close();
-		await this.scheduleEvictionIfEmpty();
-	}
-
-	override async webSocketError(ws: WebSocket): Promise<void> {
-		ws.close();
-		await this.scheduleEvictionIfEmpty();
-	}
-
-
-	private async handleAttach(ws: WebSocket, msg: Extract<ClientMessage, { type: "attach" }>): Promise<void> {
-		const decision = await this.store.attachBrowser(msg.state, msg.updatedAt);
-		if (decision.winner === "remote") {
-			ws.send(JSON.stringify({ type: "state-ack", state: makeSnapshot(decision.workspace) } satisfies ServerMessage));
-			if (this.mcpClientInfo) {
-				ws.send(JSON.stringify({ type: "mcp-client-update", status: "connected", clientInfo: this.mcpClientInfo } satisfies ServerMessage));
-			}
-			return;
-		}
-
-		const nextWorkspace = this.store.cached!;
-		ws.send(JSON.stringify({ type: "state-ack", state: makeSnapshot(nextWorkspace) } satisfies ServerMessage));
-		if (this.mcpClientInfo) {
-			ws.send(JSON.stringify({ type: "mcp-client-update", status: "connected", clientInfo: this.mcpClientInfo } satisfies ServerMessage));
-		}
-	}
-
-	private async handleEndWorkspace(): Promise<void> {
-		const terminated = await this.mcpSession.terminateActiveSession();
-		const clientInfo = this.mcpClientInfo ?? terminated.clientInfo;
-		this.mcpClientInfo = null;
-
-		await Promise.all([
-			this.store.clear(),
-			this.ctx.storage.deleteAlarm(),
-		]);
-
-		if (clientInfo) {
-			this.broadcast({
-				type: "mcp-client-update",
-				status: "disconnected",
-				clientInfo,
-			});
-		}
-		this.broadcast({ type: "workspace-ended" });
-	}
-
-	private async handleMcpRequest(request: Request): Promise<Response> {
-		const rejected = await this.mcpSession.prepareRequest(request);
-		if (rejected) return rejected;
-
-		const server = createWorkspaceMcpServer({
-			storage: this.store,
-			getCanvasPresence: () => this.getCanvasPresence(),
-			parserClient: createParserClient({
-				parserService: this.env.SCHEMA_PARSER,
-			}),
-			broadcast: (msg) => this.broadcast(msg),
-		});
-		const transport = new WorkerTransport({
+		this.mcpTransport = new WorkerTransport({
 			sessionIdGenerator: () => crypto.randomUUID(),
-			// WorkerTransport persists initializeParams here; the session callback
-			// below reads them back to tell attached browsers which MCP client arrived.
 			storage: this.mcpSession.transportStorage(),
 			onsessioninitialized: () => {
 				this.ctx.waitUntil(
-					this.mcpSession
-						.loadTransportState()
-						.then((state) => {
-							const clientInfo = state?.initializeParams?.clientInfo ?? null;
-							if (!clientInfo) return;
-							if (
-								this.mcpClientInfo?.name === clientInfo?.name &&
-								this.mcpClientInfo?.title === clientInfo?.title &&
-								this.mcpClientInfo?.version === clientInfo?.version
-							) {
-								return;
-							}
-
-							this.mcpClientInfo = clientInfo;
-							this.broadcast({
-								type: "mcp-client-update",
-								status: "connected",
-								clientInfo,
-							});
-						}),
+					this.mcpSession.loadTransportState().then((state) => {
+						const clientInfo = state?.initializeParams?.clientInfo ?? null;
+						if (!clientInfo) return;
+						if (
+							this.mcpClientInfo?.name === clientInfo.name &&
+							this.mcpClientInfo?.title === clientInfo.title &&
+							this.mcpClientInfo?.version === clientInfo.version
+						) {
+							return;
+						}
+						this.mcpClientInfo = clientInfo;
+						this.broadcastServerMessage({
+							type: "mcp-client-update",
+							status: "connected",
+							clientInfo,
+						});
+					}),
 				);
 			},
 			onsessionclosed: () => {
@@ -190,7 +99,7 @@ export class SchemaWorkspaceDO extends DurableObject<Env> {
 						const clientInfo = this.mcpClientInfo;
 						if (clientInfo === null) return;
 						this.mcpClientInfo = null;
-						this.broadcast({
+						this.broadcastServerMessage({
 							type: "mcp-client-update",
 							status: "disconnected",
 							clientInfo,
@@ -199,26 +108,147 @@ export class SchemaWorkspaceDO extends DurableObject<Env> {
 				);
 			},
 		});
-		this.mcpSession.trackTransport(transport);
-		await server.connect(transport);
-		const response = await transport.handleRequest(request);
-		if (!response.headers.get("content-type")?.includes("text/event-stream")) {
-			this.mcpSession.untrackTransport(transport);
-		}
-		return response;
+
+		this.mcpSession.trackTransport(this.mcpTransport);
+
+		this.mcpServer = createWorkspaceMcpServer({
+			agent: this.buildAgentApi(),
+			parserClient: createParserClient({ parserService: this.env.SCHEMA_PARSER }),
+		});
 	}
 
-	override async fetch(request: Request): Promise<Response> {
+	override async onConnect(): Promise<void> {
+		const schedules = await this.listSchedules();
+		for (const schedule of schedules) {
+			if (schedule.callback === EVICT_CALLBACK) {
+				await this.cancelSchedule(schedule.id);
+			}
+		}
+
+		if (this.mcpClientInfo) {
+			this.broadcastServerMessage({
+				type: "mcp-client-update",
+				status: "connected",
+				clientInfo: this.mcpClientInfo,
+			});
+		}
+	}
+
+	override async onMessage(connection: Connection, raw: WSMessage): Promise<void> {
+		if (typeof raw !== "string") return;
+
+		const parsed = parseClientMessage(raw);
+		if (Result.isError(parsed)) {
+			connection.send(
+				JSON.stringify({
+					type: "error",
+					message: parsed.error.message,
+				} satisfies ServerMessage),
+			);
+			return;
+		}
+
+		const msg = parsed.value;
+		switch (msg.type) {
+			case "ping":
+				connection.send(JSON.stringify({ type: "pong" } satisfies ServerMessage));
+				return;
+			case "attach":
+				await this.handleAttach(msg);
+				return;
+			case "end-workspace":
+				await this.handleEndWorkspace();
+				return;
+		}
+	}
+
+	override async onClose(): Promise<void> {
+		if (Array.from(this.getConnections()).length === 0) {
+			await this.schedule(WORKSPACE_EVICTION_MS / 1000, EVICT_CALLBACK);
+		}
+	}
+
+	async evict(): Promise<void> {
+		const clientInfo = this.mcpClientInfo;
+		this.mcpClientInfo = null;
+		this.setState(null);
+		await this.mcpSession.terminateActiveSession();
+		if (clientInfo) {
+			this.broadcastServerMessage({
+				type: "mcp-client-update",
+				status: "disconnected",
+				clientInfo,
+			});
+		}
+		this.broadcastServerMessage({ type: "workspace-ended" });
+	}
+
+	override async onRequest(request: Request): Promise<Response> {
+		const rejected = await this.mcpSession.prepareRequest(request);
+		if (rejected) return rejected;
+
 		const url = new URL(request.url);
+		const handler = createMcpHandler(this.mcpServer, {
+			route: url.pathname,
+			transport: this.mcpTransport,
+		});
+		return handler(request, this.env, this.ctx as unknown as ExecutionContext);
+	}
 
-		if (url.pathname.endsWith("/ws")) {
-			return this.handleWebSocketUpgrade(request);
+	private async handleAttach(msg: Extract<ClientMessage, { type: "attach" }>): Promise<void> {
+		const seed = msg.state;
+		const decision = decideWorkspaceAttach(this.state, {
+			state: seed,
+			updatedAt: msg.updatedAt,
+		});
+
+		if (decision.winner === "browser") {
+			this.setState({
+				source: decision.state.source,
+				positions: decision.state.positions,
+				notes: [...decision.state.notes],
+				baseline: decision.state.baseline
+					? { shareId: decision.state.baseline.shareId }
+					: null,
+				updatedAt: decision.updatedAt,
+			});
 		}
+	}
 
-		if (url.pathname.endsWith("/mcp") || url.pathname.includes("/mcp/")) {
-			return this.handleMcpRequest(request);
+	private async handleEndWorkspace(): Promise<void> {
+		const terminated = await this.mcpSession.terminateActiveSession();
+		const clientInfo = this.mcpClientInfo ?? terminated.clientInfo;
+		this.mcpClientInfo = null;
+
+		this.setState(null);
+
+		if (clientInfo) {
+			this.broadcastServerMessage({
+				type: "mcp-client-update",
+				status: "disconnected",
+				clientInfo,
+			});
 		}
+		this.broadcastServerMessage({ type: "workspace-ended" });
+	}
 
-		return new Response("Not found", { status: 404 });
+	private applyMutation(partial: Partial<WorkspaceState>): void {
+		const current = this.state;
+		if (!current) return;
+		this.setState({
+			...current,
+			...partial,
+			updatedAt: Date.now(),
+		});
+	}
+
+	private getCanvasPresence(): CanvasPresence {
+		const connectionCount = Array.from(this.getConnections()).length;
+		return { connected: connectionCount > 0, connectionCount };
+	}
+
+	private broadcastServerMessage(message: ServerMessage): void {
+		this.broadcast(JSON.stringify(message));
 	}
 }
+

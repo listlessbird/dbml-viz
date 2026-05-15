@@ -29,7 +29,7 @@
 		"@tanstack/react-hotkeys-devtools": "^0.6.6",
 		"@tanstack/react-query": "^5.100.5",
 		"@xyflow/react": "^12.10.2",
-		"agents": "^0.11.5",
+		"agents": "^0.12.4",
 		"better-result": "^2.9.2",
 		"class-variance-authority": "^0.7.1",
 		"clsx": "^2.1.1",

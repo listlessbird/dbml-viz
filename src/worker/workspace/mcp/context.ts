@@ -1,8 +1,7 @@
 import { Result } from "better-result";
 
 import type { ParserClient } from "../../lib/parser-client.ts";
-import type { WorkspaceStorage } from "../workspace-storage.ts";
-import type { WorkspaceState } from "../workspace-types.ts";
+import type { ServerMessage, WorkspaceState } from "../workspace-types.ts";
 import {
 	createAvailabilityErrorResult,
 	createParserUnreachableResult,
@@ -27,6 +26,13 @@ export interface WorkspaceMcpStatus extends WorkspaceAvailabilityStatus {
 	readonly diagnosticCount: number;
 }
 
+export interface WorkspaceAgentApi {
+	readonly state: WorkspaceState | null;
+	readonly canvasPresence: CanvasPresence;
+	mutate(partial: Partial<WorkspaceState>): void;
+	broadcast(message: ServerMessage): void;
+}
+
 interface WorkspaceMcpReady {
 	readonly workspace: WorkspaceState;
 	readonly status: WorkspaceAvailabilityStatus;
@@ -37,8 +43,7 @@ interface RequireWorkspaceOptions {
 }
 
 interface WorkspaceMcpContextOptions {
-	readonly storage: WorkspaceStorage;
-	readonly getCanvasPresence: () => CanvasPresence;
+	readonly agent: WorkspaceAgentApi;
 	readonly parserClient: ParserClient;
 }
 
@@ -52,8 +57,7 @@ export const describeWorkspaceAvailability = (
 });
 
 export const createWorkspaceMcpContext = ({
-	storage,
-	getCanvasPresence,
+	agent,
 	parserClient,
 }: WorkspaceMcpContextOptions) => {
 	const requireWorkspace = async ({
@@ -61,8 +65,8 @@ export const createWorkspaceMcpContext = ({
 	}: RequireWorkspaceOptions = {}): Promise<
 		Result<WorkspaceMcpReady, WorkspaceMcpAvailabilityError>
 	> => {
-		const workspace = await storage.load();
-		const status = describeWorkspaceAvailability(workspace, getCanvasPresence());
+		const workspace = agent.state;
+		const status = describeWorkspaceAvailability(workspace, agent.canvasPresence);
 
 		if (!workspace) {
 			return Result.err(unavailable("workspace_not_active", status));
@@ -71,7 +75,6 @@ export const createWorkspaceMcpContext = ({
 			return Result.err(unavailable("canvas_not_connected", status));
 		}
 
-		await storage.touch();
 		return Result.ok({ workspace, status });
 	};
 

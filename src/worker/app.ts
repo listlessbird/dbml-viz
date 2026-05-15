@@ -10,7 +10,6 @@ import {
 	sharedSchemaPayloadSchema,
 	type ShareErrorResponse,
 } from "./domain/schema-share";
-import { callWorkspace } from "./lib/call-workspace";
 
 initWorkersLogger({ env: { service: "dbml-viz" } });
 
@@ -25,16 +24,6 @@ export const app = new Hono<{ Bindings: Env } & EvlogVariables>()
 	.use(evlog())
 	.get("/api/health", (c) => c.json({ ok: true as const }, 200))
 	.all("/api/parse", (c) => c.env.SCHEMA_PARSER.fetch(c.req.raw))
-	.all("/api/agent/:workspaceId/ws", (c) =>
-		callWorkspace(c.env, c.req.param("workspaceId"), (stub) =>
-			stub.fetch(c.req.raw),
-		),
-	)
-	.all("/api/agent/:workspaceId/mcp/*", (c) =>
-		callWorkspace(c.env, c.req.param("workspaceId"), (stub) =>
-			stub.fetch(c.req.raw),
-		),
-	)
 	.post(
 		"/api/save",
 		zValidator("json", sharedSchemaPayloadSchema, (result, c) => {

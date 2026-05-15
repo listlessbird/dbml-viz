@@ -43,7 +43,6 @@ export interface WorkspaceStoreAdapters {
 	readonly createTransport?: WorkspaceTransportFactory;
 	readonly getCurrentSeed: () => WorkspaceSeed;
 	readonly hydrateSnapshot: (snapshot: WorkspaceSnapshot) => void;
-	readonly applyPatch: (patch: Partial<WorkspaceSnapshot>) => void;
 	readonly requestFocus: (tableIds: readonly string[]) => void;
 	readonly createWorkspaceId?: () => string;
 	readonly getLastUpdatedAt?: () => number;
@@ -109,7 +108,6 @@ export function createWorkspaceStore({
 	createTransport = createWorkspaceWebSocketTransport,
 	getCurrentSeed,
 	hydrateSnapshot,
-	applyPatch,
 	requestFocus,
 	createWorkspaceId = getOrCreateDeviceId,
 	getLastUpdatedAt = () => 0,
@@ -141,11 +139,19 @@ export function createWorkspaceStore({
 				onMessage: (message) => {
 					if (disposed || activeTransport !== transport) return;
 					switch (message.type) {
-						case "state-ack":
+						case "cf_agent_state":
 							clearReconnectTimer();
-							if (typeof message.state.updatedAt === "number") {
-								setLastUpdatedAt?.(message.state.updatedAt);
+							if (message.state === null) {
+								set({
+									status: "live",
+									workspaceUrl: makeWorkspaceMcpUrl(workspaceId),
+									mcpClientPresence: { status: "waiting", clientInfo: null },
+									reconnectAttempt: 0,
+									lastError: null,
+								});
+								return;
 							}
+							setLastUpdatedAt?.(message.state.updatedAt);
 							hydrateSnapshot(message.state);
 							set({
 								status: "live",
@@ -165,12 +171,6 @@ export function createWorkspaceStore({
 							return;
 						case "focus":
 							requestFocus(message.tableIds);
-							return;
-						case "state-update":
-							if (typeof message.patch.updatedAt === "number") {
-								setLastUpdatedAt?.(message.patch.updatedAt);
-							}
-							applyPatch(message.patch);
 							return;
 						case "error":
 							if (message.message === "workspace-expired") {
@@ -327,21 +327,6 @@ export const createDiagramSessionWorkspaceHydrator =
 				? state.sourceMetadata
 				: getPreferredSourceMetadata(snapshot.source),
 		);
-	};
-
-export const createDiagramSessionWorkspacePatchApplier =
-	(diagramStore: DiagramSessionStore) =>
-	(patch: Partial<WorkspaceSnapshot>) => {
-		const state = diagramStore.getState();
-		if (typeof patch.source === "string") {
-			state.setSchemaSource(patch.source);
-		}
-		if (patch.positions) {
-			state.commitTablePositions(patch.positions);
-		}
-		if (patch.notes) {
-			state.replaceStickyNotes(patch.notes);
-		}
 	};
 
 export const createCanvasRuntimeFocusRequester =

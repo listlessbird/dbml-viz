@@ -13,9 +13,6 @@ export type DiagramPositions = Record<string, SharePosition>;
 
 export interface WorkspaceBaseline {
 	readonly shareId: string;
-	readonly source: string;
-	readonly positions: DiagramPositions;
-	readonly notes: readonly SharedStickyNote[];
 }
 
 export interface WorkspaceState {
@@ -23,17 +20,7 @@ export interface WorkspaceState {
 	positions: DiagramPositions;
 	notes: SharedStickyNote[];
 	baseline: WorkspaceBaseline | null;
-	createdAt: number;
 	updatedAt: number;
-	lastActivityAt: number;
-}
-
-export interface WorkspaceSnapshot {
-	readonly source: string;
-	readonly positions: DiagramPositions;
-	readonly notes: readonly SharedStickyNote[];
-	readonly baseline: { readonly shareId: string } | null;
-	readonly updatedAt: number;
 }
 
 export interface McpClientInfo {
@@ -55,10 +42,9 @@ export type ClientMessage =
 	| { readonly type: "ping" };
 
 export type ServerMessage =
-	| { readonly type: "state-ack"; readonly state: WorkspaceSnapshot }
+	| { readonly type: "cf_agent_state"; readonly state: WorkspaceState | null }
 	| { readonly type: "mcp-client-update"; readonly status: "connected"; readonly clientInfo: McpClientInfo }
 	| { readonly type: "mcp-client-update"; readonly status: "disconnected"; readonly clientInfo: McpClientInfo }
-	| { readonly type: "state-update"; readonly patch: Partial<WorkspaceSnapshot> }
 	| { readonly type: "focus"; readonly tableIds: readonly string[] }
 	| { readonly type: "workspace-ended" }
 	| { readonly type: "error"; readonly message: string }

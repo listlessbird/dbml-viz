@@ -5,6 +5,7 @@ import {
 	createWorkspaceMcpContext,
 	describeWorkspaceAvailability,
 	type CanvasPresence,
+	type WorkspaceAgentApi,
 } from "../../src/worker/workspace/mcp/context";
 import { toWorkspaceMcpResult } from "../../src/worker/workspace/mcp/result";
 import {
@@ -19,7 +20,6 @@ import {
 	ParserUnreachableError,
 	type ParserClient,
 } from "../../src/worker/lib/parser-client";
-import type { WorkspaceStorage } from "../../src/worker/workspace/workspace-storage";
 import type { WorkspaceState } from "../../src/worker/workspace/workspace-types";
 import type { ParsedSchema } from "@/types";
 
@@ -28,9 +28,7 @@ const workspace: WorkspaceState = {
 	positions: { users: { x: 10, y: 20 } },
 	notes: [],
 	baseline: null,
-	createdAt: 100,
 	updatedAt: 200,
-	lastActivityAt: 200,
 };
 
 const presence = (connectionCount: number): CanvasPresence => ({
@@ -44,22 +42,19 @@ const neverCalledParser: ParserClient = {
 	},
 };
 
-const createStorage = (state: WorkspaceState | null) => {
-	let touchCount = 0;
-	const storage = {
-		load: async () => state,
-		touch: async () => {
-			touchCount += 1;
-		},
-	} as unknown as WorkspaceStorage;
-
-	return {
-		storage,
-		get touchCount() {
-			return touchCount;
-		},
-	};
-};
+const createAgentApi = (
+	state: WorkspaceState | null,
+	canvasConnections: number,
+): WorkspaceAgentApi => ({
+	get state() {
+		return state;
+	},
+	get canvasPresence() {
+		return presence(canvasConnections);
+	},
+	mutate() {},
+	broadcast() {},
+});
 
 const readPayload = (result: { content: readonly [{ readonly text: string }] }) =>
 	JSON.parse(result.content[0].text) as Record<string, unknown>;
@@ -193,10 +188,8 @@ describe("Workspace MCP context", () => {
 	});
 
 	it("lets tools inspect an existing Workspace with Canvas Presence", async () => {
-		const harness = createStorage(workspace);
 		const context = createWorkspaceMcpContext({
-			storage: harness.storage,
-			getCanvasPresence: () => presence(2),
+			agent: createAgentApi(workspace, 2),
 			parserClient: neverCalledParser,
 		});
 
@@ -205,7 +198,6 @@ describe("Workspace MCP context", () => {
 		});
 
 		expect(Result.isOk(result)).toBe(true);
-		expect(harness.touchCount).toBe(1);
 		if (Result.isOk(result)) {
 			expect(result.value.status).toEqual({
 				workspaceActive: true,
@@ -216,17 +208,14 @@ describe("Workspace MCP context", () => {
 	});
 
 	it("lets read-only tools inspect an existing Workspace without Canvas Presence", async () => {
-		const harness = createStorage(workspace);
 		const context = createWorkspaceMcpContext({
-			storage: harness.storage,
-			getCanvasPresence: () => presence(0),
+			agent: createAgentApi(workspace, 0),
 			parserClient: neverCalledParser,
 		});
 
 		const result = await context.requireWorkspace();
 
 		expect(Result.isOk(result)).toBe(true);
-		expect(harness.touchCount).toBe(1);
 		if (Result.isOk(result)) {
 			expect(result.value.status.canvasPresence.connected).toBe(false);
 			expect(result.value.workspace).toBe(workspace);
@@ -234,17 +223,14 @@ describe("Workspace MCP context", () => {
 	});
 
 	it("rejects Canvas-bound tools when the Workspace has no Canvas Presence", async () => {
-		const harness = createStorage(workspace);
 		const context = createWorkspaceMcpContext({
-			storage: harness.storage,
-			getCanvasPresence: () => presence(0),
+			agent: createAgentApi(workspace, 0),
 			parserClient: neverCalledParser,
 		});
 
 		const result = await context.requireWorkspace({ requireCanvasPresence: true });
 
 		expect(Result.isError(result)).toBe(true);
-		expect(harness.touchCount).toBe(0);
 		if (Result.isError(result)) {
 			expect(result.error._tag).toBe("CanvasNotConnectedError");
 			const toolResult = context.createAvailabilityErrorResult(result.error);
@@ -268,17 +254,14 @@ describe("Workspace MCP context", () => {
 	});
 
 	it("rejects tools when no durable Workspace exists", async () => {
-		const harness = createStorage(null);
 		const context = createWorkspaceMcpContext({
-			storage: harness.storage,
-			getCanvasPresence: () => presence(0),
+			agent: createAgentApi(null, 0),
 			parserClient: neverCalledParser,
 		});
 
 		const result = await context.requireWorkspace();
 
 		expect(Result.isError(result)).toBe(true);
-		expect(harness.touchCount).toBe(0);
 		if (Result.isError(result)) {
 			expect(result.error._tag).toBe("WorkspaceNotActiveError");
 
@@ -314,8 +297,7 @@ const buildContext = (params: {
 	parserClient: ParserClient;
 }) =>
 	createWorkspaceMcpContext({
-		storage: createStorage(params.state).storage,
-		getCanvasPresence: () => presence(params.canvasConnections),
+		agent: createAgentApi(params.state, params.canvasConnections),
 		parserClient: params.parserClient,
 	});
 
@@ -597,20 +579,26 @@ describe("Regression: schema_edit then workspace_status", () => {
 	const initialSource = "Table users { id int }";
 	const expandedSource = "Table users { id int }\nTable orders { id int }";
 
-	const createMutableStorage = (state: WorkspaceState) => {
+	const createMutableAgent = (
+		state: WorkspaceState,
+		canvasConnections: number,
+	) => {
 		let current: WorkspaceState | null = { ...state };
+		const api: WorkspaceAgentApi = {
+			get state() {
+				return current;
+			},
+			get canvasPresence() {
+				return presence(canvasConnections);
+			},
+			mutate(partial) {
+				if (!current) return;
+				current = { ...current, ...partial, updatedAt: 300 };
+			},
+			broadcast() {},
+		};
 		return {
-			storage: {
-				load: async () => current,
-				touch: async () => {},
-				saveAgentMutation: async (partial: Partial<WorkspaceState>) => {
-					if (!current) return;
-					current = { ...current, ...partial, updatedAt: 300, lastActivityAt: 300 };
-				},
-				get cached() {
-					return current;
-				},
-			} as unknown as WorkspaceStorage,
+			api,
 			get state() {
 				return current;
 			},
@@ -628,15 +616,16 @@ describe("Regression: schema_edit then workspace_status", () => {
 	};
 
 	it("workspace_status reflects the new tableCount after a schema_edit adds a Table", async () => {
-		const mutable = createMutableStorage({
-			source: initialSource,
-			positions: {},
-			notes: [],
-			baseline: null,
-			createdAt: 100,
-			updatedAt: 200,
-			lastActivityAt: 200,
-		});
+		const mutable = createMutableAgent(
+			{
+				source: initialSource,
+				positions: {},
+				notes: [],
+				baseline: null,
+				updatedAt: 200,
+			},
+			1,
+		);
 		const parserClient: ParserClient = {
 			parseSchemaSource: async (source) =>
 				Result.ok({
@@ -646,8 +635,7 @@ describe("Regression: schema_edit then workspace_status", () => {
 				}),
 		};
 		const context = createWorkspaceMcpContext({
-			storage: mutable.storage,
-			getCanvasPresence: () => presence(1),
+			agent: mutable.api,
 			parserClient,
 		});
 
@@ -658,11 +646,7 @@ describe("Regression: schema_edit then workspace_status", () => {
 		});
 
 		const editResult = await runSchemaEditTool(
-			{
-				context,
-				storage: mutable.storage,
-				broadcast: () => {},
-			},
+			{ context, agent: mutable.api },
 			{
 				knownSourceUpdatedAt: 200,
 				oldString: "",

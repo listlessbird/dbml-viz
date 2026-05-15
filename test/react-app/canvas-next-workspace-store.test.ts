@@ -6,7 +6,6 @@ import {
 	emptyDiagram,
 } from "@/diagram-session/diagram-session-store";
 import {
-	createDiagramSessionWorkspacePatchApplier,
 	createWorkspaceStore,
 	diagramFromWorkspaceSnapshot,
 	type WorkspaceTransport,
@@ -110,7 +109,6 @@ const createHarness = () => {
 				.getState()
 				.hydrateDiagram(diagramFromWorkspaceSnapshot(nextSnapshot));
 		},
-		applyPatch: createDiagramSessionWorkspacePatchApplier(diagramStore),
 		requestFocus: (tableIds) =>
 			runtimeStore.getState().requestFocus(tableIds),
 		createWorkspaceId: () => "workspace-1",
@@ -141,11 +139,11 @@ describe("canvas-next Workspace Module Store", () => {
 			},
 		]);
 
-		transports[0]!.serverMessage({ type: "state-ack", state: snapshot });
+		transports[0]!.serverMessage({ type: "cf_agent_state", state: snapshot });
 
 		expect(store.getState().status).toBe("live");
 		expect(store.getState().workspaceUrl).toContain(
-			"/api/agent/workspace-1/mcp",
+			"/api/agent/schema-workspace/workspace-1/mcp",
 		);
 		const hydrated = diagramStore.getState().diagram;
 		expect(hydrated.source).toBe(snapshot.source);
@@ -169,7 +167,7 @@ describe("canvas-next Workspace Module Store", () => {
 		const { store, transports } = createHarness();
 		store.getState().attach();
 		transports[0]!.open();
-		transports[0]!.serverMessage({ type: "state-ack", state: snapshot });
+		transports[0]!.serverMessage({ type: "cf_agent_state", state: snapshot });
 
 		transports[0]!.serverMessage({
 			type: "mcp-client-update",
@@ -210,7 +208,7 @@ describe("canvas-next Workspace Module Store", () => {
 		const { store, diagramStore, runtimeStore, transports } = createHarness();
 		store.getState().attach();
 		transports[0]!.open();
-		transports[0]!.serverMessage({ type: "state-ack", state: snapshot });
+		transports[0]!.serverMessage({ type: "cf_agent_state", state: snapshot });
 		const beforeDiagram = diagramStore.getState().diagram;
 		const beforePayload = diagramStore.getState().toSchemaPayload();
 
@@ -224,93 +222,37 @@ describe("canvas-next Workspace Module Store", () => {
 		expect(diagramStore.getState().toSchemaPayload()).toEqual(beforePayload);
 	});
 
-	it("applies source patches through Diagram Session without replacing Table Positions or Sticky Notes", () => {
+	it("hydrates the full Workspace Snapshot on every cf_agent_state delivery", () => {
 		const { store, diagramStore, transports } = createHarness();
 		store.getState().attach();
 		transports[0]!.open();
-		transports[0]!.serverMessage({ type: "state-ack", state: snapshot });
-		const beforeParsedSchema = diagramStore.getState().diagram.parsedSchema;
-		const beforePayload = diagramStore.getState().toSchemaPayload();
+		transports[0]!.serverMessage({ type: "cf_agent_state", state: snapshot });
 
-		transports[0]!.serverMessage({
-			type: "state-update",
-			patch: {
-				source: "Table patched_source { id int }",
-				updatedAt: 456,
-			},
-		});
-
-		expect(diagramStore.getState().diagram.source).toBe(
-			"Table patched_source { id int }",
-		);
-		expect(diagramStore.getState().diagram.parsedSchema).toBe(beforeParsedSchema);
-		expect(diagramStore.getState().diagram.tablePositions).toEqual(
-			beforePayload.positions,
-		);
-		expect(diagramStore.getState().diagram.stickyNotes).toEqual(
-			beforePayload.notes,
-		);
-	});
-
-	it("applies position patches without reparsing Schema Source", () => {
-		const { store, diagramStore, transports } = createHarness();
-		store.getState().attach();
-		transports[0]!.open();
-		transports[0]!.serverMessage({ type: "state-ack", state: snapshot });
-		diagramStore.getState().replaceParsedSchema({
-			tables: [
-				{ id: "remote_table", name: "remote_table", columns: [], indexes: [] },
-			],
-			refs: [],
-			errors: [],
-		});
-		const beforeSource = diagramStore.getState().diagram.source;
-		const beforeParsedSchema = diagramStore.getState().diagram.parsedSchema;
-
-		transports[0]!.serverMessage({
-			type: "state-update",
-			patch: {
-				positions: {
-					remote_table: { x: 44, y: 55 },
-					absent_table: { x: 99, y: 100 },
+		const updatedSnapshot: WorkspaceSnapshot = {
+			source: "Table patched_source { id int }",
+			positions: { patched_source: { x: 44, y: 55 } },
+			notes: [
+				{
+					id: "patched-note",
+					color: "blue",
+					text: "patched",
 				},
-				updatedAt: 456,
-			},
-		});
-
-		expect(diagramStore.getState().diagram.source).toBe(beforeSource);
-		expect(diagramStore.getState().diagram.parsedSchema).toBe(beforeParsedSchema);
-		expect(diagramStore.getState().diagram.tablePositions).toEqual({
-			remote_table: { x: 44, y: 55 },
-		});
-	});
-
-	it("applies Sticky Note patches without mutating React Flow arrays", () => {
-		const { store, diagramStore, transports } = createHarness();
-		store.getState().attach();
-		transports[0]!.open();
-		transports[0]!.serverMessage({ type: "state-ack", state: snapshot });
-		const beforePayload = diagramStore.getState().toSchemaPayload();
-		const nextNotes = [
-			{
-				id: "patched-note",
-				color: "blue" as const,
-				text: "patched",
-			},
-		];
-
+			],
+			baseline: null,
+			updatedAt: 456,
+		};
 		transports[0]!.serverMessage({
-			type: "state-update",
-			patch: { notes: nextNotes, updatedAt: 456 },
+			type: "cf_agent_state",
+			state: updatedSnapshot,
 		});
 
-		expect(diagramStore.getState().diagram.source).toBe(beforePayload.source);
+		expect(diagramStore.getState().diagram.source).toBe(updatedSnapshot.source);
 		expect(diagramStore.getState().diagram.tablePositions).toEqual(
-			beforePayload.positions,
+			updatedSnapshot.positions,
 		);
 		expect(diagramStore.getState().diagram.stickyNotes).toHaveLength(1);
 		expect(diagramStore.getState().diagram.stickyNotes[0]).toEqual(
-			expect.objectContaining(nextNotes[0]),
+			expect.objectContaining(updatedSnapshot.notes[0]),
 		);
 	});
 
@@ -326,7 +268,7 @@ describe("canvas-next Workspace Module Store", () => {
 		]);
 		expect(store.getState().status).toBe("offline");
 
-		transports[0]!.serverMessage({ type: "state-ack", state: snapshot });
+		transports[0]!.serverMessage({ type: "cf_agent_state", state: snapshot });
 		expect(diagramStore.getState().diagram.source).toBe(
 			"Table stale_table { id int }",
 		);
@@ -336,7 +278,7 @@ describe("canvas-next Workspace Module Store", () => {
 		const { store, transports } = createHarness();
 		store.getState().attach();
 		transports[0]!.open();
-		transports[0]!.serverMessage({ type: "state-ack", state: snapshot });
+		transports[0]!.serverMessage({ type: "cf_agent_state", state: snapshot });
 
 		store.getState().endWorkspace();
 
@@ -371,7 +313,7 @@ describe("canvas-next Workspace Module Store", () => {
 		vi.advanceTimersByTime(25);
 		expect(transports).toHaveLength(2);
 		transports[1]!.open();
-		transports[1]!.serverMessage({ type: "state-ack", state: snapshot });
+		transports[1]!.serverMessage({ type: "cf_agent_state", state: snapshot });
 
 		expect(store.getState().status).toBe("live");
 		expect(diagramStore.getState().diagram.source).toBe(snapshot.source);

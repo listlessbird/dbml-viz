@@ -1,15 +1,9 @@
 import { Result } from "better-result";
 import { z } from "zod";
 
-import {
-	toWorkspaceMcpResult,
-} from "../result.ts";
-import type { WorkspaceMcpContext } from "../context.ts";
-import type { WorkspaceStorage } from "../../workspace-storage.ts";
-import {
-	MAX_SCHEMA_SOURCE_LENGTH,
-	type ServerMessage,
-} from "../../workspace-types.ts";
+import { toWorkspaceMcpResult } from "../result.ts";
+import type { WorkspaceAgentApi, WorkspaceMcpContext } from "../context.ts";
+import { MAX_SCHEMA_SOURCE_LENGTH } from "../../workspace-types.ts";
 
 export interface SchemaSourcePatchInput {
 	readonly expectedCurrentText: string;
@@ -198,8 +192,7 @@ export const applyExactSchemaSourcePatches = (
 export const runSchemaApplyPatchTool = async (
 	options: {
 		readonly context: WorkspaceMcpContext;
-		readonly storage: WorkspaceStorage;
-		readonly broadcast: (message: ServerMessage) => void;
+		readonly agent: WorkspaceAgentApi;
 	},
 	input: SchemaApplyPatchInput,
 ) => {
@@ -251,12 +244,8 @@ export const runSchemaApplyPatchTool = async (
 		);
 	}
 
-	await options.storage.saveAgentMutation({ source: patched.value.source });
-	const updatedAt = options.storage.cached?.updatedAt ?? workspace.updatedAt;
-	options.broadcast({
-		type: "state-update",
-		patch: { source: patched.value.source, updatedAt },
-	});
+	options.agent.mutate({ source: patched.value.source });
+	const updatedAt = options.agent.state?.updatedAt ?? workspace.updatedAt;
 
 	return toWorkspaceMcpResult(
 		Result.ok({
@@ -316,8 +305,7 @@ export const schemaApplyPatchTool = {
 	handler:
 		(options: {
 			readonly context: WorkspaceMcpContext;
-			readonly storage: WorkspaceStorage;
-			readonly broadcast: (message: ServerMessage) => void;
+			readonly agent: WorkspaceAgentApi;
 		}) =>
 		(input: unknown) =>
 			runSchemaApplyPatchTool(options, input as SchemaApplyPatchInput),

@@ -4,6 +4,7 @@ import { Result } from "better-result";
 import {
 	createWorkspaceMcpContext,
 	type CanvasPresence,
+	type WorkspaceAgentApi,
 } from "../../src/worker/workspace/mcp/context";
 import {
 	runSchemaApplyPatchTool,
@@ -14,7 +15,6 @@ import type {
 	ParserParseOk,
 } from "../../src/worker/lib/parser-client";
 import { ParserSyntaxError } from "../../src/worker/lib/parser-client";
-import type { WorkspaceStorage } from "../../src/worker/workspace/workspace-storage";
 import type {
 	ServerMessage,
 	WorkspaceState,
@@ -40,18 +40,12 @@ const baseWorkspace: WorkspaceState = {
 	notes: [
 		{
 			id: "sticky-1",
-			x: 50,
-			y: 60,
-			width: 220,
-			height: 180,
 			color: "yellow",
 			text: "#users owns login identity",
 		},
 	],
 	baseline: null,
-	createdAt: 100,
 	updatedAt: 200,
-	lastActivityAt: 200,
 };
 
 const presence = (count: number): CanvasPresence => ({
@@ -81,30 +75,37 @@ const stubParserClient = (
 	};
 };
 
-const createMutableStorage = (initial: WorkspaceState | null) => {
-	let state = initial ? { ...initial, notes: [...initial.notes] } : null;
-	const storage = {
-		load: async () => state,
-		touch: async () => {},
-		saveAgentMutation: async (partial: Partial<WorkspaceState>) => {
-			if (!state) return;
-			state = {
-				...state,
-				...partial,
-				updatedAt: 300,
-				lastActivityAt: 300,
-			};
-		},
-		get cached() {
-			return state;
-		},
-	} as unknown as WorkspaceStorage;
+interface AgentFake {
+	readonly api: WorkspaceAgentApi;
+	readonly broadcasts: ServerMessage[];
+	readonly state: () => WorkspaceState | null;
+}
 
-	return {
-		storage,
+const createAgentFake = (
+	initial: WorkspaceState | null,
+	canvasConnections: number,
+): AgentFake => {
+	let state = initial ? { ...initial, notes: [...initial.notes] } : null;
+	const broadcasts: ServerMessage[] = [];
+	const api: WorkspaceAgentApi = {
 		get state() {
 			return state;
 		},
+		get canvasPresence() {
+			return presence(canvasConnections);
+		},
+		mutate(partial) {
+			if (!state) return;
+			state = { ...state, ...partial, updatedAt: 300 };
+		},
+		broadcast(message) {
+			broadcasts.push(message);
+		},
+	};
+	return {
+		api,
+		broadcasts,
+		state: () => state,
 	};
 };
 
@@ -117,25 +118,25 @@ const runTool = async (
 	respond?: (source: string) => ReturnType<ParserClient["parseSchemaSource"]>,
 	canvasConnections = 1,
 ) => {
-	const mutable = createMutableStorage(workspace);
+	const fake = createAgentFake(workspace, canvasConnections);
 	const parser = stubParserClient(respond);
-	const broadcasts: ServerMessage[] = [];
 	const context = createWorkspaceMcpContext({
-		storage: mutable.storage,
-		getCanvasPresence: () => presence(canvasConnections),
+		agent: fake.api,
 		parserClient: parser.client,
 	});
 
 	const result = await runSchemaApplyPatchTool(
-		{
-			context,
-			storage: mutable.storage,
-			broadcast: (message) => broadcasts.push(message),
-		},
+		{ context, agent: fake.api },
 		input,
 	);
 
-	return { result, payload: readPayload(result), mutable, broadcasts, parser };
+	return {
+		result,
+		payload: readPayload(result),
+		fake,
+		broadcasts: fake.broadcasts,
+		parser,
+	};
 };
 
 describe("schema_apply_patch", () => {
@@ -160,7 +161,7 @@ describe("schema_apply_patch", () => {
 	});
 
 	it("requires Canvas Presence before applying a Schema Source Patch", async () => {
-		const { result, payload, mutable, broadcasts, parser } = await runTool(
+		const { result, payload, fake, broadcasts, parser } = await runTool(
 			baseWorkspace,
 			{
 				knownSourceUpdatedAt: 200,
@@ -176,7 +177,7 @@ describe("schema_apply_patch", () => {
 		);
 
 		expect(result.isError).toBe(true);
-		expect(mutable.state?.source).toBe(baseWorkspace.source);
+		expect(fake.state()?.source).toBe(baseWorkspace.source);
 		expect(broadcasts).toEqual([]);
 		expect(parser.calls).toEqual([]);
 		expect(payload).toMatchObject({
@@ -186,7 +187,7 @@ describe("schema_apply_patch", () => {
 	});
 
 	it("applies one exact Schema Source Patch and mutates only Schema Source", async () => {
-		const { result, payload, mutable, broadcasts, parser } = await runTool(
+		const { result, payload, fake, broadcasts, parser } = await runTool(
 			baseWorkspace,
 			{
 				knownSourceUpdatedAt: 200,
@@ -200,19 +201,12 @@ describe("schema_apply_patch", () => {
 		);
 
 		expect(result.isError).toBeUndefined();
-		expect(mutable.state?.source).toContain("  phone text");
-		expect(mutable.state?.positions).toEqual(baseWorkspace.positions);
-		expect(mutable.state?.notes).toEqual(baseWorkspace.notes);
-		expect(broadcasts).toEqual([
-			{
-				type: "state-update",
-				patch: {
-					source: mutable.state?.source,
-					updatedAt: 300,
-				},
-			},
-		]);
-		expect(parser.calls).toEqual([mutable.state?.source]);
+		expect(fake.state()?.source).toContain("  phone text");
+		expect(fake.state()?.positions).toEqual(baseWorkspace.positions);
+		expect(fake.state()?.notes).toEqual(baseWorkspace.notes);
+		expect(fake.state()?.updatedAt).toBe(300);
+		expect(broadcasts).toEqual([]);
+		expect(parser.calls).toEqual([fake.state()?.source]);
 		expect(payload).toMatchObject({
 			ok: true,
 			freshness: { updatedAt: 300 },
@@ -230,7 +224,7 @@ describe("schema_apply_patch", () => {
 	});
 
 	it("applies multiple valid patches in one atomic source update", async () => {
-		const { result, payload, mutable, broadcasts, parser } = await runTool(
+		const { result, payload, fake, broadcasts, parser } = await runTool(
 			baseWorkspace,
 			{
 				knownSourceUpdatedAt: 200,
@@ -248,10 +242,10 @@ describe("schema_apply_patch", () => {
 		);
 
 		expect(result.isError).toBeUndefined();
-		expect(mutable.state?.source).toContain("  phone text");
-		expect(mutable.state?.source).toContain("  status text");
-		expect(broadcasts).toHaveLength(1);
-		expect(parser.calls).toEqual([mutable.state?.source]);
+		expect(fake.state()?.source).toContain("  phone text");
+		expect(fake.state()?.source).toContain("  status text");
+		expect(broadcasts).toEqual([]);
+		expect(parser.calls).toEqual([fake.state()?.source]);
 		expect(payload).toMatchObject({
 			ok: true,
 			changes: [{ patchIndex: 0 }, { patchIndex: 1 }],
@@ -260,7 +254,7 @@ describe("schema_apply_patch", () => {
 	});
 
 	it("rejects stale Workspace freshness without changing Schema Source", async () => {
-		const { result, payload, mutable, broadcasts, parser } = await runTool(
+		const { result, payload, fake, broadcasts, parser } = await runTool(
 			baseWorkspace,
 			{
 				knownSourceUpdatedAt: 199,
@@ -274,7 +268,7 @@ describe("schema_apply_patch", () => {
 		);
 
 		expect(result.isError).toBe(true);
-		expect(mutable.state?.source).toBe(baseWorkspace.source);
+		expect(fake.state()?.source).toBe(baseWorkspace.source);
 		expect(broadcasts).toEqual([]);
 		expect(parser.calls).toEqual([]);
 		expect(payload).toMatchObject({
@@ -287,7 +281,7 @@ describe("schema_apply_patch", () => {
 	});
 
 	it("rejects a missing expectedCurrentText without changing Schema Source", async () => {
-		const { result, payload, mutable, broadcasts, parser } = await runTool(
+		const { result, payload, fake, broadcasts, parser } = await runTool(
 			baseWorkspace,
 			{
 				knownSourceUpdatedAt: 200,
@@ -301,7 +295,7 @@ describe("schema_apply_patch", () => {
 		);
 
 		expect(result.isError).toBe(true);
-		expect(mutable.state?.source).toBe(baseWorkspace.source);
+		expect(fake.state()?.source).toBe(baseWorkspace.source);
 		expect(broadcasts).toEqual([]);
 		expect(parser.calls).toEqual([]);
 		expect(payload).toMatchObject({
@@ -313,7 +307,7 @@ describe("schema_apply_patch", () => {
 	});
 
 	it("rejects ambiguous expectedCurrentText without changing Schema Source", async () => {
-		const { result, payload, mutable, broadcasts, parser } = await runTool(
+		const { result, payload, fake, broadcasts, parser } = await runTool(
 			baseWorkspace,
 			{
 				knownSourceUpdatedAt: 200,
@@ -327,7 +321,7 @@ describe("schema_apply_patch", () => {
 		);
 
 		expect(result.isError).toBe(true);
-		expect(mutable.state?.source).toBe(baseWorkspace.source);
+		expect(fake.state()?.source).toBe(baseWorkspace.source);
 		expect(broadcasts).toEqual([]);
 		expect(parser.calls).toEqual([]);
 		expect(payload).toMatchObject({
@@ -340,7 +334,7 @@ describe("schema_apply_patch", () => {
 	});
 
 	it("applies multiple patches atomically when one patch is invalid", async () => {
-		const { result, payload, mutable, broadcasts, parser } = await runTool(
+		const { result, payload, fake, broadcasts, parser } = await runTool(
 			baseWorkspace,
 			{
 				knownSourceUpdatedAt: 200,
@@ -358,7 +352,7 @@ describe("schema_apply_patch", () => {
 		);
 
 		expect(result.isError).toBe(true);
-		expect(mutable.state?.source).toBe(baseWorkspace.source);
+		expect(fake.state()?.source).toBe(baseWorkspace.source);
 		expect(broadcasts).toEqual([]);
 		expect(parser.calls).toEqual([]);
 		expect(payload).toMatchObject({
@@ -372,7 +366,7 @@ describe("schema_apply_patch", () => {
 		const diagnostics = [
 			{ message: "Expected '}'", location: { start: { line: 4, column: 1 } } },
 		];
-		const { result, payload, mutable, broadcasts, parser } = await runTool(
+		const { result, payload, fake, broadcasts, parser } = await runTool(
 			baseWorkspace,
 			{
 				knownSourceUpdatedAt: 200,
@@ -387,7 +381,7 @@ describe("schema_apply_patch", () => {
 		);
 
 		expect(result.isError).toBe(true);
-		expect(mutable.state?.source).toBe(baseWorkspace.source);
+		expect(fake.state()?.source).toBe(baseWorkspace.source);
 		expect(broadcasts).toEqual([]);
 		expect(parser.calls).toEqual([
 			baseWorkspace.source.replace(
