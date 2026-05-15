@@ -35,3 +35,4 @@ export { default as IconShare2 } from "@tabler-icon/IconShare2.mjs";
 export { default as IconTrash } from "@tabler-icon/IconTrash.mjs";
 export { default as IconX } from "@tabler-icon/IconX.mjs";
 export { default as IconPlugConnectedX } from "@tabler-icon/IconPlugConnectedX.mjs";
+export { default as IconStar } from "@tabler-icon/IconStar.mjs";
