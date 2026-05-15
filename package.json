@@ -57,6 +57,7 @@
 	},
 	"devDependencies": {
 		"@cloudflare/vite-plugin": "1.15.3",
+		"@cloudflare/vitest-pool-workers": "^0.16.5",
 		"@eslint/js": "9.39.1",
 		"@types/node": "24.10.1",
 		"@types/react": "19.2.7",
@@ -71,7 +72,7 @@
 		"typescript": "5.8.3",
 		"typescript-eslint": "8.48.0",
 		"vite": "^6.0.0",
-		"vitest": "^4.1.2",
+		"vitest": "^4.1.0",
 		"wrangler": "4.56.0"
 	},
 	"private": true,
@@ -83,9 +84,13 @@
 		"deploy:p": "wrangler deploy -c wrangler.parser.json",
 		"dev": "vite",
 		"dev:p": "wrangler dev -c wrangler.parser.json --port 8788 --ip 127.0.0.1",
-		"lint": "eslint src test vite.config.ts eslint.config.js",
+		"lint": "eslint src test vite.config.ts vitest.config.ts eslint.config.js",
 		"preview": "npm run build && vite preview",
 		"test": "vitest run",
+		"test:react": "vitest run --project react-app",
+		"test:worker": "vitest run --project worker-unit --project worker-runtime",
+		"test:worker:runtime": "vitest run --project worker-runtime",
+		"test:worker:unit": "vitest run --project worker-unit",
 		"test:watch": "vitest",
 		"typecheck": "tsc --build --noEmit"
 	},

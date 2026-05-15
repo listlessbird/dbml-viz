@@ -15,9 +15,7 @@ const remoteWorkspace: WorkspaceState = {
 	positions: {},
 	notes: [],
 	baseline: null,
-	createdAt: 100,
 	updatedAt: 200,
-	lastActivityAt: 200,
 };
 
 describe("workspace attach negotiation", () => {
