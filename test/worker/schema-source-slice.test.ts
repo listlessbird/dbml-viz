@@ -18,6 +18,7 @@ import {
 	type ParserClient,
 	type ParserParseOk,
 } from "../../src/worker/lib/parser-client";
+import type { WorkspaceMcpToolResult } from "../../src/worker/workspace/mcp/result";
 import type { WorkspaceState } from "../../src/worker/workspace/workspace-types";
 
 const dbmlSource = [
@@ -116,9 +117,9 @@ const buildParseOk = (overrides: Partial<ParserParseOk> = {}): ParserParseOk => 
 });
 
 const stubClient = (
-	respond: () => Awaited<ReturnType<ParserClient["parseSchemaSource"]>>,
+	respond: () => ReturnType<ParserClient["parseSchemaSource"]>,
 ): ParserClient => ({
-	parseSchemaSource: async () => respond(),
+	parseSchemaSource: respond,
 });
 
 const buildContext = (
@@ -131,8 +132,11 @@ const buildContext = (
 		parserClient,
 	});
 
-const readPayload = (result: { content: readonly [{ readonly text: string }] }) =>
-	JSON.parse(result.content[0].text) as Record<string, unknown>;
+const readPayload = (result: WorkspaceMcpToolResult) => {
+	const text = result.content[0]?.text;
+	if (!text) throw new Error("Expected MCP text fallback content");
+	return JSON.parse(text) as Record<string, unknown>;
+};
 
 describe("extractLineRange", () => {
 	it("returns a single line with its offsets", () => {

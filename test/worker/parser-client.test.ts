@@ -1,14 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { Result } from "better-result";
 
-import { createParserClient } from "../../src/worker/lib/parser-client";
+import {
+	createParserClient,
+	ParserSyntaxError,
+} from "../../src/worker/lib/parser-client";
 
-const buildFetch = (respond: (request: Request) => Response | Promise<Response>) => ({
-	fetch: async (input: RequestInfo, init?: RequestInit) => {
-		const request = new Request(input as Request, init);
+const buildFetch = (
+	respond: (request: Request) => Response | Promise<Response>,
+): { readonly fetch: typeof fetch } => {
+	const fetchImpl: typeof fetch = async (input, init) => {
+		const request = new Request(input, init);
 		return respond(request);
-	},
-});
+	};
+	return { fetch: fetchImpl };
+};
 
 const okSchema = {
 	tables: [
@@ -123,7 +129,9 @@ describe("Parser Service Client", () => {
 		expect(Result.isError(result)).toBe(true);
 		if (Result.isError(result)) {
 			expect(result.error._tag).toBe("ParserSyntaxError");
-			expect(result.error.diagnostics).toEqual([
+			expect(result.error).toBeInstanceOf(ParserSyntaxError);
+			const error = result.error as ParserSyntaxError;
+			expect(error.diagnostics).toEqual([
 				{ message: "Expected table body", location: { start: { line: 1, column: 5 } } },
 			]);
 		}
