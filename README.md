@@ -1,17 +1,31 @@
 # dbml-viz
 
-Interactive schema editor and visualizer for DBML and SQL.
+Interactive visualizer for DBML and SQL.
+
+Try it at **[dbml-viz.com](https://dbml-viz.com)**
 
 ## Features
 
-- Edit DBML or SQL schemas with live parsing feedback
-- Visualize tables and relationships as an interactive diagram
-- Auto-layout diagrams, persist drafts locally, and share and fork schemas by link
+### Sticky Notes
+- Add free-floating notes to the canvas
+
+### Sharing & Persistence
+- Share by link — one click generates a short URL; stores source, table positions, and sticky notes
+
+### Agent / MCP Workspace
+- Connect an MCP client (Claude Code, Codex, Cursor, or any MCP-compatible agent) to the live canvas
+
+and many more features and even more features to come.
 
 ## Stack
 
 - React 19 + TypeScript
 - Vite
-- Cloudflare Workers + KV
-- Effect
-- React Flow, CodeMirror, and ELK
+- Cloudflare Workers and Durable Objects
+
+## Development
+
+```bash
+bun install
+bun dev
+```
