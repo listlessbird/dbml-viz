@@ -10,7 +10,6 @@ import {
 	type DiagramSessionStore,
 } from "@/diagram-session/diagram-session-store";
 import { useSchemaParseFlow } from "@/canvas-next/use-schema-parse-flow";
-import { createDiagramSessionWorkspacePatchApplier } from "@/workspace/workspace-store";
 import type { ParseSchemaSourceFn } from "@/schema-source/parse-schema-source";
 import type { ParsedSchema } from "@/types";
 
@@ -95,9 +94,8 @@ describe("Canvas Next parse flow", () => {
 		expect(store.getState().parseDiagnostics).toEqual([]);
 	});
 
-	it("routes Workspace source patches back through the parse flow", async () => {
+	it("routes Workspace source updates back through the parse flow", async () => {
 		const store = createDiagramSessionStore();
-		const applyWorkspacePatch = createDiagramSessionWorkspacePatchApplier(store);
 		renderWithStore({
 			store,
 			parser: async (source) => {
@@ -107,7 +105,7 @@ describe("Canvas Next parse flow", () => {
 		});
 
 		act(() => {
-			applyWorkspacePatch({ source: "Table users {}" });
+			store.getState().setSchemaSource("Table users {}");
 		});
 		act(() => {
 			vi.advanceTimersByTime(300);

@@ -5,7 +5,6 @@ import { DiagramSessionContext } from "@/diagram-session/diagram-session-context
 import { WorkspaceContext } from "@/workspace/workspace-context";
 import {
 	createCanvasRuntimeFocusRequester,
-	createDiagramSessionWorkspacePatchApplier,
 	createDiagramSessionWorkspaceHydrator,
 	createWorkspaceStore,
 	type WorkspaceStore,
@@ -42,9 +41,6 @@ export function WorkspaceProvider({
 		hydrateSnapshot:
 			adapter?.hydrateSnapshot ??
 			createDiagramSessionWorkspaceHydrator(diagramStore),
-		applyPatch:
-			adapter?.applyPatch ??
-			createDiagramSessionWorkspacePatchApplier(diagramStore),
 		requestFocus:
 			adapter?.requestFocus ??
 			createCanvasRuntimeFocusRequester(runtimeStore),

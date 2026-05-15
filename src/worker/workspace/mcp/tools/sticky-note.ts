@@ -6,13 +6,9 @@ import type {
 	ParserParsedSchema,
 	ParserDiagnostic,
 } from "../../../lib/parser-client.ts";
-import type { WorkspaceMcpContext } from "../context.ts";
+import type { WorkspaceAgentApi, WorkspaceMcpContext } from "../context.ts";
 import { toWorkspaceMcpResult } from "../result.ts";
-import type { WorkspaceStorage } from "../../workspace-storage.ts";
-import type {
-	ServerMessage,
-	SharedStickyNote,
-} from "../../workspace-types.ts";
+import type { SharedStickyNote } from "../../workspace-types.ts";
 
 const MAX_NOTE_OVERVIEW_RESULTS = 50;
 const MAX_NOTE_OPERATIONS = 32;
@@ -443,8 +439,7 @@ export const runNotesOverviewTool = async (
 export const runNotesApplyChangesTool = async (
 	options: {
 		readonly context: WorkspaceMcpContext;
-		readonly storage: WorkspaceStorage;
-		readonly broadcast: (message: ServerMessage) => void;
+		readonly agent: WorkspaceAgentApi;
 	},
 	input: NotesApplyChangesInput,
 ) => {
@@ -564,12 +559,8 @@ export const runNotesApplyChangesTool = async (
 		updatedNoteIds.delete(operation.noteId);
 	}
 
-	await options.storage.saveAgentMutation({ notes: nextNotes });
-	const updatedAt = options.storage.cached?.updatedAt ?? workspace.updatedAt;
-	options.broadcast({
-		type: "state-update",
-		patch: { notes: nextNotes, updatedAt },
-	});
+	options.agent.mutate({ notes: nextNotes });
+	const updatedAt = options.agent.state?.updatedAt ?? workspace.updatedAt;
 
 	return toWorkspaceMcpResult(
 		Result.ok({
@@ -743,8 +734,7 @@ export const notesApplyChangesTool = {
 	handler:
 		(options: {
 			readonly context: WorkspaceMcpContext;
-			readonly storage: WorkspaceStorage;
-			readonly broadcast: (message: ServerMessage) => void;
+			readonly agent: WorkspaceAgentApi;
 		}) =>
 		(input: unknown) =>
 			runNotesApplyChangesTool(options, input as NotesApplyChangesInput),

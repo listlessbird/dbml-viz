@@ -10,6 +10,7 @@ import {
 import {
 	createWorkspaceMcpContext,
 	type CanvasPresence,
+	type WorkspaceAgentApi,
 } from "../../src/worker/workspace/mcp/context";
 import {
 	ParserSyntaxError,
@@ -17,7 +18,6 @@ import {
 	type ParserClient,
 	type ParserParseOk,
 } from "../../src/worker/lib/parser-client";
-import type { WorkspaceStorage } from "../../src/worker/workspace/workspace-storage";
 import type { WorkspaceState } from "../../src/worker/workspace/workspace-types";
 
 const dbmlSource = [
@@ -39,9 +39,7 @@ const baseWorkspace: WorkspaceState = {
 	positions: {},
 	notes: [],
 	baseline: null,
-	createdAt: 100,
 	updatedAt: 200,
-	lastActivityAt: 200,
 };
 
 const presence = (count: number): CanvasPresence => ({
@@ -49,13 +47,19 @@ const presence = (count: number): CanvasPresence => ({
 	connectionCount: count,
 });
 
-const createStorage = (state: WorkspaceState | null) => {
-	const storage = {
-		load: async () => state,
-		touch: async () => {},
-	} as unknown as WorkspaceStorage;
-	return storage;
-};
+const createAgentApi = (
+	state: WorkspaceState | null,
+	canvasConnections: number,
+): WorkspaceAgentApi => ({
+	get state() {
+		return state;
+	},
+	get canvasPresence() {
+		return presence(canvasConnections);
+	},
+	mutate() {},
+	broadcast() {},
+});
 
 const buildParseOk = (overrides: Partial<ParserParseOk> = {}): ParserParseOk => ({
 	parsed: {
@@ -123,8 +127,7 @@ const buildContext = (
 	canvasConnections = 0,
 ) =>
 	createWorkspaceMcpContext({
-		storage: createStorage(state),
-		getCanvasPresence: () => presence(canvasConnections),
+		agent: createAgentApi(state, canvasConnections),
 		parserClient,
 	});
 

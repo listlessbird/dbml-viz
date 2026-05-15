@@ -20,9 +20,6 @@ export type McpClientPresence =
 
 interface WorkspaceBaseline {
 	readonly shareId: string;
-	readonly source: string;
-	readonly positions: DiagramPositions;
-	readonly notes: readonly SharedStickyNote[];
 }
 
 export interface WorkspaceSeed {
@@ -36,8 +33,8 @@ export interface WorkspaceSnapshot {
 	readonly source: string;
 	readonly positions: DiagramPositions;
 	readonly notes: readonly SharedStickyNote[];
-	readonly baseline: { readonly shareId: string } | null;
-	readonly updatedAt?: number;
+	readonly baseline: WorkspaceBaseline | null;
+	readonly updatedAt: number;
 }
 
 export type ClientWorkspaceMessage =
@@ -46,10 +43,9 @@ export type ClientWorkspaceMessage =
 	| { readonly type: "ping" };
 
 export type ServerWorkspaceMessage =
-	| { readonly type: "state-ack"; readonly state: WorkspaceSnapshot }
+	| { readonly type: "cf_agent_state"; readonly state: WorkspaceSnapshot | null }
 	| { readonly type: "mcp-client-update"; readonly status: "connected"; readonly clientInfo: McpClientInfo }
 	| { readonly type: "mcp-client-update"; readonly status: "disconnected"; readonly clientInfo: McpClientInfo }
-	| { readonly type: "state-update"; readonly patch: Partial<WorkspaceSnapshot> }
 	| { readonly type: "focus"; readonly tableIds: readonly string[] }
 	| { readonly type: "workspace-ended" }
 	| { readonly type: "error"; readonly message: string }

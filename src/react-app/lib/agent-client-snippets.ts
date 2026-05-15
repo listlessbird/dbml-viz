@@ -56,7 +56,8 @@ export const AGENT_CLIENTS: readonly AgentClient[] = [
 	},
 ];
 
-const PLACEHOLDER_ENDPOINT = "https://dbml-viz.dev/api/agent/device-id/mcp";
+const PLACEHOLDER_ENDPOINT =
+	"https://dbml-viz.dev/api/agent/schema-workspace/device-id/mcp";
 
 export const getDisplayEndpoint = (endpoint: string | null): string =>
 	endpoint && endpoint.length > 0 ? endpoint : PLACEHOLDER_ENDPOINT;

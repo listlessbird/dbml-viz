@@ -1,9 +1,8 @@
 import { Result } from "better-result";
 import { z } from "zod";
 
-import type { WorkspaceMcpContext } from "../context.ts";
+import type { WorkspaceAgentApi, WorkspaceMcpContext } from "../context.ts";
 import { toWorkspaceMcpResult } from "../result.ts";
-import type { ServerMessage } from "../../workspace-types.ts";
 
 const MAX_FOCUS_TABLE_IDS = 32;
 
@@ -26,7 +25,7 @@ const dedupeRequestedIds = (tableIds: readonly string[]): readonly string[] => {
 export const runCanvasFocusTool = async (
 	options: {
 		readonly context: WorkspaceMcpContext;
-		readonly broadcast: (message: ServerMessage) => void;
+		readonly agent: WorkspaceAgentApi;
 	},
 	input: CanvasFocusInput,
 ) => {
@@ -94,7 +93,7 @@ export const runCanvasFocusTool = async (
 		);
 	}
 
-	options.broadcast({ type: "focus", tableIds: focused });
+	options.agent.broadcast({ type: "focus", tableIds: focused });
 
 	return toWorkspaceMcpResult(
 		Result.ok({
@@ -132,7 +131,7 @@ export const canvasFocusTool = {
 	handler:
 		(options: {
 			readonly context: WorkspaceMcpContext;
-			readonly broadcast: (message: ServerMessage) => void;
+			readonly agent: WorkspaceAgentApi;
 		}) =>
 		(input: unknown) =>
 			runCanvasFocusTool(options, input as CanvasFocusInput),

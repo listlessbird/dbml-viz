@@ -18,10 +18,10 @@ describe("device workspace identity", () => {
 describe("device workspace URLs", () => {
 	it("builds stable agent workspace endpoints from a device id", () => {
 		expect(makeWorkspaceWebSocketUrl("123e4567-e89b-12d3-a456-426614174000")).toBe(
-			"ws://localhost:3000/api/agent/123e4567-e89b-12d3-a456-426614174000/ws",
+			"ws://localhost:3000/api/agent/schema-workspace/123e4567-e89b-12d3-a456-426614174000/ws",
 		);
 		expect(makeWorkspaceMcpUrl("123e4567-e89b-12d3-a456-426614174000")).toBe(
-			"http://localhost:3000/api/agent/123e4567-e89b-12d3-a456-426614174000/mcp",
+			"http://localhost:3000/api/agent/schema-workspace/123e4567-e89b-12d3-a456-426614174000/mcp",
 		);
 	});
 });

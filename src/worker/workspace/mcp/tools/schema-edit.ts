@@ -2,12 +2,8 @@ import { Result } from "better-result";
 import { z } from "zod";
 
 import { toWorkspaceMcpResult } from "../result.ts";
-import type { WorkspaceMcpContext } from "../context.ts";
-import type { WorkspaceStorage } from "../../workspace-storage.ts";
-import {
-	MAX_SCHEMA_SOURCE_LENGTH,
-	type ServerMessage,
-} from "../../workspace-types.ts";
+import type { WorkspaceAgentApi, WorkspaceMcpContext } from "../context.ts";
+import { MAX_SCHEMA_SOURCE_LENGTH } from "../../workspace-types.ts";
 
 export interface SchemaEditInput {
 	readonly knownSourceUpdatedAt: number;
@@ -165,8 +161,7 @@ export const applySchemaEdit = (
 export const runSchemaEditTool = async (
 	options: {
 		readonly context: WorkspaceMcpContext;
-		readonly storage: WorkspaceStorage;
-		readonly broadcast: (message: ServerMessage) => void;
+		readonly agent: WorkspaceAgentApi;
 	},
 	input: SchemaEditInput,
 ) => {
@@ -228,12 +223,8 @@ export const runSchemaEditTool = async (
 			);
 		}
 
-		await options.storage.saveAgentMutation({ source: input.newString });
-		const updatedAt = options.storage.cached?.updatedAt ?? workspace.updatedAt;
-		options.broadcast({
-			type: "state-update",
-			patch: { source: input.newString, updatedAt },
-		});
+		options.agent.mutate({ source: input.newString });
+		const updatedAt = options.agent.state?.updatedAt ?? workspace.updatedAt;
 
 		return toWorkspaceMcpResult(
 			Result.ok({
@@ -282,12 +273,8 @@ export const runSchemaEditTool = async (
 		);
 	}
 
-	await options.storage.saveAgentMutation({ source: applied.value.source });
-	const updatedAt = options.storage.cached?.updatedAt ?? workspace.updatedAt;
-	options.broadcast({
-		type: "state-update",
-		patch: { source: applied.value.source, updatedAt },
-	});
+	options.agent.mutate({ source: applied.value.source });
+	const updatedAt = options.agent.state?.updatedAt ?? workspace.updatedAt;
 
 	return toWorkspaceMcpResult(
 		Result.ok({
@@ -370,8 +357,7 @@ export const schemaEditTool = {
 	handler:
 		(options: {
 			readonly context: WorkspaceMcpContext;
-			readonly storage: WorkspaceStorage;
-			readonly broadcast: (message: ServerMessage) => void;
+			readonly agent: WorkspaceAgentApi;
 		}) =>
 		(input: unknown) =>
 			runSchemaEditTool(options, input as SchemaEditInput),
