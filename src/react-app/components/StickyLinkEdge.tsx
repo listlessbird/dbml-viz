@@ -8,10 +8,10 @@ import { memo } from "react";
 import type { StickyLinkEdge as StickyLinkEdgeType } from "@/types";
 
 const STROKE_BY_COLOR: Record<string, string> = {
-	yellow: "var(--sticky-yellow-dashed)",
-	pink: "var(--sticky-pink-dashed)",
-	blue: "var(--sticky-blue-dashed)",
-	green: "var(--sticky-green-dashed)",
+	yellow: "var(--sticky-note-yellow-dashed)",
+	pink: "var(--sticky-note-pink-dashed)",
+	blue: "var(--sticky-note-blue-dashed)",
+	green: "var(--sticky-note-green-dashed)",
 };
 
 export const StickyLinkEdge = memo(function StickyLinkEdge({
