@@ -243,6 +243,40 @@ describe("Canvas Next parse flow", () => {
 		expect(store.getState().diagram.parsedSchema).toEqual(usersSchema);
 	});
 
+	it("clears the Parsed Schema when Schema Source becomes empty", async () => {
+		const store = createDiagramSessionStore();
+		const parseCalls: string[] = [];
+
+		renderWithStore({
+			store,
+			parser: async (source) => {
+				parseCalls.push(source);
+				return { parsed: usersSchema, metadata: { format: "dbml" } };
+			},
+		});
+
+		act(() => {
+			store.getState().setSchemaSource("Table users {}");
+		});
+		act(() => {
+			vi.advanceTimersByTime(300);
+		});
+		await flushMicrotasks();
+
+		expect(store.getState().diagram.parsedSchema).toEqual(usersSchema);
+		expect(Object.keys(store.getState().diagram.tablePositions)).toEqual([
+			"users",
+		]);
+
+		act(() => {
+			store.getState().setSchemaSource("");
+		});
+
+		expect(store.getState().diagram.parsedSchema.tables).toEqual([]);
+		expect(store.getState().diagram.tablePositions).toEqual({});
+		expect(parseCalls).toEqual(["Table users {}"]);
+	});
+
 	it("drops stale parser responses when a newer generation finishes first", async () => {
 		const store = createDiagramSessionStore();
 		const resolvers: Array<(schema: ParsedSchema) => void> = [];

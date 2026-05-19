@@ -3,6 +3,7 @@ import {
 	lazy,
 	useCallback,
 	useContext,
+	useMemo,
 	useState,
 	type PropsWithChildren,
 } from "react";
@@ -10,7 +11,16 @@ import {
 import { CanvasRuntimeProvider } from "@/canvas-next/canvas-runtime-provider";
 import { CanvasNextCanvas } from "@/canvas-next/canvas";
 import { CanvasActionBar } from "@/canvas-next/canvas-action-bar";
+import { CanvasEmptyStateOverlay } from "@/canvas-next/canvas-empty-state/canvas-empty-state-overlay";
+import {
+	deriveCanvasState,
+	isSchemaSourceEmpty,
+} from "@/canvas-next/canvas-empty-state/derive-canvas-state";
+import { useCanvasRuntime } from "@/canvas-next/canvas-runtime-context";
+import { SourceFocusOrchestrator } from "@/canvas-next/source-focus/source-focus-orchestrator";
+import { SourceFocusProvider } from "@/canvas-next/source-focus/source-focus-provider";
 import { ShareButton } from "@/components/ShareButton";
+import { GitHubStarsButton } from "@/components/GitHubStarsButton";
 import {
 	type DiagramPersistenceAdapter,
 	type DraftPersistenceAdapter,
@@ -182,6 +192,7 @@ function CanvasNextHeader({
 				)}
 			</div>
 			<div className="flex shrink-0 items-center gap-2">
+				<GitHubStarsButton />
 				<CanvasNextWorkspaceAction />
 				<ShareButton isSharing={isSharing} onShare={onShare} />
 			</div>
@@ -197,6 +208,14 @@ function CanvasNextContent({ routing }: CanvasNextContentProps) {
 	const relationCount = useDiagramSession(
 		(state) => state.diagram.parsedSchema.refs.length,
 	);
+	const isSourceEmpty = useDiagramSession((state) =>
+		isSchemaSourceEmpty(state.diagram.source),
+	);
+	const diagnosticsCount = useDiagramSession(
+		(state) => state.parseDiagnostics.length,
+	);
+	const setSchemaSource = useDiagramSession((state) => state.setSchemaSource);
+	const isLayoutPending = useCanvasRuntime((state) => state.isLayoutPending);
 	const { isSharing, handleShare } = useSharePersistence({
 		viewedRoute: routing.viewedRoute,
 		currentShareBaseline: routing.shareBaseline,
@@ -206,12 +225,29 @@ function CanvasNextContent({ routing }: CanvasNextContentProps) {
 	const toggleSourceEditor = useCallback(() => {
 		setIsSourceEditorOpen((isOpen) => !isOpen);
 	}, []);
+	const openSourceEditor = useCallback(() => {
+		setIsSourceEditorOpen(true);
+	}, []);
+	const loadSampleSchema = useCallback(() => {
+		setSchemaSource(SAMPLE_SCHEMA_SOURCE);
+	}, [setSchemaSource]);
+	const canvasState = useMemo(
+		() =>
+			deriveCanvasState({
+				isSourceEmpty,
+				diagnosticsCount,
+				tableCount,
+				isLayoutPending,
+			}),
+		[isSourceEmpty, diagnosticsCount, tableCount, isLayoutPending],
+	);
 
 	return (
 		<main
 			data-testid="canvas-next-shell"
 			className="flex h-screen min-h-0 flex-col bg-background text-foreground"
 		>
+			<SourceFocusOrchestrator onOpenEditor={openSourceEditor} />
 			<CanvasNextHeader
 				isSharing={isSharing}
 				onShare={() => void handleShare()}
@@ -222,6 +258,12 @@ function CanvasNextContent({ routing }: CanvasNextContentProps) {
 			/>
 			<section className="relative min-h-0 flex-1">
 				<CanvasNextCanvas />
+				<CanvasEmptyStateOverlay
+					state={canvasState}
+					onOpenSchemaSource={openSourceEditor}
+					onLoadSample={loadSampleSchema}
+					onOpenDiagnostics={openSourceEditor}
+				/>
 				<CanvasActionBar
 					isSourceEditorOpen={isSourceEditorOpen}
 					onToggleSourceEditor={toggleSourceEditor}
@@ -268,13 +310,15 @@ export function CanvasNextPage({
 		>
 			<DraftPersistenceProvider adapter={adapter}>
 				<CanvasRuntimeProvider>
-					<CanvasNextWorkspaceProvider
-						routing={routing}
-						workspaceAdapter={workspaceAdapter}
-					>
-						<DraftPersistenceBridge routing={routing} />
-						<CanvasNextContent routing={routing} />
-					</CanvasNextWorkspaceProvider>
+					<SourceFocusProvider>
+						<CanvasNextWorkspaceProvider
+							routing={routing}
+							workspaceAdapter={workspaceAdapter}
+						>
+							<DraftPersistenceBridge routing={routing} />
+							<CanvasNextContent routing={routing} />
+						</CanvasNextWorkspaceProvider>
+					</SourceFocusProvider>
 				</CanvasRuntimeProvider>
 			</DraftPersistenceProvider>
 		</DiagramSessionProvider>

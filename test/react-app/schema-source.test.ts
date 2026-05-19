@@ -18,7 +18,7 @@ const parsedFixture: ParsedSchema = {
 };
 
 describe("Schema Source seam", () => {
-	it("returns ok=true with Parsed Schema when the parser resolves", async () => {
+	it("returns success with Parsed Schema when the parser resolves", async () => {
 		const result = await parseSchemaSource("Table users {}", {
 			parser: async () => ({
 				parsed: parsedFixture,
@@ -26,14 +26,14 @@ describe("Schema Source seam", () => {
 			}),
 		});
 
-		expect(result.ok).toBe(true);
-		if (result.ok) {
+		expect(result.kind).toBe("success");
+		if (result.kind === "success") {
 			expect(result.parsedSchema).toEqual(parsedFixture);
 			expect(result.metadata.format).toBe("dbml");
 		}
 	});
 
-	it("returns ok=false with diagnostics when the parser throws SchemaParseError", async () => {
+	it("returns failure with diagnostics when the parser throws SchemaParseError", async () => {
 		const diagnostics = [
 			{ message: "Unexpected token", location: { start: { line: 2, column: 5 } } },
 		];
@@ -44,8 +44,8 @@ describe("Schema Source seam", () => {
 			},
 		});
 
-		expect(result.ok).toBe(false);
-		if (!result.ok) {
+		expect(result.kind).toBe("failure");
+		if (result.kind === "failure") {
 			expect(result.diagnostics).toEqual(diagnostics);
 		}
 	});
@@ -57,8 +57,8 @@ describe("Schema Source seam", () => {
 			},
 		});
 
-		expect(result.ok).toBe(false);
-		if (!result.ok) {
+		expect(result.kind).toBe("failure");
+		if (result.kind === "failure") {
 			expect(result.diagnostics).toHaveLength(1);
 			expect(result.diagnostics[0]?.message).toBe("network exploded");
 		}

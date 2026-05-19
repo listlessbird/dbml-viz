@@ -7,6 +7,7 @@ import {
 	tableNodeStyles,
 } from "@/components/table-node/metrics";
 import { TableKindGlyph } from "@/components/table-node/TableKindGlyph";
+import { TableNodeMenu } from "@/components/table-node/TableNodeMenu";
 import { SchemaColumnRow } from "@/components/table-node/SchemaColumnRow";
 import { formatIndexSummary } from "@/lib/schema-format";
 import { getColumnConstraintBadges } from "@/lib/table-constraints";
@@ -79,10 +80,10 @@ const areTableNodePropsEqual = (
 		a.isSearchMatch === b.isSearchMatch &&
 		a.isSearchRelated === b.isSearchRelated &&
 		a.isSearchDimmed === b.isSearchDimmed &&
-		a.isRelationContextActive === b.isRelationContextActive &&
+		a.isSelectedEndpoint === b.isSelectedEndpoint &&
 		areTableLayoutsEqual(a.layout, b.layout) &&
 		areStringArraysEqual(a.connectedColumns, b.connectedColumns) &&
-		areStringArraysEqual(a.activeRelationColumns, b.activeRelationColumns) &&
+		areStringArraysEqual(a.selectedRelationColumns, b.selectedRelationColumns) &&
 		areRelationAnchorsEqual(a.relationAnchors, b.relationAnchors) &&
 		areNumberRecordsEqual(a.compositeHandleOffsets, b.compositeHandleOffsets)
 	);
@@ -92,11 +93,8 @@ type SchemaTableNodeStyle = CSSProperties &
 	Record<"--schema-node-opacity" | "--schema-surface-shadow", string | number>;
 
 const getSurfaceShadow = (data: TableNodeData, selected: boolean) => {
-	if (selected || data.isSearchMatch) {
+	if (selected || data.isSelectedEndpoint || data.isSearchMatch) {
 		return "0 0 0 1px var(--primary), 0 0 0 3px color-mix(in oklab, var(--primary) 14%, transparent), 0 16px 34px color-mix(in oklab, var(--foreground) 14%, transparent)";
-	}
-	if (data.isRelationContextActive) {
-		return "0 0 0 1px color-mix(in oklab, var(--primary) 18%, var(--border)), 0 16px 30px color-mix(in oklab, var(--primary) 10%, transparent)";
 	}
 	if (data.isSearchRelated) {
 		return "0 0 0 1px color-mix(in oklab, var(--primary) 24%, var(--border)), 0 14px 28px color-mix(in oklab, var(--foreground) 12%, transparent)";
@@ -112,7 +110,8 @@ interface TableStats {
 }
 
 interface TableNodeViewModel {
-	readonly activeRelationColumns: ReadonlySet<string>;
+	readonly selectedRelationColumns: ReadonlySet<string>;
+	readonly highlightedRelationColumns: ReadonlySet<string>;
 	readonly connectedColumns: ReadonlySet<string>;
 	readonly constraintBadgesByColumn: ReturnType<typeof getColumnConstraintBadges>;
 	readonly stats: TableStats;
@@ -157,11 +156,13 @@ const buildTooltip = (
 const getTableNodeViewModel = (
 	table: TableData,
 	connectedColumnNames: readonly string[],
-	activeRelationColumnNames: readonly string[] | undefined,
+	selectedRelationColumnNames: readonly string[] | undefined,
 ): TableNodeViewModel => {
 	const stats = getTableStats(table);
+	const selectedRelationColumns = new Set(selectedRelationColumnNames ?? []);
 	return {
-		activeRelationColumns: new Set(activeRelationColumnNames ?? []),
+		selectedRelationColumns,
+		highlightedRelationColumns: selectedRelationColumns,
 		connectedColumns: new Set(connectedColumnNames),
 		constraintBadgesByColumn: getColumnConstraintBadges(table),
 		stats,
@@ -200,14 +201,26 @@ export const TableNode = memo(function TableNode({
 	data,
 	selected,
 }: NodeProps<DiagramNode>) {
-	const viewModel = useMemo(() => getTableNodeViewModel(
-		data.table,
-		data.connectedColumns,
-		data.activeRelationColumns,
-	), [data.activeRelationColumns, data.connectedColumns, data.table]);
+	const viewModel = useMemo(
+		() =>
+			getTableNodeViewModel(
+				data.table,
+				data.connectedColumns,
+				data.selectedRelationColumns,
+			),
+		[
+			data.connectedColumns,
+			data.selectedRelationColumns,
+			data.table,
+		],
+	);
 
 	const nodeStyle: SchemaTableNodeStyle = {
-		"--schema-node-opacity": data.isSearchDimmed ? 0.32 : 1,
+		"--schema-node-opacity": data.isSelectedEndpoint
+			? 1
+			: data.isSearchDimmed
+				? 0.32
+				: 1,
 		"--schema-surface-shadow": getSurfaceShadow(data, selected),
 		borderWidth: tableNodeMetrics.nodeBorder,
 		width: `${data.layout.width}px`,
@@ -216,15 +229,17 @@ export const TableNode = memo(function TableNode({
 	return (
 		<div
 			data-node-id={id}
-			className="schema-table-node relative overflow-hidden border border-border bg-card text-card-foreground hover:cursor-move"
+			className="schema-table-node group/table relative overflow-hidden border border-border bg-card text-card-foreground hover:cursor-move"
 			style={nodeStyle}
 		>
 			<CompositeRelationHandles
-				activeColumns={viewModel.activeRelationColumns}
+				activeColumns={viewModel.highlightedRelationColumns}
 				connectedColumns={viewModel.connectedColumns}
 				relationAnchors={data.relationAnchors}
 				topOffsets={data.compositeHandleOffsets}
 			/>
+
+			<TableNodeMenu table={data.table} />
 
 			<div
 				className="schema-table-header flex items-start"
@@ -299,10 +314,11 @@ export const TableNode = memo(function TableNode({
 					<SchemaColumnRow
 						key={column.name}
 						tableId={data.table.id}
+						tableName={data.table.name}
 						typeColumnWidth={data.layout.typeColumnWidth}
 						column={column}
 						isConnected={viewModel.connectedColumns.has(column.name)}
-						isActive={viewModel.activeRelationColumns.has(column.name)}
+						isSelected={viewModel.selectedRelationColumns.has(column.name)}
 						showDivider={index > 0}
 						badges={viewModel.constraintBadgesByColumn.get(column.name) ?? []}
 					/>

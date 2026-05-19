@@ -1,4 +1,5 @@
 import type { ReactFlowInstance, Viewport } from "@xyflow/react";
+import { subscribeWithSelector } from "zustand/middleware";
 import { createStore, type StoreApi } from "zustand/vanilla";
 
 import type { SchemaSearchResult } from "@/schema-model/schema-search";
@@ -14,9 +15,6 @@ const fitViewOptions = Object.freeze({
 	duration: 500,
 });
 
-const normalizeTableIds = (tableIds: readonly string[]) =>
-	Array.from(new Set(tableIds));
-
 interface TemporaryRelationshipPreview {
 	readonly kind: "relationship-preview";
 	readonly sourceTableId: string;
@@ -25,7 +23,7 @@ interface TemporaryRelationshipPreview {
 }
 
 export interface ProjectionRuntimeState {
-	readonly activeRelationTableIds: readonly string[];
+	readonly selectedRelationshipId: string | null;
 	readonly temporaryRelationship: TemporaryRelationshipPreview | null;
 	readonly searchHighlight?: SchemaSearchResult | null;
 }
@@ -34,6 +32,8 @@ export interface CanvasRuntimeState extends ProjectionRuntimeState {
 	readonly flowInstance: ReactFlowInstance<CanvasNode, CanvasEdge> | null;
 	readonly viewport: Viewport;
 	readonly focusTableIds: readonly string[];
+	readonly isLayoutPending: boolean;
+	readonly withLayoutPending: <T>(operation: () => Promise<T>) => Promise<T>;
 	readonly attachReactFlowInstance: (
 		instance: ReactFlowInstance<CanvasNode, CanvasEdge>,
 	) => void;
@@ -43,8 +43,8 @@ export interface CanvasRuntimeState extends ProjectionRuntimeState {
 	readonly clearFocus: () => void;
 	readonly requestFitView: (tableIds?: readonly string[]) => void;
 	readonly cancelFitView: () => void;
-	readonly setActiveRelationTableIds: (tableIds: readonly string[]) => void;
-	readonly clearActiveRelationTableIds: () => void;
+	readonly selectRelationship: (relationshipId: string) => void;
+	readonly clearRelationshipSelection: () => void;
 	readonly setSearchHighlight: (highlight: SchemaSearchResult | null) => void;
 	readonly clearSearchHighlight: () => void;
 	readonly startTemporaryRelationship: (input: {
@@ -60,10 +60,22 @@ export interface CanvasRuntimeState extends ProjectionRuntimeState {
 	readonly dispose: () => void;
 }
 
-export type CanvasRuntimeStore = StoreApi<CanvasRuntimeState>;
+type SelectorSubscribe = <U>(
+	selector: (state: CanvasRuntimeState) => U,
+	listener: (selected: U, previous: U) => void,
+	options?: {
+		readonly equalityFn?: (a: U, b: U) => boolean;
+		readonly fireImmediately?: boolean;
+	},
+) => () => void;
+
+export type CanvasRuntimeStore = StoreApi<CanvasRuntimeState> & {
+	readonly subscribe: SelectorSubscribe & StoreApi<CanvasRuntimeState>["subscribe"];
+};
 
 export function createCanvasRuntimeStore(): CanvasRuntimeStore {
 	let pendingFitViewFrameId: number | null = null;
+	let layoutPendingDepth = 0;
 
 	const cancelPendingFitView = () => {
 		if (pendingFitViewFrameId === null) return;
@@ -71,13 +83,28 @@ export function createCanvasRuntimeStore(): CanvasRuntimeStore {
 		pendingFitViewFrameId = null;
 	};
 
-	return createStore<CanvasRuntimeState>()((set, get) => ({
+	return createStore<CanvasRuntimeState>()(subscribeWithSelector((set, get) => ({
 		flowInstance: null,
 		viewport: defaultViewport,
 		focusTableIds: [],
-		activeRelationTableIds: [],
+		selectedRelationshipId: null,
 		temporaryRelationship: null,
 		searchHighlight: null,
+		isLayoutPending: false,
+		withLayoutPending: async (operation) => {
+			layoutPendingDepth += 1;
+			if (layoutPendingDepth === 1) {
+				set({ isLayoutPending: true });
+			}
+			try {
+				return await operation();
+			} finally {
+				layoutPendingDepth = Math.max(0, layoutPendingDepth - 1);
+				if (layoutPendingDepth === 0) {
+					set({ isLayoutPending: false });
+				}
+			}
+		},
 		attachReactFlowInstance: (flowInstance) => {
 			set({ flowInstance });
 		},
@@ -89,7 +116,7 @@ export function createCanvasRuntimeStore(): CanvasRuntimeStore {
 			set({ viewport });
 		},
 		requestFocus: (tableIds) => {
-			const focusTableIds = normalizeTableIds(tableIds);
+			const focusTableIds = Array.from(new Set(tableIds));
 			set({ focusTableIds });
 			get().requestFitView(focusTableIds);
 		},
@@ -100,7 +127,7 @@ export function createCanvasRuntimeStore(): CanvasRuntimeStore {
 			cancelPendingFitView();
 			const focusedIds =
 				tableIds && tableIds.length > 0
-					? normalizeTableIds(tableIds)
+					? Array.from(new Set(tableIds))
 					: undefined;
 			pendingFitViewFrameId = requestAnimationFrame(() => {
 				pendingFitViewFrameId = null;
@@ -115,11 +142,19 @@ export function createCanvasRuntimeStore(): CanvasRuntimeStore {
 		cancelFitView: () => {
 			cancelPendingFitView();
 		},
-		setActiveRelationTableIds: (tableIds) => {
-			set({ activeRelationTableIds: normalizeTableIds(tableIds) });
+		selectRelationship: (selectedRelationshipId) => {
+			set((state) =>
+				state.selectedRelationshipId === selectedRelationshipId
+					? state
+					: { selectedRelationshipId },
+			);
 		},
-		clearActiveRelationTableIds: () => {
-			set({ activeRelationTableIds: [] });
+		clearRelationshipSelection: () => {
+			set((state) =>
+				state.selectedRelationshipId === null
+					? state
+					: { selectedRelationshipId: null },
+			);
 		},
 		setSearchHighlight: (highlight) => {
 			set({ searchHighlight: highlight });
@@ -167,14 +202,16 @@ export function createCanvasRuntimeStore(): CanvasRuntimeStore {
 		},
 		dispose: () => {
 			cancelPendingFitView();
+			layoutPendingDepth = 0;
 			set({
 				flowInstance: null,
 				viewport: defaultViewport,
 				focusTableIds: [],
-				activeRelationTableIds: [],
+				selectedRelationshipId: null,
 				temporaryRelationship: null,
 				searchHighlight: null,
+				isLayoutPending: false,
 			});
 		},
-	}));
+	}))) as CanvasRuntimeStore;
 }

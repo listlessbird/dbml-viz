@@ -9,7 +9,7 @@ import {
 	type OnNodesChange,
 	type ReactFlowInstance,
 } from "@xyflow/react";
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, type MouseEvent } from "react";
 
 import { useCanvasRuntime } from "@/canvas-next/canvas-runtime-context";
 import { buildCanvasProjection } from "@/canvas-next/canvas-projection";
@@ -17,7 +17,6 @@ import { collectTablePositionChanges } from "@/canvas-next/table-position-change
 import { CanvasNextStickyNoteNode } from "@/canvas-next/sticky-note";
 import { useParseDrivenFocus } from "@/canvas-next/use-parse-driven-focus";
 import { useSchemaParseFlow } from "@/canvas-next/use-schema-parse-flow";
-import { useRelationHoverHandlers } from "@/canvas-next/use-relation-hover";
 import { RelationshipEdge } from "@/components/RelationshipEdge";
 import { StickyLinkEdge } from "@/components/StickyLinkEdge";
 import { TableNode } from "@/components/TableNode";
@@ -60,14 +59,17 @@ export function CanvasNextCanvas() {
 	const parsedSchema = useDiagramSession((state) => state.diagram.parsedSchema);
 	const tablePositions = useDiagramSession((state) => state.diagram.tablePositions);
 	const stickyNotes = useDiagramSession((state) => state.diagram.stickyNotes);
-	const activeRelationTableIds = useCanvasRuntime(
-		(state) => state.activeRelationTableIds,
+	const selectedRelationshipId = useCanvasRuntime(
+		(state) => state.selectedRelationshipId,
 	);
 	const temporaryRelationship = useCanvasRuntime(
 		(state) => state.temporaryRelationship,
 	);
 	const searchHighlight = useCanvasRuntime((state) => state.searchHighlight);
-	const relationHoverHandlers = useRelationHoverHandlers();
+	const selectRelationship = useCanvasRuntime((state) => state.selectRelationship);
+	const clearRelationshipSelection = useCanvasRuntime(
+		(state) => state.clearRelationshipSelection,
+	);
 	const attachReactFlowInstance = useCanvasRuntime(
 		(state) => state.attachReactFlowInstance,
 	);
@@ -76,6 +78,9 @@ export function CanvasNextCanvas() {
 		(state) => state.commitTablePositions,
 	);
 	const updateStickyNote = useDiagramSession((state) => state.updateStickyNote);
+	const tableCount = parsedSchema.tables.length;
+	const minimapEnabled = tableCount <= 80;
+	const onlyRenderVisibleElements = tableCount > 150;
 	const tableIds = useMemo(
 		() => new Set(parsedSchema.tables.map((table) => table.id)),
 		[parsedSchema],
@@ -93,7 +98,7 @@ export function CanvasNextCanvas() {
 					stickyNotes,
 				},
 				{
-					activeRelationTableIds,
+					selectedRelationshipId,
 					temporaryRelationship,
 					searchHighlight,
 				},
@@ -102,7 +107,7 @@ export function CanvasNextCanvas() {
 			parsedSchema,
 			tablePositions,
 			stickyNotes,
-			activeRelationTableIds,
+			selectedRelationshipId,
 			temporaryRelationship,
 			searchHighlight,
 		],
@@ -129,6 +134,22 @@ export function CanvasNextCanvas() {
 		},
 		[commitTablePositions, stickyNoteIds, tableIds, updateStickyNote],
 	);
+	const handleEdgeClick = useCallback(
+		(_: MouseEvent, edge: CanvasEdge) => {
+			if (edge.type !== "relationship") return;
+			selectRelationship(edge.id);
+		},
+		[selectRelationship],
+	);
+	const handlePaneClick = useCallback(() => {
+		clearRelationshipSelection();
+	}, [clearRelationshipSelection]);
+
+	useEffect(() => {
+		if (selectedRelationshipId === null) return;
+		if (parsedSchema.refs.some((ref) => ref.id === selectedRelationshipId)) return;
+		clearRelationshipSelection();
+	}, [clearRelationshipSelection, parsedSchema.refs, selectedRelationshipId]);
 
 	return (
 		<div className="relative h-full min-h-0 overflow-hidden bg-background">
@@ -138,15 +159,16 @@ export function CanvasNextCanvas() {
 				nodes={projection.nodes}
 				edges={projection.edges}
 				onNodesChange={handleNodesChange}
+				onEdgeClick={handleEdgeClick}
+				onPaneClick={handlePaneClick}
 				onInit={(instance: ReactFlowInstance<CanvasNode, CanvasEdge>) =>
 					attachReactFlowInstance(instance)
 				}
 				onViewportChange={setViewport}
-				onNodeMouseEnter={relationHoverHandlers.onNodeMouseEnter}
-				onNodeMouseLeave={relationHoverHandlers.onNodeMouseLeave}
 				nodeTypes={nodeTypes}
 				edgeTypes={edgeTypes}
 				nodesConnectable={false}
+				onlyRenderVisibleElements={onlyRenderVisibleElements}
 				proOptions={proOptions}
 			>
 				<Background
@@ -155,13 +177,15 @@ export function CanvasNextCanvas() {
 					size={1.4}
 					color="color-mix(in oklab, var(--foreground) 10%, var(--background))"
 				/>
-				<MiniMap
-					position="bottom-right"
-					pannable={false}
-					zoomable={false}
-					className="border! border-border! bg-background!"
-					maskColor="color-mix(in oklab, var(--muted) 84%, transparent)"
-				/>
+				{minimapEnabled ? (
+					<MiniMap
+						position="bottom-right"
+						pannable={false}
+						zoomable={false}
+						className="border! border-border! bg-background!"
+						maskColor="color-mix(in oklab, var(--muted) 84%, transparent)"
+					/>
+				) : null}
 				<Controls position="bottom-left" showInteractive={false}>
 					<ZoomLevelControl />
 				</Controls>

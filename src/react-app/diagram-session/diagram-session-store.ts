@@ -205,7 +205,7 @@ export function createDiagramSessionStore(
 			}));
 		},
 		applyParseResult: (result) => {
-			if (result.ok) {
+			if (result.kind === "success") {
 				set((state) => {
 					const tablePositions = prunePositionsForTables(
 						state.diagram.tablePositions,
@@ -230,7 +230,32 @@ export function createDiagramSessionStore(
 				});
 				return;
 			}
-			set({ parseDiagnostics: result.diagnostics });
+			if (result.kind === "failure") {
+				set({ parseDiagnostics: result.diagnostics });
+				return;
+			}
+			set((state) => {
+				if (
+					state.diagram.parsedSchema.tables.length === 0 &&
+					state.diagram.parsedSchema.refs.length === 0 &&
+					Object.keys(state.diagram.tablePositions).length === 0 &&
+					state.parseDiagnostics.length === 0
+				) {
+					return state;
+				}
+				return {
+					diagram: {
+						...state.diagram,
+						parsedSchema: emptyParsedSchema,
+						tablePositions: {},
+					},
+					parseDiagnostics: noDiagnostics,
+					lastParseTableDiff: diffTables(
+						state.diagram.parsedSchema,
+						emptyParsedSchema,
+					),
+				};
+			});
 		},
 		commitTablePositions: (positions) => {
 			set((state) => {
