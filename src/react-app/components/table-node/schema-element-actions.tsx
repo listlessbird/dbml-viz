@@ -58,6 +58,9 @@ export function buildTableActions({
 		},
 	];
 	if (table.name.length > 0) {
+		const qualifiedName = table.schema
+			? `${table.schema}.${table.name}`
+			: table.name;
 		actions.push({
 			id: "focus-source",
 			label: "Focus in Schema Source",
@@ -66,7 +69,7 @@ export function buildTableActions({
 			onSelect: () => {
 				sourceFocusStore
 					.getState()
-					.requestSourceFocus({ tableName: table.name });
+					.requestSourceFocus({ tableName: qualifiedName });
 			},
 		});
 	}

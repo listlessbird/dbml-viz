@@ -314,7 +314,11 @@ export const TableNode = memo(function TableNode({
 					<SchemaColumnRow
 						key={column.name}
 						tableId={data.table.id}
-						tableName={data.table.name}
+						tableName={
+					data.table.schema
+						? `${data.table.schema}.${data.table.name}`
+						: data.table.name
+				}
 						typeColumnWidth={data.layout.typeColumnWidth}
 						column={column}
 						isConnected={viewModel.connectedColumns.has(column.name)}
