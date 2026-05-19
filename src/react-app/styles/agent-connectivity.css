@@ -56,32 +56,32 @@
 }
 
 .acnx-dot-pulse {
-	animation: acnx-pulse 1.2s ease-in-out infinite;
+	animation: acnx-pulse var(--motion-duration-pulse) var(--motion-ease-pulse) infinite;
 }
 
 .acnx-dot-pulse-fast {
-	animation: acnx-pulse 0.7s ease-in-out infinite;
+	animation: acnx-pulse var(--motion-duration-pulse-fast) var(--motion-ease-pulse) infinite;
 }
 
 .acnx-dot-halo::after {
 	content: "";
 	position: absolute;
 	inset: -4px;
-	border-radius: 999px;
+	border-radius: var(--shape-round);
 	border: 1.5px solid currentColor;
 	opacity: 0.4;
-	animation: acnx-ring 2s ease-out infinite;
+	animation: acnx-ring var(--motion-duration-halo) var(--motion-ease-halo) infinite;
 }
 
 .acnx-tw-active {
 	background: linear-gradient(
 		90deg,
-		oklch(0.225 0.08 260) 0%,
-		oklch(0.26 0.09 260) 50%,
-		oklch(0.225 0.08 260) 100%
+		var(--agent-writing-bg) 0%,
+		var(--agent-writing-bg-accent) 50%,
+		var(--agent-writing-bg) 100%
 	);
 	background-size: 200% 100%;
-	animation: acnx-shimmer 2.4s linear infinite;
+	animation: acnx-shimmer var(--motion-duration-shimmer) var(--motion-ease-linear) infinite;
 }
 
 .acnx-tw-caret {
@@ -89,9 +89,9 @@
 	width: 7px;
 	height: 13px;
 	vertical-align: -2px;
-	background: oklch(0.77 0.09 230);
+	background: var(--agent-writing-caret);
 	margin-left: 1px;
-	animation: acnx-blink 0.9s steps(2, end) infinite;
+	animation: acnx-blink var(--motion-duration-caret) steps(2, end) infinite;
 }
 
 .acnx-tw-gutter::before {
@@ -104,12 +104,12 @@
 	background: linear-gradient(
 		180deg,
 		transparent 0%,
-		oklch(0.7 0.14 255) 30%,
-		oklch(0.7 0.14 255) 70%,
+		var(--agent-writing-gutter) 30%,
+		var(--agent-writing-gutter) 70%,
 		transparent 100%
 	);
 	background-size: 100% 60px;
-	animation: acnx-gutter 1.6s linear infinite;
+	animation: acnx-gutter var(--motion-duration-gutter) var(--motion-ease-linear) infinite;
 	pointer-events: none;
 }
 

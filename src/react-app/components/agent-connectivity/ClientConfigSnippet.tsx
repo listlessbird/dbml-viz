@@ -45,10 +45,10 @@ function highlightSnippet(
                 segments.push({
                         text: matched,
                         className: isComment
-                                ? "text-(--gray-500)"
+                                ? "text-editor-syntax-comment"
                                 : isKey
-                                        ? "text-[oklch(0.77_0.09_230)]"
-                                        : "text-[oklch(0.8_0.08_100)]",
+                                        ? "text-editor-syntax-type"
+                                        : "text-editor-syntax-number",
                 });
                 lastIndex = matchStart + matched.length;
         }
@@ -75,10 +75,10 @@ export function ClientConfigSnippet({ endpoint }: ClientConfigSnippetProps) {
 
         return (
                 <div className="flex min-w-0 flex-col gap-1.5">
-                        <label className="font-mono text-[9px] font-bold uppercase tracking-[0.16em] text-(--gray-500)">
+                        <label className="font-mono text-[9px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
                                 Add to your agent
                         </label>
-                        <div className="flex gap-0.5 border-b border-(--gray-200)">
+                        <div className="flex gap-0.5 border-b border-border">
                                 {AGENT_CLIENTS.map((client) => {
                                         const isActive = client.id === activeId;
                                         const brand = brandForClient(client.label);
@@ -89,12 +89,11 @@ export function ClientConfigSnippet({ endpoint }: ClientConfigSnippetProps) {
                                                         key={client.id}
                                                         type="button"
                                                         className={cn(
-                                                                "-mb-px cursor-pointer border-0 bg-transparent px-2.5 py-1.5 text-[11px] font-medium transition-colors flex items-center gap-1.5",
+                                                                "-mb-px cursor-pointer border-0 bg-transparent px-2.5 py-1.5 text-[11px] font-medium transition-colors duration-fast flex items-center gap-1.5",
                                                                 isActive
-                                                                        ? "border-b-2 text-(--gray-900)"
-                                                                        : "border-b-2 border-transparent text-(--gray-500) hover:text-(--gray-700)",
+                                                                        ? cn("border-b-2 text-foreground", brand.borderBottom)
+                                                                        : "border-b-2 border-transparent text-muted-foreground hover:text-foreground",
                                                         )}
-                                                        style={isActive ? { borderBottomColor: brand.dot } : undefined}
                                                         aria-pressed={isActive}
                                                         onClick={() => setActiveId(client.id)}
                                                 >
@@ -109,7 +108,7 @@ export function ClientConfigSnippet({ endpoint }: ClientConfigSnippetProps) {
                                 })}
                         </div>
                         <div className="relative min-w-0">
-                                <pre className="m-0 max-h-44 overflow-x-auto overflow-y-auto bg-(--gray-900) p-2.5 font-mono text-[11px] leading-[1.55] text-[oklch(0.91_0.02_75)]">
+                                <pre className="m-0 max-h-44 overflow-x-auto overflow-y-auto bg-sidebar p-2.5 font-mono text-[11px] leading-[1.55] text-sidebar-foreground">
                                         {segments.map((segment, index) => (
                                                 <span key={index} className={segment.className}>
                                                         {segment.text}

@@ -29,7 +29,7 @@ export const CanvasEmptyStateOverlay = memo(function CanvasEmptyStateOverlay({
 			<div
 				data-testid="canvas-state-overlay"
 				data-variant="layout-pending"
-				className="pointer-events-none absolute top-4 left-1/2 z-10 -translate-x-1/2 inline-flex items-center gap-2 border border-border bg-background/90 px-3 py-1.5 text-xs text-muted-foreground shadow-sm backdrop-blur-sm"
+				className="pointer-events-none absolute top-4 left-1/2 z-10 -translate-x-1/2 inline-flex items-center gap-2 rounded-panel border border-border bg-background/90 px-3 py-1.5 text-xs text-muted-foreground shadow-panel backdrop-blur-panel"
 			>
 				<IconLoader2 className="size-3.5 animate-spin" aria-hidden />
 				<span>Arranging tables…</span>
@@ -49,7 +49,7 @@ export const CanvasEmptyStateOverlay = memo(function CanvasEmptyStateOverlay({
 			data-variant={state.variant}
 			className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center p-6"
 		>
-			<div className="pointer-events-auto flex max-w-md flex-col items-center gap-4 border border-border bg-background/95 px-6 py-8 text-center shadow-[0_18px_42px_color-mix(in_oklab,var(--foreground)_14%,transparent)] backdrop-blur-sm">
+			<div className="pointer-events-auto flex max-w-md flex-col items-center gap-4 rounded-panel border border-border bg-background/95 px-6 py-8 text-center shadow-canvas-popover backdrop-blur-panel">
 				{content}
 			</div>
 		</div>

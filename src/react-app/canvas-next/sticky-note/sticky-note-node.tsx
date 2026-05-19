@@ -61,13 +61,6 @@ const LINK_HANDLE_STYLE: CSSProperties = {
 	pointerEvents: "none",
 };
 
-const colorClasses: Record<StickyNoteColor, string> = {
-	yellow: "border-yellow-300 bg-yellow-100 text-yellow-950",
-	pink: "border-pink-300 bg-pink-100 text-pink-950",
-	blue: "border-sky-300 bg-sky-100 text-sky-950",
-	green: "border-emerald-300 bg-emerald-100 text-emerald-950",
-};
-
 const buildTableValidator = (
 	tables: readonly TableData[],
 ): LinkValidator => {
@@ -208,7 +201,7 @@ export const CanvasNextStickyNoteNode = memo(function CanvasNextStickyNoteNode({
 			data-color={note.color}
 			data-selected={selected}
 			data-width-mode={widthMode}
-			className={`group/sticky relative flex h-full min-h-24 w-full min-w-36 flex-col overflow-hidden border font-sans shadow-sm ${colorClasses[note.color]}`}
+			className="sticky-note group/sticky relative flex h-full min-h-24 w-full min-w-36 flex-col overflow-hidden rounded-panel border border-(--sn-border) bg-(--sn-surface) font-sans text-(--sn-ink) shadow-sticky-note data-[selected=true]:border-sticky-note-focus-ring data-[selected=true]:shadow-sticky-note-focus"
 			style={{
 				...ROOT_STYLE,
 				width: renderedWidth,
@@ -247,10 +240,10 @@ export const CanvasNextStickyNoteNode = memo(function CanvasNextStickyNoteNode({
 								spellCheck={false}
 								placeholder="Write a note… type # to link a table"
 								style={{ height: layout.textareaBoxH }}
-								className="sticky-note__textarea nodrag nowheel block w-full min-w-0 resize-none overflow-hidden border border-dashed bg-white/50 px-2! pt-2! pb-1! font-sans text-[13px]! leading-5! outline-none wrap-break-word placeholder:text-current/40"
+								className="nodrag nowheel block w-full min-w-0 resize-none overflow-hidden border border-dashed border-(--sn-dashed) bg-sticky-note-chip px-2! pt-2! pb-1! font-sans text-[13px]! leading-5! text-(--sn-ink) outline-none wrap-break-word placeholder:text-current/40"
 							/>
 						</MentionInput>
-						<MentionContent className="w-60 gap-0 border border-border bg-popover p-0 font-sans shadow-lg">
+						<MentionContent className="w-60 gap-0 rounded-popover border border-border bg-popover p-0 font-sans shadow-popover">
 							<LinkerMentionList tables={tables} />
 						</MentionContent>
 					</Mention>

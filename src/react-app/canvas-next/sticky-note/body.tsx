@@ -41,7 +41,7 @@ export const ProseBody = memo(function ProseBody({
 			data-testid="sticky-note-prose"
 			onClick={onClick}
 			onPointerDown={(e) => e.stopPropagation()}
-			className="sticky-note__body min-w-0 cursor-text px-3 pt-2 pb-1 font-sans text-[13px] leading-5 whitespace-pre-wrap wrap-anywhere"
+			className="min-w-0 cursor-text px-3 pt-2 pb-1 font-sans text-[13px] leading-5 text-(--sn-ink) whitespace-pre-wrap wrap-anywhere"
 		>
 			{text.length === 0 ? (
 				<span className="italic opacity-50">{PLACEHOLDER_TEXT}</span>
@@ -57,7 +57,7 @@ export const ProseBody = memo(function ProseBody({
 								const ref = links.find((l) => l.token === segment.value);
 								if (ref) onChipClick(ref);
 							}}
-							className="sticky-note__token mx-px max-w-full whitespace-normal break-all rounded-xs border px-1 text-left font-sans text-[13px] align-baseline"
+							className="mx-px max-w-full whitespace-normal break-all rounded-swatch border border-sticky-note-token-border bg-sticky-note-token px-1 text-left font-sans text-[13px] text-sticky-note-token-foreground align-baseline"
 						>
 							{segment.value}
 						</button>
@@ -94,9 +94,9 @@ export const LinksRow = memo(function LinksRow({
 						onChipClick(ref);
 					}}
 					onPointerDown={(e) => e.stopPropagation()}
-					className="sticky-note__chip inline-flex max-w-full items-center gap-1 rounded-[3px] border px-1.5 py-0 text-left font-sans text-[10px]"
+					className="inline-flex max-w-full items-center gap-1 rounded-chip border border-(--sn-chip-border) bg-sticky-note-chip px-1.5 py-0 text-left font-sans text-[10px] text-(--sn-chip-ink)"
 				>
-					<span aria-hidden className="sticky-note__chip-arrow">
+					<span aria-hidden className="text-(--sn-muted-ink)">
 						→
 					</span>
 					<span className="min-w-0 break-all">

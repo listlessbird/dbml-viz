@@ -2,39 +2,15 @@
 	.schema-table-node {
 		isolation: isolate;
 		opacity: var(--schema-node-opacity, 1);
-		background-color: var(--card);
 		box-shadow: var(--schema-surface-shadow);
 		transition:
-			box-shadow 180ms cubic-bezier(0.215, 0.61, 0.355, 1),
-			opacity 180ms cubic-bezier(0.215, 0.61, 0.355, 1),
-			background-color 180ms ease,
-			border-color 180ms ease;
-	}
-
-	.schema-table-header {
-		background-color: var(--schema-header-bg);
-		color: var(--schema-header-fg);
-		border-bottom: 1px solid var(--schema-header-border);
-	}
-
-	.schema-table-glyph {
-		color: var(--schema-header-muted);
-	}
-
-	.schema-table-heading {
-		color: var(--schema-header-fg);
-	}
-
-	.schema-table-schema {
-		color: var(--schema-header-muted);
-	}
-
-	.schema-table-kind {
-		color: var(--schema-header-muted);
+			box-shadow var(--motion-duration-normal) var(--motion-ease-standard),
+			opacity var(--motion-duration-normal) var(--motion-ease-standard),
+			background-color var(--motion-duration-normal) ease,
+			border-color var(--motion-duration-normal) ease;
 	}
 
 	.schema-table-stats {
-		background-color: color-mix(in oklab, var(--foreground) 3%, var(--card));
 		letter-spacing: 0.02em;
 	}
 
@@ -46,24 +22,24 @@
 
 	.schema-column-row {
 		transition:
-			background-color 150ms cubic-bezier(0.215, 0.61, 0.355, 1),
-			box-shadow 150ms cubic-bezier(0.215, 0.61, 0.355, 1),
-			color 150ms ease,
-			border-color 150ms ease;
+			background-color var(--motion-duration-fast) var(--motion-ease-standard),
+			box-shadow var(--motion-duration-fast) var(--motion-ease-standard),
+			color var(--motion-duration-fast) ease,
+			border-color var(--motion-duration-fast) ease;
 	}
 
 	.schema-column-row:hover {
-		background-color: color-mix(in oklab, var(--foreground) 3%, var(--card));
+		background-color: var(--schema-row-hover);
 	}
 
 	.schema-column-row--selected,
 	.schema-column-row--selected:hover {
-		background-color: color-mix(in oklab, var(--primary) 15%, var(--background));
-		box-shadow: inset 3px 0 0 color-mix(in oklab, var(--primary) 72%, transparent);
+		background-color: var(--schema-row-selected);
+		box-shadow: inset var(--dimension-relationship-selected-bar) 0 0 var(--schema-row-selected-bar);
 	}
 
 	.schema-column-key--pk {
-		color: oklch(0.54 0.125 65);
+		color: var(--schema-key-primary);
 	}
 
 	.schema-column-key--fk {
