@@ -210,13 +210,20 @@ const buildSelectedRelationshipProjection = (
 		(relationship) => relationship.ref.id === selectedRelationshipId,
 	);
 	if (!selected || !isResolvedReachable(selected, tablesById)) return null;
+	const columnsByTable = new Map<string, readonly string[]>();
+	if (selected.from.tableId === selected.to.tableId) {
+		columnsByTable.set(
+			selected.from.tableId,
+			[...new Set([...selected.from.columns, ...selected.to.columns])],
+		);
+	} else {
+		columnsByTable.set(selected.from.tableId, selected.from.columns);
+		columnsByTable.set(selected.to.tableId, selected.to.columns);
+	}
 	return {
 		id: selected.ref.id,
 		endpointTableIds: new Set([selected.from.tableId, selected.to.tableId]),
-		columnsByTable: new Map([
-			[selected.from.tableId, selected.from.columns],
-			[selected.to.tableId, selected.to.columns],
-		]),
+		columnsByTable,
 	};
 };
 

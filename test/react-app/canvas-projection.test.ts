@@ -179,6 +179,29 @@ const userOrdersRef: RefData = {
 	type: "many_to_one",
 };
 
+const tableEmployees: TableData = {
+	id: "employees",
+	name: "employees",
+	columns: [
+		{ name: "id", type: "int", pk: true, notNull: true, unique: false, isForeignKey: false, isIndexed: true },
+		{ name: "manager_id", type: "int", pk: false, notNull: false, unique: false, isForeignKey: true, isIndexed: false },
+	],
+	indexes: [],
+};
+
+const selfRef: RefData = {
+	id: "employees:manager_id->employees:id:0",
+	from: { table: "employees", columns: ["manager_id"] },
+	to: { table: "employees", columns: ["id"] },
+	type: "many_to_one",
+};
+
+const employeesWithSelfRef: ParsedSchema = {
+	tables: [tableEmployees],
+	refs: [selfRef],
+	errors: [],
+};
+
 const compositeChild: TableData = {
 	id: "child",
 	name: "child",
@@ -501,6 +524,18 @@ describe("Canvas Projection selected Relationship input", () => {
 		expect(selectedEdge?.data?.isSearchDimmed).toBe(false);
 		expect(paymentsNode?.data.isSelectedEndpoint).toBe(true);
 		expect(paymentsNode?.data.isSearchDimmed).toBe(false);
+	});
+
+	it("highlights both FK and PK columns when a self-referential Relationship is selected", () => {
+		const projection = buildCanvasProjection(
+			buildDiagram(employeesWithSelfRef),
+			{ ...projectionRuntime, selectedRelationshipId: selfRef.id },
+		);
+
+		const employeesNode = projection.nodes.find((n) => n.id === "employees");
+		expect(employeesNode?.data.isSelectedEndpoint).toBe(true);
+		expect(employeesNode?.data.selectedRelationColumns).toContain("manager_id");
+		expect(employeesNode?.data.selectedRelationColumns).toContain("id");
 	});
 
 	it("does not mutate the source Diagram when selected Relationship emphasis is applied", () => {
