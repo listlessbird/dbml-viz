@@ -56,6 +56,7 @@
     --color-schema-key-foreign: var(--schema-key-foreign);
     --color-schema-key-plain: var(--schema-key-plain);
     --color-relationship-badge-shadow: var(--relationship-badge-shadow);
+    --color-relationship-badge-border: var(--relationship-badge-border);
     --color-canvas-panel-shadow: var(--canvas-panel-shadow);
     --color-canvas-popover-shadow: var(--canvas-popover-shadow);
     --color-canvas-dots: var(--canvas-dots);
