@@ -6,7 +6,6 @@ import { initWorkersLogger } from "evlog/workers";
 import { evlog, type EvlogVariables } from "evlog/hono";
 
 import {
-	SHARE_TTL_SECONDS,
 	sharedSchemaPayloadSchema,
 	type ShareErrorResponse,
 } from "./domain/schema-share";
@@ -39,9 +38,7 @@ export const app = new Hono<{ Bindings: Env } & EvlogVariables>()
 			const id = nanoid(8);
 
 			try {
-				await c.env.SCHEMAS.put(id, JSON.stringify(payload), {
-					expirationTtl: SHARE_TTL_SECONDS,
-				});
+				await c.env.SCHEMAS.put(id, JSON.stringify(payload));
 				return c.json({ id }, 201);
 			} catch (error) {
 				c.get("log").error(error instanceof Error ? error : new Error(String(error)));

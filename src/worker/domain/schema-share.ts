@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-export const SHARE_TTL_SECONDS = 60 * 60 * 24 * 90;
 const MAX_SCHEMA_SOURCE_LENGTH = 500_000;
 
 const stickyNoteColorSchema = z.enum(["yellow", "pink", "blue", "green"]);

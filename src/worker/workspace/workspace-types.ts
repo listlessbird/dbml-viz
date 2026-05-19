@@ -52,4 +52,3 @@ export type ServerMessage =
 
 export const MAX_SCHEMA_SOURCE_LENGTH = 500_000;
 export const WORKSPACE_EVICTION_MS = 30 * 24 * 60 * 60 * 1000;
-export const SHARE_TTL_SECONDS = 60 * 60 * 24 * 90;
