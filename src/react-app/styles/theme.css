@@ -143,6 +143,15 @@
 	--schema-key-plain: var(--muted-foreground);
 
 	--relationship-badge-shadow: color-mix(in oklab, var(--primary) 26%, transparent);
+	--relationship-badge-border: color-mix(in oklab, var(--primary) 70%, transparent);
+	--edge-stroke-width-default: 1.4px;
+	--edge-stroke-width-emphasized: 2.3px;
+	--edge-stroke-width-sticky: 1.3px;
+	--edge-opacity-default: 1;
+	--edge-opacity-sticky: 0.85;
+	--edge-marker-size: 18px;
+	--edge-dash-temporary: 6 4;
+	--edge-dash-sticky: 4 4;
 	--canvas-panel-shadow: color-mix(in oklab, var(--foreground) 12%, transparent);
 	--canvas-popover-shadow: color-mix(in oklab, var(--foreground) 14%, transparent);
 	--elevation-control: 0 1px 2px color-mix(in oklab, var(--foreground) 8%, transparent);

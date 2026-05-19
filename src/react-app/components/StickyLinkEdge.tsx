@@ -45,9 +45,9 @@ export const StickyLinkEdge = memo(function StickyLinkEdge({
 			interactionWidth={18}
 			style={{
 				stroke,
-				strokeWidth: 1.3,
-				strokeDasharray: "4 4",
-				opacity: 0.85,
+				strokeWidth: "var(--edge-stroke-width-sticky)",
+				strokeDasharray: "var(--edge-dash-sticky)",
+				opacity: "var(--edge-opacity-sticky)",
 				fill: "none",
 			}}
 		/>

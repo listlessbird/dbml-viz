@@ -41,6 +41,8 @@ interface CanvasProjection {
 	readonly missingPositionIds: readonly string[];
 }
 
+const EDGE_MARKER_SIZE = 18;
+
 const chartAccents = [
 	"var(--chart-1)",
 	"var(--chart-2)",
@@ -182,14 +184,16 @@ const buildRelationshipEdge = (
 		},
 		markerEnd: {
 			type: MarkerType.ArrowClosed,
-			width: 18,
-			height: 18,
+			width: EDGE_MARKER_SIZE,
+			height: EDGE_MARKER_SIZE,
 			color: stroke,
 		},
 		style: {
 			stroke,
-			strokeWidth: isSelected ? 2.3 : 1.4,
-			opacity: 1,
+			strokeWidth: isSelected
+				? "var(--edge-stroke-width-emphasized)"
+				: "var(--edge-stroke-width-default)",
+			opacity: "var(--edge-opacity-default)",
 		},
 	};
 };
@@ -339,7 +343,7 @@ const buildTemporaryProjection = (
 				animated: true,
 				style: {
 					stroke: "var(--muted-foreground)",
-					strokeDasharray: "6 4",
+					strokeDasharray: "var(--edge-dash-temporary)",
 				},
 			},
 		],
