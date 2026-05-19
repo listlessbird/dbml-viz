@@ -1,8 +1,9 @@
-import { IconBandage, IconLayoutGrid, IconLayoutSidebar, IconNote, IconSearch } from "@tabler/icons-react";
+import { IconBandage, IconInfoCircle, IconLayoutGrid, IconLayoutSidebar, IconNote, IconSearch } from "@tabler/icons-react";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 
 import { useCanvasRuntime } from "@/canvas-next/canvas-runtime-context";
+import { CanvasLegendContent } from "@/canvas-next/canvas-legend/canvas-legend-content";
 import { spawnStickyNote } from "@/canvas-next/sticky-note/spawn";
 import { useAutoArrangeCommand } from "@/canvas-next/use-auto-arrange-command";
 import { useRepairOverlapsCommand } from "@/canvas-next/use-repair-overlaps-command";
@@ -39,7 +40,9 @@ export function CanvasActionBar({
 }: CanvasActionBarProps) {
 	const id = useId();
 	const triggerId = `${id}-search-trigger`;
+	const legendTriggerId = `${id}-legend-trigger`;
 	const [isOpen, setIsOpen] = useState(false);
+	const [isLegendOpen, setIsLegendOpen] = useState(false);
 	const [query, setQuery] = useState("");
 	const inputRef = useRef<HTMLInputElement | null>(null);
 
@@ -177,6 +180,35 @@ export function CanvasActionBar({
 							: "Show schema source editor"
 					}
 				/>
+				<Popover
+					open={isLegendOpen}
+					triggerId={legendTriggerId}
+					onOpenChange={setIsLegendOpen}
+				>
+					<PopoverTrigger
+						id={legendTriggerId}
+						render={
+							<DockButton
+								icon={IconInfoCircle}
+								label="Legend"
+								isActive={isLegendOpen}
+								title="Show canvas legend"
+								aria-label="Show canvas legend"
+							/>
+						}
+					/>
+					<PopoverContent
+						side="top"
+						align="end"
+						sideOffset={10}
+						className={cn("w-80", DOCK_POPOVER_CLASS)}
+					>
+						<PopoverHeader className="border-b border-border px-4 py-3">
+							<PopoverTitle className="text-sm">Canvas legend</PopoverTitle>
+						</PopoverHeader>
+						<CanvasLegendContent />
+					</PopoverContent>
+				</Popover>
 				<Popover
 					open={isOpen}
 					triggerId={triggerId}
