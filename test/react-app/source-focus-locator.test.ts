@@ -54,4 +54,25 @@ describe("findSourceFocusPosition", () => {
 		expect(pos).not.toBeNull();
 		expect(doc.slice(pos!, pos! + 11)).toBe("Table users");
 	});
+
+	it("targets the correct table when a schema-qualified name disambiguates same-named tables", () => {
+		const doc =
+			"Table public.users {\n  id int\n}\n\nTable audit.users {\n  id int\n}";
+
+		const publicPos = findSourceFocusPosition(doc, {
+			tableName: "public.users",
+			columnName: null,
+		});
+		const auditPos = findSourceFocusPosition(doc, {
+			tableName: "audit.users",
+			columnName: null,
+		});
+
+		expect(publicPos).not.toBeNull();
+		expect(auditPos).not.toBeNull();
+		expect(auditPos!).toBeGreaterThan(publicPos!);
+		expect(doc.slice(auditPos!, auditPos! + "Table audit.users".length)).toBe(
+			"Table audit.users",
+		);
+	});
 });
