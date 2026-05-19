@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, CSSProperties } from "react";
+import type { ButtonHTMLAttributes } from "react";
 import { forwardRef, useMemo } from "react";
 
 import { cn } from "@/lib/utils";
@@ -24,49 +24,49 @@ interface WorkspaceStatusPillProps
 }
 
 const baseClasses =
-	"shrink-0 inline-flex h-7 items-center justify-center gap-1.5 border text-[11px] font-medium leading-none select-none transition-all duration-150 ease max-w-[180px] rounded-none overflow-hidden active:scale-[0.97]";
+	"shrink-0 inline-flex h-[var(--dimension-status-pill-height)] items-center justify-center gap-1.5 border text-[11px] font-medium leading-none select-none transition-all duration-fast ease-standard max-w-[var(--dimension-status-pill-max-width)] rounded-control overflow-hidden active:scale-[0.97]";
 
 const lightTones: Record<WorkspaceStatus, string> = {
 	offline:
-		"border-(--gray-300) bg-(--paper) text-(--gray-700) hover:bg-(--gray-100)",
+		"border-workspace-status-offline-border bg-workspace-status-offline text-workspace-status-offline-foreground hover:bg-workspace-status-offline-hover",
 	connecting:
-		"border-[oklch(0.825_0.07_255)] bg-[oklch(0.965_0.014_255)] text-[oklch(0.38_0.14_260)]",
+		"border-workspace-status-connecting-border bg-workspace-status-connecting text-workspace-status-connecting-foreground",
 	live: "", // handled dynamically per-client brand
 	reconnecting:
-		"border-[oklch(0.82_0.08_60)] bg-[oklch(0.97_0.025_60)] text-[oklch(0.47_0.14_60)]",
+		"border-workspace-status-reconnecting-border bg-workspace-status-reconnecting text-workspace-status-reconnecting-foreground",
 	ended:
-		"border-[oklch(0.86_0.04_25)] bg-[oklch(0.975_0.014_25)] text-(--crimson-700)",
+		"border-workspace-status-ended-border bg-workspace-status-ended text-workspace-status-ended-foreground",
 };
 
 const darkTones: Record<WorkspaceStatus, string> = {
 	offline:
-		"border-white/[0.14] bg-(--gray-800) text-(--gray-100) hover:border-white/25 hover:bg-(--gray-700)",
+		"border-workspace-status-offline-border bg-workspace-status-offline text-workspace-status-offline-foreground hover:bg-workspace-status-offline-hover",
 	connecting:
-		"border-[oklch(0.38_0.14_260)] bg-[oklch(0.225_0.08_260)] text-[oklch(0.91_0.038_255)]",
+		"border-workspace-status-connecting-border bg-workspace-status-connecting text-workspace-status-connecting-foreground",
 	live: "", // handled dynamically per-client brand
 	reconnecting:
-		"border-[oklch(0.58_0.15_60)] bg-[oklch(0.225_0.07_60)] text-[oklch(0.91_0.045_60)]",
+		"border-workspace-status-reconnecting-border bg-workspace-status-reconnecting text-workspace-status-reconnecting-foreground",
 	ended:
-		"border-[oklch(0.55_0.18_25)] bg-[oklch(0.225_0.06_25)] text-[oklch(0.9_0.05_25)]",
+		"border-workspace-status-ended-border bg-workspace-status-ended text-workspace-status-ended-foreground",
 };
 
 const dotTones: Record<WorkspaceStatus, { light: string; dark: string }> = {
-	offline: { light: "bg-(--gray-400)", dark: "bg-(--gray-400)" },
+	offline: { light: "bg-workspace-status-offline-dot", dark: "bg-workspace-status-offline-dot" },
 	connecting: {
-		light: "bg-[oklch(0.38_0.14_260)]",
-		dark: "bg-[oklch(0.68_0.12_255)]",
+		light: "bg-workspace-status-connecting-dot",
+		dark: "bg-workspace-status-connecting-dot",
 	},
 	live: {
 		light: "",
 		dark: "",
 	},
 	reconnecting: {
-		light: "bg-[oklch(0.58_0.15_60)]",
-		dark: "bg-[oklch(0.78_0.15_60)]",
+		light: "bg-workspace-status-reconnecting-dot",
+		dark: "bg-workspace-status-reconnecting-dot",
 	},
 	ended: {
-		light: "bg-(--crimson-500)",
-		dark: "bg-[oklch(0.625_0.17_25)]",
+		light: "bg-workspace-status-ended-dot",
+		dark: "bg-workspace-status-ended-dot",
 	},
 };
 
@@ -115,22 +115,6 @@ export const WorkspaceStatusPill = forwardRef<
 
 	const brand = useMemo(() => brandForClient(clientName), [clientName]);
 
-	const buttonStyle = useMemo((): CSSProperties | undefined => {
-		if (status !== "live") return undefined;
-		const b = tone === "dark" ? brand.dark : brand;
-		return {
-			...style,
-			"--acnx-pill-bg": b.bg,
-			"--acnx-pill-bg-hover": b.bgHover,
-			"--acnx-pill-border": b.border,
-			"--acnx-pill-text": b.text,
-			boxShadow:
-				tone === "dark"
-					? `inset 0 1px 0 rgba(255,255,255,0.06), 0 0 0 0.5px ${b.border}`
-					: `inset 0 1px 0 rgba(255,255,255,0.7), 0 1px 2px rgba(0,0,0,0.06), 0 0 0 0.5px ${b.border}`,
-		} as CSSProperties;
-	}, [status, tone, brand, style]);
-
 	const toneClass =
 		status === "live"
 			? "" // inline styles handle it
@@ -141,11 +125,9 @@ export const WorkspaceStatusPill = forwardRef<
 	const dotColor =
 		status === "live" ? "" : dotTones[status][tone];
 
-	const liveDotStyle = useMemo((): CSSProperties | undefined => {
-		if (status !== "live") return undefined;
-		const b = tone === "dark" ? brand.dark : brand;
-		return { backgroundColor: b.dot, color: b.dot };
-	}, [status, tone, brand]);
+	const liveClasses = status === "live"
+		? `${brand.border} ${brand.bg} ${brand.foreground} ${brand.bgHover}`
+		: "";
 
 	return (
 		<button
@@ -155,28 +137,27 @@ export const WorkspaceStatusPill = forwardRef<
 			className={cn(
 				baseClasses,
 				status === "live" ? "pl-1 pr-2.5" : "px-2.5",
-				status === "live" &&
-					"border-(--acnx-pill-border) bg-(--acnx-pill-bg) text-(--acnx-pill-text) hover:bg-(--acnx-pill-bg-hover)",
+				liveClasses,
 				toneClass,
 				isInteractive
-					? "cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-current/30"
+					? "cursor-pointer focus-visible:outline-none focus-visible:ring-[var(--focus-ring-thin-width)] focus-visible:ring-current/30"
 					: "cursor-default pointer-events-none",
-				active && "ring-1 ring-current/40",
+				active && "ring-[var(--focus-ring-thin-width)] ring-current/40",
 				className,
 			)}
 			aria-pressed={active || undefined}
 			data-status={status}
 			data-tone={tone}
-			style={status === "live" ? buttonStyle : style}
+			style={style}
 			{...rest}
 		>
 			{status === "live" ? (
 				<>
 					<span
 						className={cn(
-							"inline-flex items-center justify-center size-[18px] shrink-0 border mr-0.5",
+							"inline-flex size-[var(--dimension-status-icon-tile)] items-center justify-center shrink-0 border mr-0.5 rounded-control",
 							tone === "dark"
-								? "border-white/18 bg-white/8"
+								? "border-current/18 bg-current/8"
 								: "border-current/12 bg-current/6",
 						)}
 					>
@@ -185,7 +166,7 @@ export const WorkspaceStatusPill = forwardRef<
 							alt={clientName}
 							width={14}
 							height={14}
-							className="block size-3.5 shrink-0 object-contain"
+							className="block size-[var(--dimension-status-icon)] shrink-0 object-contain"
 						/>
 					</span>
 					<span className="leading-none truncate min-w-0 font-medium">
@@ -199,10 +180,11 @@ export const WorkspaceStatusPill = forwardRef<
 					<span
 						aria-hidden="true"
 						className={cn(
-							"size-1.5 shrink-0 rounded-full ml-1",
+							"size-[var(--dimension-status-dot)] shrink-0 rounded-full ml-1",
+							brand.dotBg,
+							brand.dotText,
 							dotAnimationClass[status],
 						)}
-						style={liveDotStyle}
 					/>
 				</>
 			) : (
@@ -210,7 +192,7 @@ export const WorkspaceStatusPill = forwardRef<
 					<span
 						aria-hidden="true"
 						className={cn(
-							"size-1.5 shrink-0 rounded-full",
+							"size-[var(--dimension-status-dot)] shrink-0 rounded-full",
 							dotColor,
 							dotAnimationClass[status],
 						)}
@@ -228,10 +210,10 @@ export const WorkspaceStatusPill = forwardRef<
 			{kbd ? (
 				<span
 					className={cn(
-						"ml-1 inline-flex h-4 items-center justify-center border px-1 font-mono text-[10px] leading-none tracking-tight shrink-0",
+						"ml-1 inline-flex h-[var(--dimension-status-kbd-height)] items-center justify-center border px-1 font-mono text-[10px] leading-none tracking-tight shrink-0 rounded-control",
 						tone === "dark"
-							? "border-white/15 bg-black/30 text-(--gray-300)"
-							: "border-(--gray-200) bg-(--gray-100) text-(--gray-500)",
+							? "border-current/15 bg-foreground/10 text-muted-foreground"
+							: "border-border bg-muted text-muted-foreground",
 					)}
 				>
 					{kbd}

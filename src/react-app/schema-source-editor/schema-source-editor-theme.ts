@@ -11,10 +11,10 @@ const colors = {
 	keyword: "var(--muted-foreground)",
 	name: "var(--foreground)",
 	type: "var(--primary)",
-	string: "oklch(0.47 0.1 155)",
-	number: "oklch(0.53 0.115 55)",
+	string: "var(--editor-syntax-string)",
+	number: "var(--editor-syntax-number)",
 	error: "var(--destructive)",
-	comment: "color-mix(in oklab, var(--muted-foreground) 72%, transparent)",
+	comment: "var(--editor-syntax-comment)",
 } as const;
 
 const sourceHighlightStyle = HighlightStyle.define([
@@ -89,13 +89,13 @@ const buildSurfaceTheme = (mode: SchemaSourceEditorThemeMode) => EditorView.them
 		borderLeftColor: "var(--primary)",
 	},
 	".cm-selectionBackground, .cm-content ::selection": {
-		backgroundColor: "color-mix(in oklab, var(--primary) 24%, transparent)",
+		backgroundColor: "var(--editor-selection)",
 	},
 	"&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground": {
-		backgroundColor: "color-mix(in oklab, var(--primary) 30%, transparent)",
+		backgroundColor: "var(--editor-selection-focused)",
 	},
 	".cm-activeLine": {
-		backgroundColor: "color-mix(in oklab, var(--foreground) 4%, transparent)",
+		backgroundColor: "var(--editor-active-line)",
 	},
 	".cm-gutters": {
 		backgroundColor: "var(--background)",
@@ -103,7 +103,7 @@ const buildSurfaceTheme = (mode: SchemaSourceEditorThemeMode) => EditorView.them
 		color: "var(--muted-foreground)",
 	},
 	".cm-activeLineGutter": {
-		backgroundColor: "color-mix(in oklab, var(--foreground) 4%, transparent)",
+		backgroundColor: "var(--editor-active-line)",
 		color: "var(--foreground)",
 	},
 	".cm-tooltip": {

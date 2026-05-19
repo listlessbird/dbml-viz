@@ -94,12 +94,12 @@ type SchemaTableNodeStyle = CSSProperties &
 
 const getSurfaceShadow = (data: TableNodeData, selected: boolean) => {
 	if (selected || data.isSelectedEndpoint || data.isSearchMatch) {
-		return "0 0 0 1px var(--primary), 0 0 0 3px color-mix(in oklab, var(--primary) 14%, transparent), 0 16px 34px color-mix(in oklab, var(--foreground) 14%, transparent)";
+		return "var(--elevation-schema-table-selected)";
 	}
 	if (data.isSearchRelated) {
-		return "0 0 0 1px color-mix(in oklab, var(--primary) 24%, var(--border)), 0 14px 28px color-mix(in oklab, var(--foreground) 12%, transparent)";
+		return "var(--elevation-schema-table-related)";
 	}
-	return "0 0 0 1px color-mix(in oklab, var(--foreground) 8%, transparent), 0 10px 24px color-mix(in oklab, var(--foreground) 10%, transparent)";
+	return "var(--elevation-schema-table)";
 };
 
 interface TableStats {
@@ -242,20 +242,20 @@ export const TableNode = memo(function TableNode({
 			<TableNodeMenu table={data.table} />
 
 			<div
-				className="schema-table-header flex items-start"
+				className="flex items-start border-b border-schema-header-border bg-schema-header text-schema-header-foreground"
 				style={tableNodeStyles.header}
 			>
 				<TableKindGlyph />
 				<div className="min-w-0 flex-1">
 					<h3
-						className="schema-table-heading wrap-anywhere"
+						className="wrap-anywhere text-schema-header-foreground"
 						style={tableNodeStyles.headerTitle}
 					>
 						{data.table.name}
 					</h3>
 					{data.table.schema ? (
 						<p
-							className="schema-table-schema wrap-anywhere"
+							className="wrap-anywhere text-schema-header-muted"
 							style={tableNodeStyles.headerSchema}
 						>
 							{data.table.schema}
@@ -263,7 +263,7 @@ export const TableNode = memo(function TableNode({
 					) : null}
 				</div>
 				<span
-					className="schema-table-kind shrink-0 uppercase"
+					className="shrink-0 text-schema-header-muted uppercase"
 					style={tableNodeStyles.headerKind}
 				>
 					TABLE
@@ -271,7 +271,7 @@ export const TableNode = memo(function TableNode({
 			</div>
 
 			<div
-				className="schema-table-stats flex items-center border-b text-muted-foreground"
+				className="schema-table-stats flex items-center border-b bg-schema-row-hover text-muted-foreground"
 				style={tableNodeStyles.stats}
 			>
 				<span title={viewModel.statsTooltips.columns}>

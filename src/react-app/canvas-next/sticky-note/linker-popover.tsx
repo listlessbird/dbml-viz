@@ -3,7 +3,6 @@ import { memo } from "react";
 
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import { MentionItem } from "@/components/ui/mention";
-import { cn } from "@/lib/utils";
 import type { ColumnData, TableData } from "@/types";
 
 export const LinkerMentionList = memo(function LinkerMentionList({
@@ -13,7 +12,7 @@ export const LinkerMentionList = memo(function LinkerMentionList({
 }) {
 	return (
 		<div className="flex flex-col">
-			<div className="max-h-[300px] overflow-y-auto p-1">
+			<div className="max-h-[var(--dimension-sticky-mention-max-height)] overflow-y-auto p-1">
 				{tables.map((table) => (
 					<TableRow key={table.id} table={table} />
 				))}
@@ -50,13 +49,11 @@ function TableRow({
 	return (
 		<MentionItem value={table.name}>
 			<span
-				className={cn(
-					"relative inline-block size-3 shrink-0 rounded-xs border bg-background border-[#1e3a8a]",
-				)}
+				className="relative inline-block size-[var(--dimension-sticky-icon)] shrink-0 rounded-swatch border border-schema-key-foreign bg-background"
 				aria-hidden
 			>
 				<span
-					className="absolute -right-px -bottom-px size-1 border-t border-l border-[#1e3a8a] bg-background"
+					className="absolute -right-px -bottom-px size-[var(--dimension-sticky-fold)] border-t border-l border-schema-key-foreign bg-background"
 					aria-hidden
 				/>
 			</span>
@@ -80,11 +77,11 @@ function ColumnRow({
 	return (
 		<MentionItem value={`${table.name}.${column.name}`}>
 			<span
-				className="relative inline-block size-3 shrink-0 rounded-xs border border-[#a78bfa] bg-background"
+				className="relative inline-block size-[var(--dimension-sticky-icon)] shrink-0 rounded-swatch border border-editor-syntax-type bg-background"
 				aria-hidden
 			>
 				<span
-					className="absolute inset-[2px_2px_5px_2px] bg-[#a78bfa]"
+					className="absolute inset-[2px_2px_5px_2px] bg-editor-syntax-type"
 					aria-hidden
 				/>
 			</span>

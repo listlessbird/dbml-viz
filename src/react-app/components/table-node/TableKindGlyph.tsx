@@ -3,7 +3,7 @@ import { tableNodeMetrics, tableNodeStyles } from "@/components/table-node/metri
 export function TableKindGlyph() {
 	return (
 		<svg
-			className="schema-table-glyph shrink-0"
+			className="shrink-0 text-schema-header-muted"
 			style={tableNodeStyles.headerGlyph}
 			width={tableNodeMetrics.header.glyphSize}
 			height={tableNodeMetrics.header.glyphSize}

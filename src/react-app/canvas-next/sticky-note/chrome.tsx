@@ -21,11 +21,11 @@ export const Header = memo(function Header({
 			data-testid="sticky-note-drag-handle"
 			className={cn(
 				STICKY_NOTE_DRAG_HANDLE_CLASS,
-				"sticky-note__header flex cursor-grab items-center gap-2 border-b px-2.5 py-1.5 active:cursor-grabbing",
+				"flex cursor-grab items-center gap-2 border-b border-(--sn-divider) bg-(--sn-header) px-2.5 py-1.5 active:cursor-grabbing",
 			)}
 		>
 			<NoteIcon />
-			<span className="sticky-note__kind text-[9px] font-bold tracking-[0.18em] uppercase">
+			<span className="text-[9px] font-bold tracking-[0.18em] text-(--sn-muted-ink) uppercase">
 				{kind}
 			</span>
 			<DragDots />
@@ -37,9 +37,9 @@ function NoteIcon() {
 	return (
 		<span
 			aria-hidden
-			className="sticky-note__icon relative inline-block size-3 shrink-0 rounded-xs border"
+			className="relative inline-block size-[var(--dimension-sticky-icon)] shrink-0 rounded-swatch border border-(--sn-muted-ink) bg-(--sn-surface)"
 		>
-			<span className="sticky-note__icon-fold absolute -right-px -bottom-px size-1 border-t border-l" />
+			<span className="absolute -right-px -bottom-px size-[var(--dimension-sticky-fold)] border-t border-l border-(--sn-muted-ink) bg-(--sn-header)" />
 		</span>
 	);
 }
@@ -48,10 +48,10 @@ function DragDots() {
 	return (
 		<span
 			aria-hidden
-			className="sticky-note__drag-dots ml-auto inline-flex items-center gap-0.75"
+			className="ml-auto inline-flex items-center gap-0.75 text-(--sn-muted-ink)"
 		>
 			{DRAG_DOT_KEYS.map((key) => (
-				<i key={key} className="sticky-note__drag-dot size-0.5 rounded-full" />
+				<i key={key} className="size-[var(--dimension-sticky-swatch-dot)] rounded-full bg-current" />
 			))}
 		</span>
 	);
@@ -63,7 +63,7 @@ export const EditBar = memo(function EditBar({
 	readonly onDelete: () => void;
 }) {
 	return (
-		<div className="sticky-note__editbar mt-auto flex items-center gap-1.5 border-t px-2.5 py-1.5">
+		<div className="mt-auto flex items-center gap-1.5 border-t border-(--sn-divider) bg-sticky-note-chip px-2.5 py-1.5 text-(--sn-muted-ink)">
 			<button
 				type="button"
 				aria-label="Delete sticky note"
@@ -78,15 +78,15 @@ export const EditBar = memo(function EditBar({
 					event.stopPropagation();
 					onDelete();
 				}}
-				className="sticky-note__delete inline-flex size-5.5 items-center justify-center rounded-[3px] border border-transparent transition-colors hover:border-red-300 hover:bg-red-100 hover:text-red-600 motion-reduce:transition-none"
+				className="inline-flex size-[var(--dimension-sticky-action)] items-center justify-center rounded-chip border border-transparent transition-colors duration-fast hover:border-sticky-note-danger-border hover:bg-sticky-note-danger-hover hover:text-sticky-note-danger motion-reduce:transition-none"
 			>
 				<IconTrash className="size-3" />
 			</button>
 			<KbdGroup className="ml-auto font-mono text-[10px]">
-				<Kbd className="sticky-note__kbd border bg-white/60">#</Kbd>
+				<Kbd className="border border-(--sn-dashed) bg-sticky-note-chip">#</Kbd>
 				<span>link</span>
 				<span aria-hidden>·</span>
-				<Kbd className="sticky-note__kbd border bg-white/60">Esc</Kbd>
+				<Kbd className="border border-(--sn-dashed) bg-sticky-note-chip">Esc</Kbd>
 				<span>done</span>
 			</KbdGroup>
 		</div>
@@ -103,7 +103,7 @@ export const PaletteStrip = memo(function PaletteStrip({
 	readonly onStopPropagation: (event: StopEvent) => void;
 }) {
 	return (
-		<div className="sticky-note__palette mt-auto flex items-center gap-1.5 border-t bg-black/2 px-2.5 py-1.5">
+		<div className="mt-auto flex items-center gap-1.5 border-t border-(--sn-divider) bg-sticky-note-chip px-2.5 py-1.5">
 			{STICKY_NOTE_COLORS.map((swatchColor) => {
 				const isOn = swatchColor === active;
 				return (
@@ -120,7 +120,7 @@ export const PaletteStrip = memo(function PaletteStrip({
 							event.stopPropagation();
 							onPick(swatchColor);
 						}}
-						className="sticky-note__swatch sticky-swatch size-3.5 rounded-xs border border-black/15 transition-transform duration-150 hover:scale-110 motion-reduce:transition-none"
+						className="sticky-swatch size-[var(--dimension-sticky-swatch)] rounded-swatch border border-foreground/15 transition-transform duration-fast hover:scale-110 data-[active=true]:border-sticky-note-focus-ring data-[active=true]:shadow-sticky-swatch-active motion-reduce:transition-none"
 					/>
 				);
 			})}

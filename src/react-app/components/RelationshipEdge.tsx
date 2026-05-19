@@ -86,7 +86,7 @@ function SelectedRelationshipBadge({
 			<div
 				ref={measureBadge}
 				data-testid="relationship-detail-badge"
-				className="nodrag nopan pointer-events-auto absolute z-50 border border-primary/70 bg-background px-2.5 py-2 text-[11px] text-foreground shadow-[0_14px_30px_color-mix(in_oklab,var(--primary)_26%,transparent)]"
+				className="nodrag nopan pointer-events-auto absolute z-50 rounded-panel border border-primary/70 bg-background px-2.5 py-2 text-[11px] text-foreground shadow-relationship-badge"
 				style={{
 					transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
 					visibility: visibility === "measuring" ? "hidden" : "visible",

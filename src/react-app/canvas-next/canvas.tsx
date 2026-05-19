@@ -175,7 +175,7 @@ export function CanvasNextCanvas() {
 					variant={BackgroundVariant.Dots}
 					gap={20}
 					size={1.4}
-					color="color-mix(in oklab, var(--foreground) 10%, var(--background))"
+					color="var(--canvas-dots)"
 				/>
 				{minimapEnabled ? (
 					<MiniMap
@@ -183,7 +183,7 @@ export function CanvasNextCanvas() {
 						pannable={false}
 						zoomable={false}
 						className="border! border-border! bg-background!"
-						maskColor="color-mix(in oklab, var(--muted) 84%, transparent)"
+						maskColor="var(--canvas-minimap-mask)"
 					/>
 				) : null}
 				<Controls position="bottom-left" showInteractive={false}>

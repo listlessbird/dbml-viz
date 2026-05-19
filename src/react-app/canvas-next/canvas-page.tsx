@@ -269,7 +269,7 @@ function CanvasNextContent({ routing }: CanvasNextContentProps) {
 					onToggleSourceEditor={toggleSourceEditor}
 				/>
 				{isSourceEditorOpen ? (
-					<div className="absolute inset-y-0 left-0 z-20 w-full border-r border-border bg-background shadow-2xl sm:max-w-[440px]">
+					<div className="absolute inset-y-0 left-0 z-20 w-full border-r border-border bg-background shadow-source-panel sm:max-w-[440px]">
 						<Suspense
 							fallback={
 								<div className="flex h-full items-center justify-center text-xs text-muted-foreground">

@@ -14,13 +14,13 @@ interface CopyButtonProps
 }
 
 const baseClasses =
-        "inline-flex shrink-0 items-center gap-1.5 border px-2 text-[11px] font-medium leading-none transition-colors duration-[120ms] cursor-pointer disabled:cursor-not-allowed disabled:opacity-50";
+        "inline-flex shrink-0 items-center gap-1.5 border px-2 text-[11px] font-medium leading-none transition-colors duration-copy cursor-pointer rounded-control disabled:cursor-not-allowed disabled:opacity-50";
 
 const toneClasses: Record<NonNullable<CopyButtonProps["tone"]>, string> = {
         light:
-                "h-[28px] border-[var(--gray-300)] bg-[var(--paper)] text-[var(--gray-700)] hover:bg-[var(--gray-100)]",
-        dark: "h-[24px] border-white/15 bg-transparent text-[var(--gray-100)] hover:border-white/30 hover:bg-white/5",
-        ghost: "h-[22px] border-transparent bg-[var(--gray-800)] text-[oklch(0.91_0.02_75)] hover:bg-[var(--gray-700)]",
+                "h-[var(--dimension-copy-button-light-height)] border-border-strong bg-background text-foreground hover:bg-muted",
+        dark: "h-[var(--dimension-copy-button-dark-height)] border-border bg-transparent text-foreground hover:border-border-strong hover:bg-muted/50",
+        ghost: "h-[var(--dimension-copy-button-ghost-height)] border-transparent bg-sidebar-accent text-sidebar-foreground hover:bg-sidebar",
 };
 
 export function CopyButton({
@@ -58,7 +58,7 @@ export function CopyButton({
                         className={cn(
                                 baseClasses,
                                 toneClasses[tone],
-                                copied && tone === "light" && "text-[oklch(0.38_0.13_155)]",
+                                copied && tone === "light" && "text-workspace-status-connected",
                                 className,
                         )}
                         onClick={() => void handleCopy()}
