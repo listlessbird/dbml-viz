@@ -38,7 +38,7 @@ export const SchemaColumnRowMenu = memo(function SchemaColumnRowMenu({
 						aria-label={`Open ${columnName} actions`}
 						className={cn(
 							"nodrag nopan inline-flex h-5 w-5 shrink-0 items-center justify-center border border-transparent text-muted-foreground transition-opacity",
-							"pointer-events-none opacity-0 group-hover/row:pointer-events-auto group-hover/row:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100 data-[popup-open]:pointer-events-auto data-[popup-open]:opacity-100",
+							"pointer-events-none opacity-0 group-hover/row:pointer-events-auto group-hover/row:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100 data-popup-open:pointer-events-auto data-popup-open:opacity-100",
 							"hover:border-border hover:bg-muted hover:text-foreground",
 						)}
 					>

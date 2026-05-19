@@ -47,7 +47,7 @@ export const TableNodeMenu = memo(function TableNodeMenu({
 						aria-label={`Open ${table.name} actions`}
 						className={cn(
 							"nodrag nopan absolute top-2 right-2 z-10 inline-flex h-6 w-6 items-center justify-center border border-transparent text-muted-foreground transition-opacity",
-							"pointer-events-none opacity-0 group-hover/table:pointer-events-auto group-hover/table:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100 data-[popup-open]:pointer-events-auto data-[popup-open]:opacity-100",
+							"pointer-events-none opacity-0 group-hover/table:pointer-events-auto group-hover/table:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100 data-popup-open:pointer-events-auto data-popup-open:opacity-100",
 							"hover:border-border hover:bg-muted hover:text-foreground",
 						)}
 					>

@@ -133,7 +133,7 @@ export const SchemaColumnRow = memo(function SchemaColumnRow({
 
 			<span
 				className={cn(
-					"schema-column-name text-foreground [overflow-wrap:anywhere]",
+					"schema-column-name text-foreground wrap-anywhere",
 					isSelected && "text-primary",
 				)}
 				style={tableNodeStyles.rowName}
@@ -142,7 +142,7 @@ export const SchemaColumnRow = memo(function SchemaColumnRow({
 			</span>
 
 			<span
-				className="schema-column-type text-muted-foreground [overflow-wrap:anywhere]"
+				className="schema-column-type text-muted-foreground wrap-anywhere"
 				style={tableNodeStyles.rowType}
 			>
 				{column.type}

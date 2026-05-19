@@ -248,14 +248,14 @@ export const TableNode = memo(function TableNode({
 				<TableKindGlyph />
 				<div className="min-w-0 flex-1">
 					<h3
-						className="schema-table-heading [overflow-wrap:anywhere]"
+						className="schema-table-heading wrap-anywhere"
 						style={tableNodeStyles.headerTitle}
 					>
 						{data.table.name}
 					</h3>
 					{data.table.schema ? (
 						<p
-							className="schema-table-schema [overflow-wrap:anywhere]"
+							className="schema-table-schema wrap-anywhere"
 							style={tableNodeStyles.headerSchema}
 						>
 							{data.table.schema}
@@ -302,7 +302,7 @@ export const TableNode = memo(function TableNode({
 
 			{data.table.note ? (
 				<p
-					className="border-b whitespace-pre-wrap text-muted-foreground [overflow-wrap:anywhere]"
+					className="border-b whitespace-pre-wrap text-muted-foreground wrap-anywhere"
 					style={tableNodeStyles.note}
 				>
 					{data.table.note}
