@@ -38,6 +38,10 @@ vi.mock("@xyflow/react", async () => {
 	};
 });
 
+vi.mock("@/components/GitHubStarsButton", () => ({
+	GitHubStarsButton: () => null,
+}));
+
 import { CanvasNextPage } from "@/canvas-next/canvas-page";
 import type {
 	DiagramPersistenceAdapter,

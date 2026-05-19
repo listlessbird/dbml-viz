@@ -31,6 +31,10 @@ vi.mock("@xyflow/react", async () => {
 	};
 });
 
+vi.mock("@/components/GitHubStarsButton", () => ({
+	GitHubStarsButton: () => null,
+}));
+
 import App from "@/App";
 
 let activeRoot: Root | null = null;
