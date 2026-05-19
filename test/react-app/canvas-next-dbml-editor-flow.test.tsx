@@ -49,7 +49,7 @@ vi.mock("@/schema-source/parse-schema-source", () => ({
 		async (source: string): Promise<ParseResult> => {
 			if (source.includes("broken")) {
 				return {
-					ok: false,
+					kind: "failure",
 					diagnostics: [
 						{
 							message: "Expected table body",
@@ -60,7 +60,7 @@ vi.mock("@/schema-source/parse-schema-source", () => ({
 			}
 
 			return {
-				ok: true,
+				kind: "success",
 				parsedSchema: source.includes("orders") ? usersAndOrders : usersOnly,
 				metadata: { format: "dbml" },
 			};
@@ -130,7 +130,7 @@ const flushMicrotasks = () => act(async () => {});
 describe("Canvas Next DBML editor flow", () => {
 	it("updates the Canvas after a durable DBML edit succeeds", async () => {
 		const diagramStore = createDiagramSessionStore({
-			source: "",
+			source: "Table users {}\nTable orders { user_id int [ref: > users.id] }",
 			parsedSchema: usersAndOrders,
 			tablePositions: {
 				users: { x: 10, y: 20 },
@@ -190,7 +190,7 @@ describe("Canvas Next DBML editor flow", () => {
 
 	it("keeps the Canvas on the last good Parsed Schema after a failed edit", async () => {
 		const diagramStore = createDiagramSessionStore({
-			source: "",
+			source: "Table users { id int [pk] }",
 			parsedSchema: usersOnly,
 			tablePositions: { users: { x: 10, y: 20 } },
 			stickyNotes: [],

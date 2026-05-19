@@ -117,7 +117,7 @@ describe("Canvas Next parse-driven focus", () => {
 
 		act(() => {
 			sessionStore.getState().applyParseResult({
-				ok: true,
+				kind: "success",
 				parsedSchema: usersOnly,
 				metadata: { format: "dbml" },
 			});
@@ -145,7 +145,7 @@ describe("Canvas Next parse-driven focus", () => {
 
 		act(() => {
 			sessionStore.getState().applyParseResult({
-				ok: true,
+				kind: "success",
 				parsedSchema: usersAndOrders,
 				metadata: { format: "dbml" },
 			});
@@ -177,7 +177,7 @@ describe("Canvas Next parse-driven focus", () => {
 
 		act(() => {
 			sessionStore.getState().applyParseResult({
-				ok: true,
+				kind: "success",
 				parsedSchema: usersOnly,
 				metadata: { format: "dbml" },
 			});
@@ -187,7 +187,7 @@ describe("Canvas Next parse-driven focus", () => {
 
 		act(() => {
 			sessionStore.getState().applyParseResult({
-				ok: true,
+				kind: "success",
 				parsedSchema: usersAndOrders,
 				metadata: { format: "dbml" },
 			});
@@ -241,7 +241,7 @@ describe("Canvas Next parse-driven focus", () => {
 
 		act(() => {
 			sessionStore.getState().applyParseResult({
-				ok: true,
+				kind: "success",
 				parsedSchema: usersOnly,
 				metadata: { format: "dbml" },
 			});
@@ -252,7 +252,7 @@ describe("Canvas Next parse-driven focus", () => {
 
 		act(() => {
 			sessionStore.getState().applyParseResult({
-				ok: false,
+				kind: "failure",
 				diagnostics: [{ message: "boom" }],
 			});
 		});
@@ -275,7 +275,7 @@ describe("Canvas Next parse-driven focus", () => {
 
 		act(() => {
 			sessionStore.getState().applyParseResult({
-				ok: true,
+				kind: "success",
 				parsedSchema: usersAndOrders,
 				metadata: { format: "dbml" },
 			});
@@ -286,7 +286,7 @@ describe("Canvas Next parse-driven focus", () => {
 
 		act(() => {
 			sessionStore.getState().applyParseResult({
-				ok: true,
+				kind: "success",
 				parsedSchema: usersOnly,
 				metadata: { format: "dbml" },
 			});
@@ -310,7 +310,7 @@ describe("Canvas Next parse-driven focus", () => {
 
 		act(() => {
 			sessionStore.getState().applyParseResult({
-				ok: true,
+				kind: "success",
 				parsedSchema: usersOnly,
 				metadata: { format: "dbml" },
 			});
@@ -328,7 +328,7 @@ describe("Canvas Next parse-driven focus", () => {
 		};
 		act(() => {
 			sessionStore.getState().applyParseResult({
-				ok: true,
+				kind: "success",
 				parsedSchema: usersPlusIsolated,
 				metadata: { format: "dbml" },
 			});
@@ -352,7 +352,7 @@ describe("Canvas Next parse-driven focus", () => {
 
 		act(() => {
 			sessionStore.getState().applyParseResult({
-				ok: true,
+				kind: "success",
 				parsedSchema: usersOnly,
 				metadata: { format: "dbml" },
 			});

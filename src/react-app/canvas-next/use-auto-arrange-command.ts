@@ -25,17 +25,19 @@ export function useAutoArrangeCommand(): AutoArrangeCommand {
 		const session = sessionStore.getState();
 		if (session.diagram.parsedSchema.tables.length === 0) return;
 
-		const result = await runDiagramAutoLayout({
-			parsedSchema: session.diagram.parsedSchema,
-			tablePositions: session.diagram.tablePositions,
-			stickyNotes: session.diagram.stickyNotes,
-		});
-		if (!result.ok) return;
+		await runtimeStore.getState().withLayoutPending(async () => {
+			const result = await runDiagramAutoLayout({
+				parsedSchema: session.diagram.parsedSchema,
+				tablePositions: session.diagram.tablePositions,
+				stickyNotes: session.diagram.stickyNotes,
+			});
+			if (!result.ok) return;
 
-		const afterLayout = sessionStore.getState();
-		afterLayout.commitTablePositions(result.tablePositions);
-		afterLayout.replaceStickyNotes(result.stickyNotes);
-		runtimeStore.getState().requestFitView();
+			const afterLayout = sessionStore.getState();
+			afterLayout.commitTablePositions(result.tablePositions);
+			afterLayout.replaceStickyNotes(result.stickyNotes);
+			runtimeStore.getState().requestFitView();
+		});
 	}, [sessionStore, runtimeStore]);
 
 	return { run, isAvailable };

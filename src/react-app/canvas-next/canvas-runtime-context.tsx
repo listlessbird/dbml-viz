@@ -25,3 +25,7 @@ export function useCanvasRuntimeStore(): CanvasRuntimeStore {
 	}
 	return store;
 }
+
+export function useOptionalCanvasRuntimeStore(): CanvasRuntimeStore | null {
+	return useContext(CanvasRuntimeContext);
+}

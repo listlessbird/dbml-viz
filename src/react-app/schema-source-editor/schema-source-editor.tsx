@@ -1,4 +1,4 @@
-import { Compartment, EditorState, type Extension } from "@codemirror/state";
+import { Compartment, EditorSelection, EditorState, type Extension } from "@codemirror/state";
 import {
 	Decoration,
 	EditorView,
@@ -8,6 +8,12 @@ import {
 import { IconX } from "@tabler/icons-react";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 
+import {
+	useOptionalSourceFocusStore,
+	useSourceFocusRequest,
+} from "@/canvas-next/source-focus/source-focus-context";
+import type { SourceFocusRequest } from "@/canvas-next/source-focus/source-focus-store";
+import { findSourceFocusPosition } from "@/schema-source-editor/source-focus-locator";
 import { useDiagramSession } from "@/diagram-session/diagram-session-context";
 import { buildDiagnosticDecorations } from "@/lib/editor-diagnostics";
 import { loadEditorLanguage } from "@/lib/editor-language";
@@ -27,6 +33,8 @@ interface SchemaSourceEditorProps {
 	readonly diagnostics: readonly ParseDiagnostic[];
 	readonly onSourceChange: (source: string) => void;
 	readonly themeMode?: SchemaSourceEditorThemeMode;
+	readonly focusRequest?: SourceFocusRequest | null;
+	readonly onFocusRequestConsumed?: () => void;
 }
 
 interface SchemaSourceEditorPanelProps {
@@ -85,6 +93,8 @@ const SchemaSourceEditor = memo(function SchemaSourceEditor({
 	diagnostics,
 	onSourceChange,
 	themeMode = "light",
+	focusRequest = null,
+	onFocusRequestConsumed,
 }: SchemaSourceEditorProps) {
 	const hostRef = useRef<HTMLDivElement | null>(null);
 	const viewRef = useRef<EditorView | null>(null);
@@ -184,6 +194,22 @@ const SchemaSourceEditor = memo(function SchemaSourceEditor({
 		});
 	}, [diagnostics, diagnosticsCompartment]);
 
+	useEffect(() => {
+		if (!focusRequest) return;
+		const view = viewRef.current;
+		if (!view) return;
+		const doc = view.state.doc.toString();
+		const target = findSourceFocusPosition(doc, focusRequest);
+		if (target !== null) {
+			view.dispatch({
+				selection: EditorSelection.cursor(target),
+				effects: EditorView.scrollIntoView(target, { y: "center" }),
+			});
+			view.focus();
+		}
+		onFocusRequestConsumed?.();
+	}, [focusRequest, onFocusRequestConsumed]);
+
 	return (
 		<div
 			ref={hostRef}
@@ -203,6 +229,15 @@ export function SchemaSourceEditorPanel({
 	const setSourceMetadata = useDiagramSession((state) => state.setSourceMetadata);
 	const themeMode = useDocumentTheme();
 	const diagnosticsCount = diagnostics.length;
+	const sourceFocusStore = useOptionalSourceFocusStore();
+	const focusRequest = useSourceFocusRequest();
+	const onFocusRequestConsumed = useMemo(
+		() =>
+			sourceFocusStore
+				? () => sourceFocusStore.getState().consumeRequest()
+				: undefined,
+		[sourceFocusStore],
+	);
 
 	return (
 		<aside className="flex h-full min-h-0 flex-col bg-background text-foreground">
@@ -237,6 +272,8 @@ export function SchemaSourceEditorPanel({
 				diagnostics={diagnostics}
 				onSourceChange={setSchemaSource}
 				themeMode={themeMode}
+				focusRequest={focusRequest}
+				onFocusRequestConsumed={onFocusRequestConsumed}
 			/>
 			<SchemaSourceDiagnosticsSummary diagnostics={diagnostics} />
 		</aside>

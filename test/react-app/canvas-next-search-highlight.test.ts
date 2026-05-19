@@ -93,7 +93,7 @@ const diagram: Diagram = {
 };
 
 const baseRuntime: ProjectionRuntimeState = {
-	activeRelationTableIds: [],
+	selectedRelationshipId: null,
 	temporaryRelationship: null,
 	searchHighlight: null,
 };

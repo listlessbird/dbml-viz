@@ -56,10 +56,10 @@
 		background-color: color-mix(in oklab, var(--foreground) 3%, var(--card));
 	}
 
-	.schema-column-row--active,
-	.schema-column-row--active:hover {
-		background-color: color-mix(in oklab, var(--primary) 12%, var(--background));
-		box-shadow: inset 3px 0 0 color-mix(in oklab, var(--primary) 56%, transparent);
+	.schema-column-row--selected,
+	.schema-column-row--selected:hover {
+		background-color: color-mix(in oklab, var(--primary) 15%, var(--background));
+		box-shadow: inset 3px 0 0 color-mix(in oklab, var(--primary) 72%, transparent);
 	}
 
 	.schema-column-key--pk {

@@ -35,12 +35,12 @@ describe("Diagram Session parse-result commands", () => {
 		const store = createDiagramSessionStore();
 
 		store.getState().applyParseResult({
-			ok: false,
+			kind: "failure",
 			diagnostics: [{ message: "boom" }],
 		});
 
 		store.getState().applyParseResult({
-			ok: true,
+			kind: "success",
 			parsedSchema: usersAndOrders,
 			metadata: { format: "dbml" },
 		});
@@ -54,7 +54,7 @@ describe("Diagram Session parse-result commands", () => {
 		const store = createDiagramSessionStore();
 
 		store.getState().applyParseResult({
-			ok: true,
+			kind: "success",
 			parsedSchema: usersAndOrders,
 			metadata: { format: "dbml" },
 		});
@@ -69,14 +69,14 @@ describe("Diagram Session parse-result commands", () => {
 		const store = createDiagramSessionStore();
 
 		store.getState().applyParseResult({
-			ok: true,
+			kind: "success",
 			parsedSchema: usersOnly,
 			metadata: { format: "dbml" },
 		});
 		store.getState().commitTablePositions({ users: { x: 10, y: 20 } });
 
 		store.getState().applyParseResult({
-			ok: true,
+			kind: "success",
 			parsedSchema: usersAndOrders,
 			metadata: { format: "dbml" },
 		});
@@ -89,7 +89,7 @@ describe("Diagram Session parse-result commands", () => {
 		const store = createDiagramSessionStore();
 
 		store.getState().applyParseResult({
-			ok: true,
+			kind: "success",
 			parsedSchema: usersOnly,
 			metadata: { format: "dbml" },
 		});
@@ -99,7 +99,7 @@ describe("Diagram Session parse-result commands", () => {
 		});
 
 		store.getState().applyParseResult({
-			ok: true,
+			kind: "success",
 			parsedSchema: usersAndOrders,
 			metadata: { format: "dbml" },
 		});
@@ -109,7 +109,7 @@ describe("Diagram Session parse-result commands", () => {
 		});
 
 		store.getState().applyParseResult({
-			ok: true,
+			kind: "success",
 			parsedSchema: usersOnly,
 			metadata: { format: "dbml" },
 		});
@@ -173,7 +173,7 @@ describe("Diagram Session parse-result commands", () => {
 		const store = createDiagramSessionStore();
 
 		store.getState().applyParseResult({
-			ok: true,
+			kind: "success",
 			parsedSchema: usersOnly,
 			metadata: { format: "sql", dialect: "mysql" },
 		});
@@ -213,7 +213,7 @@ describe("Diagram Session parse-result commands", () => {
 		const store = createDiagramSessionStore();
 
 		store.getState().applyParseResult({
-			ok: true,
+			kind: "success",
 			parsedSchema: usersAndOrders,
 			metadata: { format: "dbml" },
 		});
@@ -223,7 +223,7 @@ describe("Diagram Session parse-result commands", () => {
 		});
 
 		store.getState().applyParseResult({
-			ok: true,
+			kind: "success",
 			parsedSchema: usersOnly,
 			metadata: { format: "dbml" },
 		});
@@ -237,14 +237,14 @@ describe("Diagram Session parse-result commands", () => {
 		const store = createDiagramSessionStore();
 
 		store.getState().applyParseResult({
-			ok: true,
+			kind: "success",
 			parsedSchema: usersAndOrders,
 			metadata: { format: "dbml" },
 		});
 		store.getState().commitTablePositions({ users: { x: 10, y: 20 } });
 
 		store.getState().applyParseResult({
-			ok: false,
+			kind: "failure",
 			diagnostics: [{ message: "Unexpected token" }],
 		});
 
@@ -262,11 +262,11 @@ describe("Diagram Session parse-result commands", () => {
 		const store = createDiagramSessionStore();
 
 		store.getState().applyParseResult({
-			ok: false,
+			kind: "failure",
 			diagnostics: [{ message: "first error" }],
 		});
 		store.getState().applyParseResult({
-			ok: false,
+			kind: "failure",
 			diagnostics: [{ message: "second error" }],
 		});
 
@@ -299,5 +299,85 @@ describe("Diagram Session parse-result commands", () => {
 		expect(store.getState().diagram.tablePositions).toEqual({
 			users: { x: 10, y: 20 },
 		});
+	});
+
+	it("clears Parsed Schema and Table Positions on the empty parse result while preserving Source, Sticky Notes, and metadata", () => {
+		const store = createDiagramSessionStore();
+
+		store.getState().setSourceMetadata({ format: "sql", dialect: "mysql" });
+		store.getState().applyParseResult({
+			kind: "success",
+			parsedSchema: usersAndOrders,
+			metadata: { format: "sql", dialect: "mysql" },
+		});
+		store.getState().commitTablePositions({
+			users: { x: 10, y: 20 },
+			orders: { x: 100, y: 80 },
+		});
+		store.getState().addStickyNote({
+			id: "note-1",
+			color: "yellow",
+			text: "remember this",
+			x: 200,
+			y: 200,
+		});
+		store.getState().setSchemaSource("");
+
+		store.getState().applyParseResult({ kind: "empty" });
+
+		expect(store.getState().diagram.parsedSchema).toEqual({
+			tables: [],
+			refs: [],
+			errors: [],
+		});
+		expect(store.getState().diagram.tablePositions).toEqual({});
+		expect(store.getState().diagram.source).toBe("");
+		expect(store.getState().diagram.stickyNotes).toEqual([
+			expect.objectContaining({ id: "note-1", text: "remember this" }),
+		]);
+		expect(store.getState().sourceMetadata).toEqual({
+			format: "sql",
+			dialect: "mysql",
+		});
+		expect(store.getState().parseDiagnostics).toEqual([]);
+	});
+
+	it("reports removed Table ids in lastParseTableDiff on the empty parse result", () => {
+		const store = createDiagramSessionStore();
+
+		store.getState().applyParseResult({
+			kind: "success",
+			parsedSchema: usersAndOrders,
+			metadata: { format: "dbml" },
+		});
+
+		store.getState().applyParseResult({ kind: "empty" });
+
+		expect(store.getState().lastParseTableDiff).toEqual({
+			addedTableIds: [],
+			removedTableIds: ["users", "orders"],
+		});
+	});
+
+	it("clears prior Parse Diagnostics on the empty parse result", () => {
+		const store = createDiagramSessionStore();
+
+		store.getState().applyParseResult({
+			kind: "failure",
+			diagnostics: [{ message: "Unexpected token" }],
+		});
+
+		store.getState().applyParseResult({ kind: "empty" });
+
+		expect(store.getState().parseDiagnostics).toEqual([]);
+	});
+
+	it("treats the empty parse result as a no-op when the Diagram is already empty", () => {
+		const store = createDiagramSessionStore();
+		const before = store.getState();
+
+		store.getState().applyParseResult({ kind: "empty" });
+
+		expect(store.getState()).toBe(before);
 	});
 });

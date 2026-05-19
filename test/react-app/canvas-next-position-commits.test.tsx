@@ -1,12 +1,18 @@
 import type { OnNodesChange, Viewport } from "@xyflow/react";
-import { act } from "react";
+import { act, type MouseEvent } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { CanvasEdge } from "@/types";
 
 let capturedOnNodesChange: OnNodesChange | undefined;
 let capturedOnViewportChange: ((viewport: Viewport) => void) | undefined;
+let capturedOnEdgeClick:
+	| ((event: MouseEvent, edge: CanvasEdge) => void)
+	| undefined;
+let capturedOnPaneClick: ((event: MouseEvent) => void) | undefined;
 let capturedNodeTypes: Record<string, unknown> | undefined;
 let capturedEdgeTypes: Record<string, unknown> | undefined;
+let capturedOnlyRenderVisibleElements: boolean | undefined;
 let reactFlowRenderCount = 0;
 
 vi.mock("@/schema-source/parse-schema-source", () => ({
@@ -30,22 +36,31 @@ vi.mock("@xyflow/react", async () => {
 			edges,
 			onNodesChange,
 			onViewportChange,
+			onEdgeClick,
+			onPaneClick,
 			nodeTypes,
 			edgeTypes,
+			onlyRenderVisibleElements,
 		}: {
 			children: React.ReactNode;
 			nodes: readonly unknown[];
 			edges: readonly unknown[];
 			onNodesChange?: OnNodesChange;
 			onViewportChange?: (viewport: Viewport) => void;
+			onEdgeClick?: (event: MouseEvent, edge: CanvasEdge) => void;
+			onPaneClick?: (event: MouseEvent) => void;
 			nodeTypes?: Record<string, unknown>;
 			edgeTypes?: Record<string, unknown>;
+			onlyRenderVisibleElements?: boolean;
 		}) => {
 			reactFlowRenderCount += 1;
 			capturedOnNodesChange = onNodesChange;
 			capturedOnViewportChange = onViewportChange;
+			capturedOnEdgeClick = onEdgeClick;
+			capturedOnPaneClick = onPaneClick;
 			capturedNodeTypes = nodeTypes;
 			capturedEdgeTypes = edgeTypes;
+			capturedOnlyRenderVisibleElements = onlyRenderVisibleElements;
 			return React.createElement(
 				"div",
 				{
@@ -77,7 +92,37 @@ const usersAndOrders: ParsedSchema = {
 		{ id: "users", name: "users", columns: [], indexes: [] },
 		{ id: "orders", name: "orders", columns: [], indexes: [] },
 	],
-	refs: [],
+	refs: [
+		{
+			id: "fk_orders_users:0",
+			from: { table: "orders", columns: ["user_id"] },
+			to: { table: "users", columns: ["id"] },
+			type: "many_to_one",
+		},
+	],
+	errors: [],
+};
+
+const usersOrdersAndPayments: ParsedSchema = {
+	tables: [
+		{ id: "users", name: "users", columns: [], indexes: [] },
+		{ id: "orders", name: "orders", columns: [], indexes: [] },
+		{ id: "payments", name: "payments", columns: [], indexes: [] },
+	],
+	refs: [
+		{
+			id: "fk_orders_users:0",
+			from: { table: "orders", columns: ["user_id"] },
+			to: { table: "users", columns: ["id"] },
+			type: "many_to_one",
+		},
+		{
+			id: "fk_payments_orders:0",
+			from: { table: "payments", columns: ["order_id"] },
+			to: { table: "orders", columns: ["id"] },
+			type: "many_to_one",
+		},
+	],
 	errors: [],
 };
 
@@ -96,8 +141,11 @@ afterEach(() => {
 	activeContainer = null;
 	capturedOnNodesChange = undefined;
 	capturedOnViewportChange = undefined;
+	capturedOnEdgeClick = undefined;
+	capturedOnPaneClick = undefined;
 	capturedNodeTypes = undefined;
 	capturedEdgeTypes = undefined;
+	capturedOnlyRenderVisibleElements = undefined;
 	reactFlowRenderCount = 0;
 	vi.unstubAllGlobals();
 });
@@ -110,7 +158,7 @@ const renderCanvasNext = (
 	} = {},
 ) => {
 	const diagramStore = createDiagramSessionStore({
-		source: "",
+		source: "-- seeded --",
 		parsedSchema: initial.parsedSchema ?? usersOnly,
 		tablePositions: initial.tablePositions ?? { users: { x: 0, y: 0 } },
 		stickyNotes: initial.stickyNotes ?? [],
@@ -136,6 +184,15 @@ const renderCanvasNext = (
 	return { diagramStore, runtimeStore };
 };
 
+const schemaWithTables = (tableCount: number): ParsedSchema => ({
+	tables: Array.from({ length: tableCount }, (_, index) => {
+		const id = `table_${index}`;
+		return { id, name: id, columns: [], indexes: [] };
+	}),
+	refs: [],
+	errors: [],
+});
+
 describe("canvas-next Table Position commits", () => {
 	it("registers custom Canvas Projection renderers with React Flow", () => {
 		renderCanvasNext();
@@ -152,6 +209,36 @@ describe("canvas-next Table Position commits", () => {
 				stickyLink: expect.anything(),
 			}),
 		);
+	});
+
+	it("keeps the MiniMap and full React Flow rendering on small diagrams", () => {
+		renderCanvasNext({
+			parsedSchema: schemaWithTables(80),
+			tablePositions: {},
+		});
+
+		expect(capturedOnlyRenderVisibleElements).toBe(false);
+		expect(activeContainer?.querySelector("[data-testid='minimap']")).toBeTruthy();
+	});
+
+	it("hides the MiniMap above the large-diagram threshold", () => {
+		renderCanvasNext({
+			parsedSchema: schemaWithTables(81),
+			tablePositions: {},
+		});
+
+		expect(capturedOnlyRenderVisibleElements).toBe(false);
+		expect(activeContainer?.querySelector("[data-testid='minimap']")).toBeNull();
+	});
+
+	it("enables visible-only React Flow rendering for very large diagrams", () => {
+		renderCanvasNext({
+			parsedSchema: schemaWithTables(151),
+			tablePositions: {},
+		});
+
+		expect(capturedOnlyRenderVisibleElements).toBe(true);
+		expect(activeContainer?.querySelector("[data-testid='minimap']")).toBeNull();
 	});
 
 	it("commits React Flow Sticky Note position changes through Diagram Session", () => {
@@ -231,6 +318,90 @@ describe("canvas-next Table Position commits", () => {
 			zoom: 1.4,
 		});
 		expect(diagramStore.getState().toSchemaPayload()).toEqual(before);
+	});
+
+	it("selects a Relationship id from React Flow edge clicks", () => {
+		const { runtimeStore } = renderCanvasNext({
+			parsedSchema: usersAndOrders,
+			tablePositions: {
+				users: { x: 0, y: 0 },
+				orders: { x: 300, y: 0 },
+			},
+		});
+
+		act(() => {
+			capturedOnEdgeClick?.(null as never, {
+				id: "fk_orders_users:0",
+				source: "orders",
+				target: "users",
+				type: "relationship",
+				data: {},
+			} as CanvasEdge);
+		});
+
+		expect(runtimeStore.getState().selectedRelationshipId).toBe(
+			"fk_orders_users:0",
+		);
+	});
+
+	it("replaces Relationship selection on a second edge click", () => {
+		const { runtimeStore } = renderCanvasNext({
+			parsedSchema: usersOrdersAndPayments,
+			tablePositions: {
+				users: { x: 0, y: 0 },
+				orders: { x: 300, y: 0 },
+				payments: { x: 600, y: 0 },
+			},
+		});
+
+		act(() => {
+			capturedOnEdgeClick?.(null as never, {
+				id: "fk_orders_users:0",
+				source: "orders",
+				target: "users",
+				type: "relationship",
+				data: {},
+			} as CanvasEdge);
+			capturedOnEdgeClick?.(null as never, {
+				id: "fk_payments_orders:0",
+				source: "payments",
+				target: "orders",
+				type: "relationship",
+				data: {},
+			} as CanvasEdge);
+		});
+
+		expect(runtimeStore.getState().selectedRelationshipId).toBe(
+			"fk_payments_orders:0",
+		);
+	});
+
+	it("clears Relationship selection from React Flow pane clicks", () => {
+		const { runtimeStore } = renderCanvasNext();
+
+		act(() => {
+			runtimeStore.getState().selectRelationship("fk_orders_users:0");
+			capturedOnPaneClick?.(null as never);
+		});
+
+		expect(runtimeStore.getState().selectedRelationshipId).toBeNull();
+	});
+
+	it("clears stale Relationship selection after Parsed Schema replacement", () => {
+		const { diagramStore, runtimeStore } = renderCanvasNext({
+			parsedSchema: usersAndOrders,
+			tablePositions: {
+				users: { x: 0, y: 0 },
+				orders: { x: 300, y: 0 },
+			},
+		});
+
+		act(() => {
+			runtimeStore.getState().selectRelationship("fk_orders_users:0");
+			diagramStore.getState().replaceParsedSchema(usersOnly);
+		});
+
+		expect(runtimeStore.getState().selectedRelationshipId).toBeNull();
 	});
 
 	it("does not rerender React Flow for Schema Source-only edits", () => {

@@ -1,7 +1,9 @@
 import { useEffect } from "react";
 
+import { isSchemaSourceEmpty } from "@/canvas-next/canvas-empty-state/derive-canvas-state";
 import { useDiagramSession } from "@/diagram-session/diagram-session-context";
 import {
+	emptyParseResult,
 	parseSchemaSource,
 	type ParseSchemaSourceFn,
 } from "@/schema-source/parse-schema-source";
@@ -21,7 +23,10 @@ export function useSchemaParseFlow({
 	const applyParseResult = useDiagramSession((state) => state.applyParseResult);
 
 	useEffect(() => {
-		if (source.trim().length === 0) return;
+		if (isSchemaSourceEmpty(source)) {
+			applyParseResult(emptyParseResult);
+			return;
+		}
 
 		let cancelled = false;
 		const timer = setTimeout(() => {

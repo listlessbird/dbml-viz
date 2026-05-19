@@ -5,18 +5,24 @@ import {
 import { parseSchema } from "@/lib/parser";
 import type { ParseDiagnostic, ParsedSchema, SchemaSourceMetadata } from "@/types";
 
-interface ParseSuccess {
-	readonly ok: true;
+export interface ParseSuccess {
+	readonly kind: "success";
 	readonly parsedSchema: ParsedSchema;
 	readonly metadata: SchemaSourceMetadata;
 }
 
-interface ParseFailure {
-	readonly ok: false;
+export interface ParseFailure {
+	readonly kind: "failure";
 	readonly diagnostics: readonly ParseDiagnostic[];
 }
 
-export type ParseResult = ParseSuccess | ParseFailure;
+export interface ParseEmpty {
+	readonly kind: "empty";
+}
+
+export type ParseResult = ParseSuccess | ParseFailure | ParseEmpty;
+
+export const emptyParseResult: ParseEmpty = Object.freeze({ kind: "empty" });
 
 export type ParseSchemaSourceFn = (source: string) => Promise<ParsedSourceResult>;
 
@@ -31,13 +37,13 @@ export const parseSchemaSource = async (
 	const parser = options.parser ?? parseSchema;
 	try {
 		const { parsed, metadata } = await parser(source);
-		return { ok: true, parsedSchema: parsed, metadata };
+		return { kind: "success", parsedSchema: parsed, metadata };
 	} catch (error) {
 		if (error instanceof SchemaParseError) {
-			return { ok: false, diagnostics: error.diagnostics };
+			return { kind: "failure", diagnostics: error.diagnostics };
 		}
 		const message =
 			error instanceof Error ? error.message : "Error parsing statement(s).";
-		return { ok: false, diagnostics: [{ message }] };
+		return { kind: "failure", diagnostics: [{ message }] };
 	}
 };

@@ -202,7 +202,7 @@ describe("Schema Source Editor shell", () => {
 
 		act(() => {
 			sessionStore.getState().applyParseResult({
-				ok: false,
+				kind: "failure",
 				diagnostics: [
 					{
 						message: "Expected closing brace",
@@ -226,7 +226,7 @@ describe("Schema Source Editor shell", () => {
 
 		act(() => {
 			sessionStore.getState().applyParseResult({
-				ok: true,
+				kind: "success",
 				parsedSchema: { tables: [], refs: [], errors: [] },
 				metadata: { format: "dbml" },
 			});
@@ -258,7 +258,7 @@ describe("Schema Source Editor shell", () => {
 
 		act(() => {
 			sessionStore.getState().applyParseResult({
-				ok: false,
+				kind: "failure",
 				diagnostics: [{ message: "Unable to parse source" }],
 			});
 		});

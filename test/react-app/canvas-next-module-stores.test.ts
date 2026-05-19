@@ -76,22 +76,43 @@ describe("canvas-next Module Stores", () => {
 
 		firstStore.getState().setViewport({ x: 10, y: 20, zoom: 1.5 });
 		firstStore.getState().requestFocus(["orders", "users", "orders"]);
-		firstStore.getState().setActiveRelationTableIds(["orders", "orders"]);
+		firstStore.getState().selectRelationship("orders_user_id_ref");
 		firstStore.getState().attachReactFlowInstance({} as never);
 
 		expect(firstStore.getState().viewport).toEqual({ x: 10, y: 20, zoom: 1.5 });
 		expect(firstStore.getState().focusTableIds).toEqual(["orders", "users"]);
-		expect(firstStore.getState().activeRelationTableIds).toEqual(["orders"]);
+		expect(firstStore.getState().selectedRelationshipId).toBe(
+			"orders_user_id_ref",
+		);
 		expect(firstStore.getState().flowInstance).toBeTruthy();
 
 		firstStore.getState().dispose();
 
 		expect(firstStore.getState().viewport).toEqual({ x: 0, y: 0, zoom: 1 });
 		expect(firstStore.getState().focusTableIds).toEqual([]);
-		expect(firstStore.getState().activeRelationTableIds).toEqual([]);
+		expect(firstStore.getState().selectedRelationshipId).toBeNull();
 		expect(firstStore.getState().temporaryRelationship).toBeNull();
 		expect(firstStore.getState().flowInstance).toBeNull();
+		expect(secondStore.getState().selectedRelationshipId).toBeNull();
 		expect(secondStore.getState().viewport).toEqual({ x: 0, y: 0, zoom: 1 });
+	});
+
+	it("tracks selected Relationship id through Canvas Runtime commands", () => {
+		const store = createCanvasRuntimeStore();
+
+		expect(store.getState().selectedRelationshipId).toBeNull();
+
+		store.getState().selectRelationship("orders_user_id_ref");
+		expect(store.getState().selectedRelationshipId).toBe("orders_user_id_ref");
+
+		store.getState().selectRelationship("payments_order_id_ref");
+		expect(store.getState().selectedRelationshipId).toBe(
+			"payments_order_id_ref",
+		);
+
+		store.getState().clearRelationshipSelection();
+
+		expect(store.getState().selectedRelationshipId).toBeNull();
 	});
 
 	it("schedules Focus through one fit-view owner and cancels pending work on dispose", () => {
@@ -146,7 +167,7 @@ describe("canvas-next Module Stores", () => {
 
 	it("builds Canvas Projection without depending on Viewport state", () => {
 		const projectionRuntime: ProjectionRuntimeState = {
-			activeRelationTableIds: [],
+			selectedRelationshipId: null,
 			temporaryRelationship: null,
 		};
 

@@ -58,19 +58,6 @@ const hashString = (value: string) =>
 const accentFromTable = (tableId: string) =>
 	chartAccents[hashString(tableId) % chartAccents.length];
 
-const relationLabel = (type: RefType) => {
-	switch (type) {
-		case "one_to_one":
-			return "1:1";
-		case "one_to_many":
-			return "1:N";
-		case "many_to_many":
-			return "N:M";
-		default:
-			return "N:1";
-	}
-};
-
 const relationText = (type: RefType) => {
 	switch (type) {
 		case "one_to_one":
@@ -126,7 +113,8 @@ const buildTableNode = (
 		readonly layout: ReturnType<typeof getTableNodeLayout>;
 		readonly connectedColumns: readonly string[];
 		readonly relationAnchors: readonly RelationAnchorData[];
-		readonly activeRelationColumns?: readonly string[];
+		readonly isSelectedEndpoint: boolean;
+		readonly selectedRelationColumns?: readonly string[];
 		readonly isSearchMatch: boolean;
 		readonly isSearchRelated: boolean;
 		readonly isSearchDimmed: boolean;
@@ -140,6 +128,10 @@ const buildTableNode = (
 		layout: options.layout,
 		accent: accentFromTable(table.id),
 		connectedColumns: options.connectedColumns,
+		isSelectedEndpoint: options.isSelectedEndpoint,
+		...(options.selectedRelationColumns !== undefined
+			? { selectedRelationColumns: options.selectedRelationColumns }
+			: {}),
 		isSearchMatch: options.isSearchMatch,
 		isSearchRelated: options.isSearchRelated,
 		isSearchDimmed: options.isSearchDimmed,
@@ -148,12 +140,6 @@ const buildTableNode = (
 			table,
 			options.relationAnchors,
 		),
-		...(options.activeRelationColumns !== undefined
-			? {
-					activeRelationColumns: options.activeRelationColumns,
-					isRelationContextActive: true,
-				}
-			: {}),
 	},
 	sourcePosition: Position.Right,
 	targetPosition: Position.Left,
@@ -163,16 +149,14 @@ const buildTableNode = (
 
 const buildRelationshipEdge = (
 	resolved: ResolvedRelationship,
-	activeTableIds: ReadonlySet<string>,
 	emphasis: {
+		readonly isSelected: boolean;
 		readonly isSearchMatch: boolean;
 		readonly isSearchDimmed: boolean;
 	},
 ): DiagramEdge => {
 	const stroke = "var(--primary)";
-	const isRelationSourceActive = activeTableIds.has(resolved.from.tableId);
-	const isRelationTargetActive = activeTableIds.has(resolved.to.tableId);
-	const isRelationActive = isRelationSourceActive || isRelationTargetActive;
+	const isSelected = emphasis.isSelected;
 	return {
 		id: resolved.ref.id,
 		source: resolved.from.tableId,
@@ -180,19 +164,14 @@ const buildRelationshipEdge = (
 		sourceHandle: resolved.from.id,
 		targetHandle: resolved.to.id,
 		type: "relationship",
+		selected: isSelected,
 		data: {
 			from: resolved.ref.from,
 			to: resolved.ref.to,
 			relationText: relationText(resolved.ref.type),
+			isSelected,
 			isSearchMatch: emphasis.isSearchMatch,
 			isSearchDimmed: emphasis.isSearchDimmed,
-			...(isRelationActive
-				? {
-						isRelationActive: true,
-						isRelationSourceActive,
-						isRelationTargetActive,
-					}
-				: {}),
 			...(resolved.ref.name !== undefined ? { name: resolved.ref.name } : {}),
 			...(resolved.ref.onDelete !== undefined
 				? { onDelete: resolved.ref.onDelete }
@@ -201,7 +180,6 @@ const buildRelationshipEdge = (
 				? { onUpdate: resolved.ref.onUpdate }
 				: {}),
 		},
-		label: relationLabel(resolved.ref.type),
 		markerEnd: {
 			type: MarkerType.ArrowClosed,
 			width: 18,
@@ -210,9 +188,35 @@ const buildRelationshipEdge = (
 		},
 		style: {
 			stroke,
-			strokeWidth: isRelationActive ? 2.3 : 1.4,
+			strokeWidth: isSelected ? 2.3 : 1.4,
 			opacity: 1,
 		},
+	};
+};
+
+interface SelectedRelationshipProjection {
+	readonly id: string;
+	readonly endpointTableIds: ReadonlySet<string>;
+	readonly columnsByTable: ReadonlyMap<string, readonly string[]>;
+}
+
+const buildSelectedRelationshipProjection = (
+	relationships: readonly ResolvedRelationship[],
+	selectedRelationshipId: string | null,
+	tablesById: ReadonlyMap<string, TableData>,
+): SelectedRelationshipProjection | null => {
+	if (selectedRelationshipId === null) return null;
+	const selected = relationships.find(
+		(relationship) => relationship.ref.id === selectedRelationshipId,
+	);
+	if (!selected || !isResolvedReachable(selected, tablesById)) return null;
+	return {
+		id: selected.ref.id,
+		endpointTableIds: new Set([selected.from.tableId, selected.to.tableId]),
+		columnsByTable: new Map([
+			[selected.from.tableId, selected.from.columns],
+			[selected.to.tableId, selected.to.columns],
+		]),
 	};
 };
 
@@ -269,40 +273,6 @@ const buildStickyLinkEdges = (
 		}
 	}
 	return edges;
-};
-
-const collectActiveRelationColumns = (
-	resolvedRelationships: readonly ResolvedRelationship[],
-	activeTableIds: ReadonlySet<string>,
-): ReadonlyMap<string, readonly string[]> => {
-	if (activeTableIds.size === 0) {
-		return new Map();
-	}
-	const columnsByTable = new Map<string, Set<string>>();
-	for (const resolved of resolvedRelationships) {
-		const isFromActive = activeTableIds.has(resolved.from.tableId);
-		const isToActive = activeTableIds.has(resolved.to.tableId);
-		if (!isFromActive && !isToActive) continue;
-
-		const fromColumns =
-			columnsByTable.get(resolved.from.tableId) ?? new Set<string>();
-		for (const column of resolved.from.columns) {
-			fromColumns.add(column);
-		}
-		columnsByTable.set(resolved.from.tableId, fromColumns);
-
-		const toColumns =
-			columnsByTable.get(resolved.to.tableId) ?? new Set<string>();
-		for (const column of resolved.to.columns) {
-			toColumns.add(column);
-		}
-		columnsByTable.set(resolved.to.tableId, toColumns);
-	}
-	const frozen = new Map<string, readonly string[]>();
-	for (const [tableId, columns] of columnsByTable.entries()) {
-		frozen.set(tableId, Array.from(columns));
-	}
-	return frozen;
 };
 
 const isResolvedReachable = (
@@ -383,12 +353,10 @@ export function buildCanvasProjection(
 		),
 	);
 
-	const activeTableIds = new Set(
-		runtime.activeRelationTableIds.filter((id) => indexes.tablesById.has(id)),
-	);
-	const activeColumnsByTable = collectActiveRelationColumns(
+	const selectedRelationship = buildSelectedRelationshipProjection(
 		indexes.relationships,
-		activeTableIds,
+		runtime.selectedRelationshipId,
+		indexes.tablesById,
 	);
 	const searchHighlight = runtime.searchHighlight;
 	const matchedTableIds = new Set(searchHighlight?.matchedTableIds ?? []);
@@ -410,24 +378,31 @@ export function buildCanvasProjection(
 		}
 		positionedTableIds.add(table.id);
 
-		const activeColumns = activeColumnsByTable.get(table.id);
+		const isSelectedEndpoint =
+			selectedRelationship?.endpointTableIds.has(table.id) ?? false;
+		const selectedRelationColumns =
+			selectedRelationship?.columnsByTable.get(table.id);
 		const isSearchMatch =
 			hasSearchHighlight && matchedTableIds.has(table.id);
 		const isSearchRelated =
 			hasSearchHighlight && !isSearchMatch && relatedTableIds.has(table.id);
 		const isSearchDimmed =
-			hasSearchHighlight && !isSearchMatch && !isSearchRelated;
+			hasSearchHighlight &&
+			!isSelectedEndpoint &&
+			!isSearchMatch &&
+			!isSearchRelated;
 
 		return buildTableNode(table, {
 			position,
 			layout,
 			connectedColumns: collectConnectedColumns(indexes, table.id),
 			relationAnchors: collectCompositeAnchors(indexes, table.id),
+			isSelectedEndpoint,
 			isSearchMatch,
 			isSearchRelated,
 			isSearchDimmed,
-			...(activeColumns !== undefined
-				? { activeRelationColumns: activeColumns }
+			...(selectedRelationColumns !== undefined
+				? { selectedRelationColumns }
 				: {}),
 		});
 	});
@@ -442,11 +417,13 @@ export function buildCanvasProjection(
 		) {
 			continue;
 		}
+		const isSelected = selectedRelationship?.id === resolved.ref.id;
 		const isSearchMatch =
 			hasSearchHighlight && highlightedEdgeIds.has(resolved.ref.id);
-		const isSearchDimmed = hasSearchHighlight && !isSearchMatch;
+		const isSearchDimmed = hasSearchHighlight && !isSelected && !isSearchMatch;
 		edges.push(
-			buildRelationshipEdge(resolved, activeTableIds, {
+			buildRelationshipEdge(resolved, {
+				isSelected,
 				isSearchMatch,
 				isSearchDimmed,
 			}),

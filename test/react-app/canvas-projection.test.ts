@@ -76,7 +76,7 @@ const buildDiagram = (
 });
 
 const projectionRuntime = {
-	activeRelationTableIds: [] as readonly string[],
+	selectedRelationshipId: null,
 	temporaryRelationship: null,
 	searchHighlight: null,
 };
@@ -245,6 +245,45 @@ const usersWithOrders: ParsedSchema = {
 	errors: [],
 };
 
+const paymentsWithOrderId: TableData = {
+	id: "payments",
+	name: "payments",
+	columns: [
+		{
+			name: "id",
+			type: "int",
+			pk: true,
+			notNull: true,
+			unique: false,
+			isForeignKey: false,
+			isIndexed: true,
+		},
+		{
+			name: "order_id",
+			type: "int",
+			pk: false,
+			notNull: true,
+			unique: false,
+			isForeignKey: true,
+			isIndexed: false,
+		},
+	],
+	indexes: [],
+};
+
+const paymentOrdersRef: RefData = {
+	id: "payments:order_id->orders:id:0",
+	from: { table: "payments", columns: ["order_id"] },
+	to: { table: "orders", columns: ["id"] },
+	type: "many_to_one",
+};
+
+const usersOrdersAndPayments: ParsedSchema = {
+	tables: [tableUsers, ordersWithUserId, paymentsWithOrderId],
+	refs: [userOrdersRef, paymentOrdersRef],
+	errors: [],
+};
+
 const usersOnlyAfterRefRemoval: ParsedSchema = {
 	tables: [tableUsers, ordersWithUserId],
 	refs: [],
@@ -396,41 +435,89 @@ describe("Canvas Projection relationship edges", () => {
 	});
 });
 
-describe("Canvas Projection relation hover input", () => {
-	it("marks edges connected to Canvas Runtime active Relation tables as active", () => {
-		const projection = buildCanvasProjection(
-			buildDiagram(usersWithOrders),
-			{
-				activeRelationTableIds: ["orders"],
-				temporaryRelationship: null,
-			},
-		);
+describe("Canvas Projection selected Relationship input", () => {
+	it("marks the selected Relationship edge", () => {
+		const projection = buildCanvasProjection(buildDiagram(usersWithOrders), {
+			...projectionRuntime,
+			selectedRelationshipId: userOrdersRef.id,
+		});
 
 		const [edge] = projection.edges.filter(isDiagramEdge);
-		expect(edge?.data?.isRelationActive).toBe(true);
-		expect(edge?.data?.isRelationSourceActive).toBe(true);
-		expect(edge?.data?.isRelationTargetActive).toBe(false);
+
+		expect(edge?.selected).toBe(true);
+		expect(edge?.data?.isSelected).toBe(true);
 	});
 
-	it("populates active Relation Columns on connected Table nodes from Canvas Runtime input", () => {
-		const projection = buildCanvasProjection(
-			buildDiagram(usersWithOrders),
-			{
-				activeRelationTableIds: ["orders"],
-				temporaryRelationship: null,
-			},
-		);
+	it("marks selected endpoint Tables and Columns", () => {
+		const projection = buildCanvasProjection(buildDiagram(usersWithOrders), {
+			...projectionRuntime,
+			selectedRelationshipId: userOrdersRef.id,
+		});
 
 		const ordersNode = projection.nodes.find((node) => node.id === "orders");
 		const usersNode = projection.nodes.find((node) => node.id === "users");
 
-		expect(ordersNode?.data.isRelationContextActive).toBe(true);
-		expect(ordersNode?.data.activeRelationColumns).toEqual(["user_id"]);
-		expect(usersNode?.data.isRelationContextActive).toBe(true);
-		expect(usersNode?.data.activeRelationColumns).toEqual(["id"]);
+		expect(ordersNode?.data.isSelectedEndpoint).toBe(true);
+		expect(ordersNode?.data.selectedRelationColumns).toEqual(["user_id"]);
+		expect(usersNode?.data.isSelectedEndpoint).toBe(true);
+		expect(usersNode?.data.selectedRelationColumns).toEqual(["id"]);
 	});
 
-	it("leaves edges/nodes unmarked when no active Relation tables are present", () => {
+	it("leaves edges/nodes unmarked when no Relationship is selected", () => {
+		const projection = buildCanvasProjection(
+			buildDiagram(usersWithOrders),
+			projectionRuntime,
+		);
+
+		const [edge] = projection.edges.filter(isDiagramEdge);
+		const ordersNode = projection.nodes.find((node) => node.id === "orders");
+
+		expect(edge?.selected).toBe(false);
+		expect(edge?.data?.isSelected).toBe(false);
+		expect(ordersNode?.data.isSelectedEndpoint).toBe(false);
+		expect(ordersNode?.data.selectedRelationColumns).toBeUndefined();
+	});
+
+	it("keeps selected Relationship emphasis visible when Search Highlight dims unrelated Relationships", () => {
+		const projection = buildCanvasProjection(
+			buildDiagram(usersOrdersAndPayments),
+			{
+				...projectionRuntime,
+				selectedRelationshipId: paymentOrdersRef.id,
+				searchHighlight: {
+					matchedTableIds: ["users"],
+					relatedTableIds: [],
+					highlightedEdgeIds: [userOrdersRef.id],
+				},
+			},
+		);
+
+		const selectedEdge = projection.edges
+			.filter(isDiagramEdge)
+			.find((edge) => edge.id === paymentOrdersRef.id);
+		const paymentsNode = projection.nodes.find((node) => node.id === "payments");
+
+		expect(selectedEdge?.selected).toBe(true);
+		expect(selectedEdge?.data?.isSearchDimmed).toBe(false);
+		expect(paymentsNode?.data.isSelectedEndpoint).toBe(true);
+		expect(paymentsNode?.data.isSearchDimmed).toBe(false);
+	});
+
+	it("does not mutate the source Diagram when selected Relationship emphasis is applied", () => {
+		const diagram = buildDiagram(usersWithOrders);
+		const snapshot = JSON.stringify(diagram);
+
+		buildCanvasProjection(diagram, {
+			...projectionRuntime,
+			selectedRelationshipId: userOrdersRef.id,
+		});
+
+		expect(JSON.stringify(diagram)).toBe(snapshot);
+	});
+});
+
+describe("Canvas Projection relation hover removal", () => {
+	it("does not project hover-only Relation flags onto edges or Table nodes", () => {
 		const projection = buildCanvasProjection(
 			buildDiagram(usersWithOrders),
 			projectionRuntime,
@@ -440,27 +527,17 @@ describe("Canvas Projection relation hover input", () => {
 		const ordersNode = projection.nodes.find((node) => node.id === "orders");
 
 		expect(edge?.data?.isRelationActive).toBeUndefined();
+		expect(edge?.data?.isRelationSourceActive).toBeUndefined();
+		expect(edge?.data?.isRelationTargetActive).toBeUndefined();
 		expect(ordersNode?.data.isRelationContextActive).toBeUndefined();
 		expect(ordersNode?.data.activeRelationColumns).toBeUndefined();
-	});
-
-	it("does not mutate the source Diagram when relation hover is applied", () => {
-		const diagram = buildDiagram(usersWithOrders);
-		const snapshot = JSON.stringify(diagram);
-
-		buildCanvasProjection(diagram, {
-			activeRelationTableIds: ["orders"],
-			temporaryRelationship: null,
-		});
-
-		expect(JSON.stringify(diagram)).toBe(snapshot);
 	});
 });
 
 describe("Canvas Projection temporary runtime objects", () => {
 	it("projects only whitelisted temporary relationship preview objects", () => {
 		const projection = buildCanvasProjection(buildDiagram(usersWithOrders), {
-			activeRelationTableIds: [],
+			selectedRelationshipId: null,
 			temporaryRelationship: {
 				kind: "relationship-preview",
 				sourceTableId: "orders",
@@ -479,7 +556,7 @@ describe("Canvas Projection temporary runtime objects", () => {
 
 	it("removes temporary relationship preview objects when runtime clears them", () => {
 		const projection = buildCanvasProjection(buildDiagram(usersWithOrders), {
-			activeRelationTableIds: [],
+			selectedRelationshipId: null,
 			temporaryRelationship: null,
 		});
 

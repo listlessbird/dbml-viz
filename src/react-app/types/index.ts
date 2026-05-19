@@ -121,8 +121,8 @@ export interface TableNodeData extends Record<string, unknown> {
 	readonly layout: TableNodeLayout;
 	readonly accent: string;
 	readonly connectedColumns: readonly string[];
-	readonly activeRelationColumns?: readonly string[];
-	readonly isRelationContextActive?: boolean;
+	readonly isSelectedEndpoint: boolean;
+	readonly selectedRelationColumns?: readonly string[];
 	readonly isSearchMatch: boolean;
 	readonly isSearchRelated: boolean;
 	readonly isSearchDimmed: boolean;
@@ -134,11 +134,9 @@ interface RelationshipEdgeData extends Record<string, unknown> {
 	readonly from: RefEndpointData;
 	readonly to: RefEndpointData;
 	readonly relationText: string;
+	readonly isSelected: boolean;
 	readonly isSearchMatch: boolean;
 	readonly isSearchDimmed: boolean;
-	readonly isRelationActive?: boolean;
-	readonly isRelationSourceActive?: boolean;
-	readonly isRelationTargetActive?: boolean;
 	readonly name?: string;
 	readonly onDelete?: string;
 	readonly onUpdate?: string;

@@ -77,7 +77,7 @@ describe("Canvas Next SQL Source flow", () => {
 		expect(state.parseDiagnostics).toEqual([]);
 
 		const projection = buildCanvasProjection(state.diagram, {
-			activeRelationTableIds: [],
+			selectedRelationshipId: null,
 			temporaryRelationship: null,
 		});
 

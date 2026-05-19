@@ -1,5 +1,7 @@
 import { Handle, Position } from "@xyflow/react";
+import { memo } from "react";
 
+import { SchemaColumnRowMenu } from "@/components/table-node/SchemaColumnRowMenu";
 import {
 	getSchemaColumnRowStyle,
 	tableNodeStyles,
@@ -42,26 +44,56 @@ const buildRowTooltip = (
 
 interface SchemaColumnRowProps {
 	readonly tableId: string;
+	readonly tableName: string;
 	readonly typeColumnWidth: number;
 	readonly column: ColumnData;
 	readonly isConnected: boolean;
-	readonly isActive: boolean;
+	readonly isSelected: boolean;
 	readonly showDivider: boolean;
 	readonly badges: readonly ColumnConstraintBadge[];
 }
 
-export function SchemaColumnRow({
+function areBadgesEqual(
+	a: readonly ColumnConstraintBadge[],
+	b: readonly ColumnConstraintBadge[],
+) {
+	if (a === b) return true;
+	if (a.length !== b.length) return false;
+	for (let i = 0; i < a.length; i++) {
+		if (a[i].id !== b[i].id || a[i].label !== b[i].label) return false;
+	}
+	return true;
+}
+
+function areColumnRowPropsEqual(
+	prev: SchemaColumnRowProps,
+	next: SchemaColumnRowProps,
+) {
+	return (
+		prev.tableId === next.tableId &&
+		prev.tableName === next.tableName &&
+		prev.typeColumnWidth === next.typeColumnWidth &&
+		prev.column === next.column &&
+		prev.isConnected === next.isConnected &&
+		prev.isSelected === next.isSelected &&
+		prev.showDivider === next.showDivider &&
+		areBadgesEqual(prev.badges, next.badges)
+	);
+}
+
+export const SchemaColumnRow = memo(function SchemaColumnRow({
 	tableId,
+	tableName,
 	typeColumnWidth,
 	column,
 	isConnected,
-	isActive,
+	isSelected,
 	showDivider,
 	badges,
 }: SchemaColumnRowProps) {
 	const glyph = statusGlyph(column);
 	const handleVisibility =
-		isConnected || isActive
+		isConnected || isSelected
 			? "!opacity-100"
 			: "!opacity-0 group-hover/row:!opacity-60";
 
@@ -69,7 +101,7 @@ export function SchemaColumnRow({
 		<div
 			className={cn(
 				"schema-column-row group/row relative grid items-start border-border",
-				isActive && "schema-column-row--active",
+				isSelected && "schema-column-row--selected",
 			)}
 			style={getSchemaColumnRowStyle(typeColumnWidth, showDivider)}
 			title={buildRowTooltip(column, badges)}
@@ -100,7 +132,10 @@ export function SchemaColumnRow({
 			</span>
 
 			<span
-				className="schema-column-name text-foreground [overflow-wrap:anywhere]"
+				className={cn(
+					"schema-column-name text-foreground [overflow-wrap:anywhere]",
+					isSelected && "text-primary",
+				)}
 				style={tableNodeStyles.rowName}
 			>
 				{column.name}
@@ -112,6 +147,10 @@ export function SchemaColumnRow({
 			>
 				{column.type}
 			</span>
+
+			<div className="absolute top-1 right-1">
+				<SchemaColumnRowMenu tableName={tableName} columnName={column.name} />
+			</div>
 		</div>
 	);
-}
+}, areColumnRowPropsEqual);
