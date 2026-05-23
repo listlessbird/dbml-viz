@@ -46,17 +46,12 @@ export const tableNodeMetrics = Object.freeze({
 	nodeBorder: 1,
 	sectionBorder: 1,
 	header: Object.freeze({
-		gap: 8,
-		glyphSize: 18,
-		glyphTopOffset: 5,
-		kindGap: 10,
-		kindTopOffset: 1,
-		padX: 10,
-		padY: 16,
-		schema: createFontMetrics(SANS_FAMILY, 12, 16, 400),
-		textGap: 2,
+		actionGap: 10,
+		actionSize: 24,
+		gap: 10,
+		padX: 14,
+		padY: 14,
 		title: createFontMetrics(SANS_FAMILY, 18, 22, 600),
-		kind: createFontMetrics(SANS_FAMILY, 10, 12, 600),
 	}),
 	note: Object.freeze({
 		padX: 12,
@@ -91,22 +86,10 @@ export const tableNodeStyles = Object.freeze({
 		gap: tableNodeMetrics.header.gap,
 		padding: `${tableNodeMetrics.header.padY}px ${tableNodeMetrics.header.padX}px`,
 	}),
-	headerGlyph: freezeStyle({
-		paddingTop: tableNodeMetrics.header.glyphTopOffset,
+	headerTitle: freezeStyle({
+		...tableNodeMetrics.header.title.style,
+		letterSpacing: "-0.01em",
 	}),
-	headerKind: freezeStyle({
-		marginLeft: Math.max(
-			0,
-			tableNodeMetrics.header.kindGap - tableNodeMetrics.header.gap,
-		),
-		paddingTop: tableNodeMetrics.header.kindTopOffset,
-		...tableNodeMetrics.header.kind.style,
-	}),
-	headerSchema: freezeStyle({
-		marginTop: tableNodeMetrics.header.textGap,
-		...tableNodeMetrics.header.schema.style,
-	}),
-	headerTitle: tableNodeMetrics.header.title.style,
 	note: freezeStyle({
 		borderBottomWidth: tableNodeMetrics.sectionBorder,
 		padding: `${tableNodeMetrics.note.padY}px ${tableNodeMetrics.note.padX}px`,

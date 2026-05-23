@@ -6,11 +6,11 @@ import {
 	tableNodeMetrics,
 	tableNodeStyles,
 } from "@/components/table-node/metrics";
-import { TableKindGlyph } from "@/components/table-node/TableKindGlyph";
 import { TableNodeMenu } from "@/components/table-node/TableNodeMenu";
 import { SchemaColumnRow } from "@/components/table-node/SchemaColumnRow";
 import { formatIndexSummary } from "@/lib/schema-format";
 import { getColumnConstraintBadges } from "@/lib/table-constraints";
+import { cn } from "@/lib/utils";
 import type {
 	DiagramNode,
 	RelationAnchorData,
@@ -229,7 +229,8 @@ export const TableNode = memo(function TableNode({
 	return (
 		<div
 			data-node-id={id}
-			className="schema-table-node group/table relative overflow-hidden border border-border bg-card text-card-foreground hover:cursor-move"
+			className="schema-table-node group/table relative overflow-hidden border border-border bg-card text-card-foreground hover:cursor-move data-[selected=true]:border-primary"
+			data-selected={selected}
 			style={nodeStyle}
 		>
 			<CompositeRelationHandles
@@ -239,35 +240,23 @@ export const TableNode = memo(function TableNode({
 				topOffsets={data.compositeHandleOffsets}
 			/>
 
-			<TableNodeMenu table={data.table} />
-
 			<div
-				className="flex items-start border-b border-schema-header-border bg-schema-header text-schema-header-foreground"
+				className={cn(
+					"flex items-center border-b border-border",
+					selected
+						? "bg-[color-mix(in_oklab,var(--primary)_8%,var(--card))] text-primary"
+						: "bg-card text-foreground",
+				)}
 				style={tableNodeStyles.header}
 			>
-				<TableKindGlyph />
-				<div className="min-w-0 flex-1">
-					<h3
-						className="wrap-anywhere text-schema-header-foreground"
-						style={tableNodeStyles.headerTitle}
-					>
-						{data.table.name}
-					</h3>
-					{data.table.schema ? (
-						<p
-							className="wrap-anywhere text-schema-header-muted"
-							style={tableNodeStyles.headerSchema}
-						>
-							{data.table.schema}
-						</p>
-					) : null}
-				</div>
-				<span
-					className="shrink-0 text-schema-header-muted uppercase"
-					style={tableNodeStyles.headerKind}
+				<h3
+					className="min-w-0 flex-1 truncate"
+					style={tableNodeStyles.headerTitle}
+					title={data.table.name}
 				>
-					TABLE
-				</span>
+					{data.table.name}
+				</h3>
+				<TableNodeMenu table={data.table} />
 			</div>
 
 			<div

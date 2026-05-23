@@ -65,7 +65,6 @@ export function buildTableActions({
 			id: "focus-source",
 			label: "Focus in Schema Source",
 			icon: IconTargetArrow,
-			dividerBefore: true,
 			onSelect: () => {
 				sourceFocusStore
 					.getState()

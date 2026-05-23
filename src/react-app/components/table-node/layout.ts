@@ -27,7 +27,6 @@ type CachedTableLayout = {
 };
 
 let cachedLayouts = new WeakMap<TableData, CachedTableLayout>();
-let cachedKindBlock: PreparedBlock | null = null;
 
 function prepareBlock(
 	text: string,
@@ -39,12 +38,6 @@ function prepareBlock(
 		naturalWidth: measureNaturalWidth(prepared),
 		prepared,
 	};
-}
-
-function getKindBlock(): PreparedBlock {
-	if (cachedKindBlock !== null) return cachedKindBlock;
-	cachedKindBlock = prepareBlock("TABLE", tableNodeMetrics.header.kind.font);
-	return cachedKindBlock;
 }
 
 function getLineCount(
@@ -85,22 +78,14 @@ function getPreferredWidth(
 	rows: ReadonlyArray<{ name: PreparedBlock; type: PreparedBlock }>,
 	note: PreparedBlock | null,
 	title: PreparedBlock,
-	schema: PreparedBlock | null,
 	naturalTypeWidth: number,
 ): number {
-	const headerTextWidth = Math.max(
-		title.naturalWidth,
-		schema?.naturalWidth ?? 0,
-	);
-	const kind = getKindBlock();
 	const headerWidth =
 		tableNodeMetrics.nodeBorder * 2 +
 		tableNodeMetrics.header.padX * 2 +
-		tableNodeMetrics.header.glyphSize +
-		tableNodeMetrics.header.gap +
-		headerTextWidth +
-		tableNodeMetrics.header.kindGap +
-		kind.naturalWidth;
+		title.naturalWidth +
+		tableNodeMetrics.header.actionGap +
+		tableNodeMetrics.header.actionSize;
 
 	const noteWidth =
 		note === null
@@ -137,9 +122,6 @@ function getPreferredWidth(
 
 function buildCachedLayout(table: TableData): CachedTableLayout {
 	const title = prepareBlock(table.name, tableNodeMetrics.header.title.font);
-	const schema = table.schema
-		? prepareBlock(table.schema, tableNodeMetrics.header.schema.font)
-		: null;
 	const note = table.note
 		? prepareBlock(table.note, tableNodeMetrics.note.text.font, {
 				whiteSpace: "pre-wrap",
@@ -155,27 +137,19 @@ function buildCachedLayout(table: TableData): CachedTableLayout {
 		0,
 	);
 
-	const width = getPreferredWidth(table, rows, note, title, schema, naturalTypeWidth);
+	const width = getPreferredWidth(table, rows, note, title, naturalTypeWidth);
 	const innerWidth = width - tableNodeMetrics.nodeBorder * 2;
-	const kind = getKindBlock();
 	const headerTextWidth = Math.max(
 		1,
 		innerWidth -
 			tableNodeMetrics.header.padX * 2 -
-			tableNodeMetrics.header.glyphSize -
-			tableNodeMetrics.header.gap -
-			tableNodeMetrics.header.kindGap -
-			Math.ceil(kind.naturalWidth),
+			tableNodeMetrics.header.actionGap -
+			tableNodeMetrics.header.actionSize,
 	);
 	const headerHeight =
 		tableNodeMetrics.header.padY * 2 +
 		getLineCount(title, headerTextWidth) *
 			tableNodeMetrics.header.title.lineHeight +
-		(schema === null
-			? 0
-			: tableNodeMetrics.header.textGap +
-				getLineCount(schema, headerTextWidth) *
-					tableNodeMetrics.header.schema.lineHeight) +
 		tableNodeMetrics.sectionBorder;
 
 	const statsHeight =
@@ -250,7 +224,6 @@ function getCachedLayout(table: TableData): CachedTableLayout {
 
 export function clearTableNodeLayoutCache(): void {
 	cachedLayouts = new WeakMap<TableData, CachedTableLayout>();
-	cachedKindBlock = null;
 }
 
 export function getCompositeHandleOffsets(

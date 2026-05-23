@@ -13,7 +13,6 @@ import {
 	buildTableActions,
 } from "@/components/table-node/schema-element-actions";
 import { useDiagramSessionStore } from "@/diagram-session/diagram-session-context";
-import { cn } from "@/lib/utils";
 import type { TableData } from "@/types";
 
 interface TableNodeMenuProps {
@@ -45,11 +44,7 @@ export const TableNodeMenu = memo(function TableNodeMenu({
 					<button
 						type="button"
 						aria-label={`Open ${table.name} actions`}
-						className={cn(
-							"nodrag nopan absolute top-2 right-2 z-10 inline-flex h-6 w-6 items-center justify-center border border-transparent text-muted-foreground transition-opacity",
-							"pointer-events-none opacity-0 group-hover/table:pointer-events-auto group-hover/table:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100 data-popup-open:pointer-events-auto data-popup-open:opacity-100",
-							"hover:border-border hover:bg-muted hover:text-foreground",
-						)}
+						className="nodrag nopan inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-[4px] border border-transparent bg-transparent text-muted-foreground transition-colors hover:border-border hover:bg-muted hover:text-foreground focus-visible:border-border focus-visible:bg-muted focus-visible:text-foreground data-popup-open:border-[color-mix(in_oklab,var(--primary)_30%,var(--border))] data-popup-open:bg-[color-mix(in_oklab,var(--primary)_10%,var(--card))] data-popup-open:text-primary"
 					>
 						<IconDots className="size-3.5" aria-hidden />
 					</button>
