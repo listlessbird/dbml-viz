@@ -11,6 +11,12 @@ import {
 
 interface CanvasSearchEmphasis {
 	readonly result: SchemaSearchResult;
+	readonly matchedTables: readonly {
+		readonly id: string;
+		readonly name: string;
+		readonly label: string;
+		readonly schema?: string;
+	}[];
 	readonly matchedTableNames: readonly string[];
 	readonly focusMatched: () => void;
 }
@@ -45,18 +51,27 @@ export function useCanvasSearchEmphasis(query: string): CanvasSearchEmphasis {
 		};
 	}, [clearSearchHighlight]);
 
-	const matchedTableNames = useMemo(() => {
+	const matchedTables = useMemo(() => {
 		if (result.matchedTableIds.length === 0) return [];
 		const matchedIds = new Set(result.matchedTableIds);
 		return parsedSchema.tables
 			.filter((table) => matchedIds.has(table.id))
-			.map((table) => (table.schema ? `${table.schema}.${table.name}` : table.name));
+			.map((table) => ({
+				id: table.id,
+				name: table.name,
+				label: table.schema ? `${table.schema}.${table.name}` : table.name,
+				schema: table.schema,
+			}));
 	}, [parsedSchema.tables, result.matchedTableIds]);
+	const matchedTableNames = useMemo(
+		() => matchedTables.map((table) => table.label),
+		[matchedTables],
+	);
 
 	const focusMatched = useCallback(() => {
 		if (result.matchedTableIds.length === 0) return;
 		requestFocus(result.matchedTableIds);
 	}, [requestFocus, result.matchedTableIds]);
 
-	return { result, matchedTableNames, focusMatched };
+	return { result, matchedTables, matchedTableNames, focusMatched };
 }

@@ -21,6 +21,7 @@ import { RelationshipEdge } from "@/components/RelationshipEdge";
 import { StickyLinkEdge } from "@/components/StickyLinkEdge";
 import { TableNode } from "@/components/TableNode";
 import { useDiagramSession } from "@/diagram-session/diagram-session-context";
+import { cn } from "@/lib/utils";
 import type { CanvasEdge, CanvasNode } from "@/types";
 
 const proOptions = { hideAttribution: true } as const;
@@ -66,6 +67,10 @@ export function CanvasNextCanvas() {
 		(state) => state.temporaryRelationship,
 	);
 	const searchHighlight = useCanvasRuntime((state) => state.searchHighlight);
+	const canvasInteractionMode = useCanvasRuntime(
+		(state) => state.canvasInteractionMode,
+	);
+	const isLayoutLocked = useCanvasRuntime((state) => state.isLayoutLocked);
 	const selectRelationship = useCanvasRuntime((state) => state.selectRelationship);
 	const clearRelationshipSelection = useCanvasRuntime(
 		(state) => state.clearRelationshipSelection,
@@ -152,7 +157,12 @@ export function CanvasNextCanvas() {
 	}, [clearRelationshipSelection, parsedSchema.refs, selectedRelationshipId]);
 
 	return (
-		<div className="relative h-full min-h-0 overflow-hidden bg-background">
+		<div
+			className={cn(
+				"relative h-full min-h-0 overflow-hidden bg-background",
+				canvasInteractionMode === "pan" && "canvas-pan-mode",
+			)}
+		>
 			<SchemaParseFlowBridge />
 			<ParseDrivenFocusBridge />
 			<ReactFlow<CanvasNode, CanvasEdge>
@@ -167,7 +177,11 @@ export function CanvasNextCanvas() {
 				onViewportChange={setViewport}
 				nodeTypes={nodeTypes}
 				edgeTypes={edgeTypes}
+				nodesDraggable={!isLayoutLocked && canvasInteractionMode === "select"}
 				nodesConnectable={false}
+				panOnDrag={canvasInteractionMode === "pan"}
+				selectNodesOnDrag={canvasInteractionMode === "select"}
+				selectionOnDrag={canvasInteractionMode === "select"}
 				onlyRenderVisibleElements={onlyRenderVisibleElements}
 				proOptions={proOptions}
 			>

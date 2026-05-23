@@ -15,6 +15,8 @@ const fitViewOptions = Object.freeze({
 	duration: 500,
 });
 
+export type CanvasInteractionMode = "select" | "pan";
+
 interface TemporaryRelationshipPreview {
 	readonly kind: "relationship-preview";
 	readonly sourceTableId: string;
@@ -32,6 +34,8 @@ export interface CanvasRuntimeState extends ProjectionRuntimeState {
 	readonly flowInstance: ReactFlowInstance<CanvasNode, CanvasEdge> | null;
 	readonly viewport: Viewport;
 	readonly focusTableIds: readonly string[];
+	readonly canvasInteractionMode: CanvasInteractionMode;
+	readonly isLayoutLocked: boolean;
 	readonly isLayoutPending: boolean;
 	readonly withLayoutPending: <T>(operation: () => Promise<T>) => Promise<T>;
 	readonly attachReactFlowInstance: (
@@ -39,6 +43,9 @@ export interface CanvasRuntimeState extends ProjectionRuntimeState {
 	) => void;
 	readonly detachReactFlowInstance: () => void;
 	readonly setViewport: (viewport: Viewport) => void;
+	readonly setCanvasInteractionMode: (mode: CanvasInteractionMode) => void;
+	readonly toggleCanvasPanMode: () => void;
+	readonly toggleLayoutLock: () => void;
 	readonly requestFocus: (tableIds: readonly string[]) => void;
 	readonly clearFocus: () => void;
 	readonly requestFitView: (tableIds?: readonly string[]) => void;
@@ -87,6 +94,8 @@ export function createCanvasRuntimeStore(): CanvasRuntimeStore {
 		flowInstance: null,
 		viewport: defaultViewport,
 		focusTableIds: [],
+		canvasInteractionMode: "select",
+		isLayoutLocked: false,
 		selectedRelationshipId: null,
 		temporaryRelationship: null,
 		searchHighlight: null,
@@ -114,6 +123,19 @@ export function createCanvasRuntimeStore(): CanvasRuntimeStore {
 		},
 		setViewport: (viewport) => {
 			set({ viewport });
+		},
+		setCanvasInteractionMode: (canvasInteractionMode) => {
+			if (get().canvasInteractionMode === canvasInteractionMode) return;
+			set({ canvasInteractionMode });
+		},
+		toggleCanvasPanMode: () => {
+			set((state) => ({
+				canvasInteractionMode:
+					state.canvasInteractionMode === "pan" ? "select" : "pan",
+			}));
+		},
+		toggleLayoutLock: () => {
+			set((state) => ({ isLayoutLocked: !state.isLayoutLocked }));
 		},
 		requestFocus: (tableIds) => {
 			const focusTableIds = Array.from(new Set(tableIds));
@@ -207,6 +229,8 @@ export function createCanvasRuntimeStore(): CanvasRuntimeStore {
 				flowInstance: null,
 				viewport: defaultViewport,
 				focusTableIds: [],
+				canvasInteractionMode: "select",
+				isLayoutLocked: false,
 				selectedRelationshipId: null,
 				temporaryRelationship: null,
 				searchHighlight: null,

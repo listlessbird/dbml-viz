@@ -75,11 +75,15 @@ describe("canvas-next Module Stores", () => {
 		const secondStore = createCanvasRuntimeStore();
 
 		firstStore.getState().setViewport({ x: 10, y: 20, zoom: 1.5 });
+		firstStore.getState().setCanvasInteractionMode("pan");
+		firstStore.getState().toggleLayoutLock();
 		firstStore.getState().requestFocus(["orders", "users", "orders"]);
 		firstStore.getState().selectRelationship("orders_user_id_ref");
 		firstStore.getState().attachReactFlowInstance({} as never);
 
 		expect(firstStore.getState().viewport).toEqual({ x: 10, y: 20, zoom: 1.5 });
+		expect(firstStore.getState().canvasInteractionMode).toBe("pan");
+		expect(firstStore.getState().isLayoutLocked).toBe(true);
 		expect(firstStore.getState().focusTableIds).toEqual(["orders", "users"]);
 		expect(firstStore.getState().selectedRelationshipId).toBe(
 			"orders_user_id_ref",
@@ -89,12 +93,16 @@ describe("canvas-next Module Stores", () => {
 		firstStore.getState().dispose();
 
 		expect(firstStore.getState().viewport).toEqual({ x: 0, y: 0, zoom: 1 });
+		expect(firstStore.getState().canvasInteractionMode).toBe("select");
+		expect(firstStore.getState().isLayoutLocked).toBe(false);
 		expect(firstStore.getState().focusTableIds).toEqual([]);
 		expect(firstStore.getState().selectedRelationshipId).toBeNull();
 		expect(firstStore.getState().temporaryRelationship).toBeNull();
 		expect(firstStore.getState().flowInstance).toBeNull();
 		expect(secondStore.getState().selectedRelationshipId).toBeNull();
 		expect(secondStore.getState().viewport).toEqual({ x: 0, y: 0, zoom: 1 });
+		expect(secondStore.getState().canvasInteractionMode).toBe("select");
+		expect(secondStore.getState().isLayoutLocked).toBe(false);
 	});
 
 	it("tracks selected Relationship id through Canvas Runtime commands", () => {

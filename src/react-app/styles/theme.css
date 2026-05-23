@@ -77,6 +77,8 @@
 	--shape-chip: 3px;
 	--shape-swatch: 0.125rem;
 	--shape-round: 999px;
+	--shape-toolbar: 12px;
+	--shape-toolbar-button: 8px;
 
 	--focus-ring-width: 3px;
 	--focus-ring-thin-width: 1px;
@@ -115,6 +117,8 @@
 	--dimension-status-icon: 0.875rem;
 	--dimension-status-dot: 0.375rem;
 	--dimension-status-kbd-height: 1rem;
+	--dimension-canvas-toolbar-button: 36px;
+	--dimension-canvas-toolbar-separator-height: 20px;
 	--dimension-copy-button-light-height: 28px;
 	--dimension-copy-button-dark-height: 24px;
 	--dimension-copy-button-ghost-height: 22px;
@@ -154,9 +158,23 @@
 	--edge-dash-sticky: 4 4;
 	--canvas-panel-shadow: color-mix(in oklab, var(--foreground) 12%, transparent);
 	--canvas-popover-shadow: color-mix(in oklab, var(--foreground) 14%, transparent);
+	--toolbar-surface: var(--card);
+	--toolbar-border: color-mix(in oklab, var(--foreground) 6%, transparent);
+	--toolbar-separator: color-mix(in oklab, var(--foreground) 10%, transparent);
+	--toolbar-hover: color-mix(in oklab, var(--foreground) 4%, transparent);
+	--toolbar-active: color-mix(in oklab, var(--primary) 12%, var(--card));
+	--toolbar-active-foreground: var(--primary);
+	--toolbar-shortcut: color-mix(in oklab, var(--foreground) 32%, transparent);
+	--toolbar-shortcut-hover: color-mix(in oklab, var(--foreground) 55%, transparent);
 	--elevation-control: 0 1px 2px color-mix(in oklab, var(--foreground) 8%, transparent);
 	--elevation-panel: 0 10px 24px var(--canvas-panel-shadow);
 	--elevation-popover: 0 18px 40px var(--canvas-popover-shadow);
+	--elevation-toolbar:
+		0 1px 3px color-mix(in oklab, var(--foreground) 6%, transparent),
+		0 8px 24px color-mix(in oklab, var(--foreground) 8%, transparent);
+	--elevation-toolbar-popover:
+		0 1px 3px color-mix(in oklab, var(--foreground) 6%, transparent),
+		0 16px 40px color-mix(in oklab, var(--foreground) 14%, transparent);
 	--elevation-dialog:
 		0 10px 40px -10px color-mix(in oklab, var(--foreground) 25%, transparent),
 		0 1px 3px color-mix(in oklab, var(--foreground) 6%, transparent);
