@@ -87,6 +87,55 @@ export const app = new Hono<{ Bindings: Env } & EvlogVariables>()
 				);
 			}
 		},
-	);
+	)
+	.get("/s/:id", async (c) => {
+		const id = c.req.param("id");
+		const origin = new URL(c.req.url).origin;
+		const title = `Shared Schema - ${id}`;
+		const url = `${origin}/s/${id}`;
+		const ogImage = `${origin}/og/${id}.png`;
+
+		const assetResponse = await c.env.ASSETS.fetch(
+			new Request(`${origin}/`, c.req.raw),
+		);
+
+		return new HTMLRewriter()
+			.on("title", {
+				element(el) {
+					el.setInnerContent(title);
+				},
+			})
+			.on('meta[property="og:title"]', {
+				element(el) {
+					el.setAttribute("content", title);
+				},
+			})
+			.on('meta[property="og:url"]', {
+				element(el) {
+					el.setAttribute("content", url);
+				},
+			})
+			.on('meta[property="og:image"]', {
+				element(el) {
+					el.setAttribute("content", ogImage);
+				},
+			})
+			.on('meta[name="twitter:title"]', {
+				element(el) {
+					el.setAttribute("content", title);
+				},
+			})
+			.on('meta[name="twitter:image"]', {
+				element(el) {
+					el.setAttribute("content", ogImage);
+				},
+			})
+			.on('link[rel="canonical"]', {
+				element(el) {
+					el.setAttribute("href", url);
+				},
+			})
+			.transform(assetResponse);
+	})
 
 export type AppType = typeof app;
