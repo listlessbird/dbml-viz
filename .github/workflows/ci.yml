@@ -18,6 +18,8 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
+      - run: cp .env.example .env
+
       - run: bun run cf-typegen
 
       - run: bun run lint
