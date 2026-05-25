@@ -73,15 +73,16 @@
 		"typescript-eslint": "8.48.0",
 		"vite": "^6.0.0",
 		"vitest": "^4.1.0",
-		"wrangler": "4.56.0"
+		"wrangler": "4.94.0"
 	},
 	"private": true,
 	"scripts": {
 		"build": "tsc -b && vite build",
 		"cf-typegen": "wrangler types -c wrangler.json -c wrangler.parser.json && wrangler types -c wrangler.og-consumer.json worker-configuration.og-consumer.d.ts",
 		"check": "tsc && vite build && wrangler deploy --dry-run",
-		"deploy": "bun run deploy:p && bun run build && wrangler deploy",
+		"deploy": "bun run deploy:c && bun run deploy:p && bun run build && wrangler deploy",
 		"deploy:p": "wrangler deploy -c wrangler.parser.json",
+		"deploy:c": "wrangler deploy -c wrangler.og-consumer.json",
 		"dev": "vite",
 		"dev:p": "wrangler dev -c wrangler.parser.json --port 8788 --ip 127.0.0.1",
 		"lint": "eslint src test vite.config.ts vitest.config.ts eslint.config.js",
