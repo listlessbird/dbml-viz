@@ -78,7 +78,7 @@
 	"private": true,
 	"scripts": {
 		"build": "tsc -b && vite build",
-		"cf-typegen": "wrangler types -c wrangler.json -c wrangler.parser.json",
+		"cf-typegen": "wrangler types -c wrangler.json -c wrangler.parser.json && wrangler types -c wrangler.og-consumer.json -c wrangler.parser.json worker-configuration.og-consumer.d.ts",
 		"check": "tsc && vite build && wrangler deploy --dry-run",
 		"deploy": "bun run deploy:p && bun run build && wrangler deploy",
 		"deploy:p": "wrangler deploy -c wrangler.parser.json",

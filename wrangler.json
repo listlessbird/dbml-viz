@@ -16,10 +16,24 @@
 			"service": "dbml-viz-parser"
 		}
 	],
+	"queues": {
+		"producers": [
+			{
+				"queue": "dbml-viz-og-img-queue",
+				"binding": "OG_QUEUE"
+			}
+		]
+	},
 	"kv_namespaces": [
 		{
 			"binding": "SCHEMAS",
-			"id": "e15c9a5148d14010a38d5761729f3725"
+			"id": "e15c9a5148d14010a38d5761729f3725",
+			"remote": true
+		},
+		{
+			"binding": "OG_STATUS",
+			"id": "106ac408c41e43e9a721de058ce72018",
+			"remote": true
 		}
 	],
 	"durable_objects": {
@@ -56,5 +70,12 @@
 			"/s/*",
 			"/api/*"
 		]
-	}
+	},
+	"r2_buckets": [
+		{
+			"bucket_name": "dbml-viz-dynamic-ogs",
+			"binding": "OG_IMAGES",
+			"remote": true
+		}
+	]
 }

@@ -5,6 +5,7 @@
     { "path": "./tsconfig.node.json" },
     { "path": "./tsconfig.test.json" },
     { "path": "./tsconfig.worker.json" },
+    { "path": "./tsconfig.og-consumer.json" },
   ],
   "compilerOptions": {
     "baseUrl": ".",

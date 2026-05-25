@@ -9,9 +9,17 @@
 		"verbatimModuleSyntax": true,
 		"baseUrl": ".",
 		"paths": {
-			"@/*": ["./src/react-app/*"]
+			"@/*": [
+				"./src/react-app/*"
+			]
 		},
-		"types": ["vite/client", "./worker-configuration.d.ts"]
+		"types": [
+			"vite/client",
+			"./worker-configuration.d.ts"
+		]
 	},
-	"include": ["src/worker", "src/parser-worker"]
+	"include": [
+		"src/worker",
+		"src/parser-worker"
+	]
 }

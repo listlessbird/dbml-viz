@@ -30,7 +30,10 @@ export default defineConfig({
 				tailwindcss(),
 				cloudflare({
 					configPath: "./wrangler.json",
-					auxiliaryWorkers: [{ configPath: "./wrangler.parser.json" }],
+					auxiliaryWorkers: [
+						{ configPath: "./wrangler.parser.json" },
+						{ configPath: "./wrangler.og-consumer.json" },
+					],
 				}),
 			],
 	build: {
