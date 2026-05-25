@@ -10,18 +10,13 @@
         "enabled": true
     },
     "upload_source_maps": true,
-    "services": [
-        {
-            "binding": "SCHEMA_PARSER",
-            "service": "dbml-viz-parser"
-        }
-    ],
     "queues": {
         "consumers": [
             {
                 "queue": "dbml-viz-og-img-queue",
-                "max_batch_size": 10,
-                "max_retries": 3,
+                "max_batch_size": 1,
+                "max_retries": 0,
+                "max_concurrency": 1,
                 "dead_letter_queue": "dbml-viz-og-img-dlq"
             }
         ]

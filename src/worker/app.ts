@@ -6,11 +6,15 @@ import { initWorkersLogger } from "evlog/workers";
 import { evlog, type EvlogVariables } from "evlog/hono";
 
 import {
-	OGQueueMessage,
-	OGStatus,
 	sharedSchemaPayloadSchema,
+	type OGQueueMessage,
+	type OGStatus,
 	type ShareErrorResponse,
 } from "./domain/schema-share";
+import {
+	shareSaveDeviceRateLimit,
+	shareSaveRateLimit,
+} from "./lib/share-rate-limit";
 
 initWorkersLogger({ env: { service: "dbml-viz" } });
 
@@ -24,9 +28,15 @@ const validationError = (message: string) =>
 export const app = new Hono<{ Bindings: Env } & EvlogVariables>()
 	.use(evlog())
 	.get("/api/health", (c) => c.json({ ok: true as const }, 200))
+	// TODO: add some kind of rate limit here too
+	// not sure whats a valid window atm
+	// also check some kind of header to see if its coming from a valid client
+	// not that i believe it will stop someone intent on causing trouble
 	.all("/api/parse", (c) => c.env.SCHEMA_PARSER.fetch(c.req.raw))
 	.post(
 		"/api/save",
+		shareSaveRateLimit(),
+		shareSaveDeviceRateLimit(),
 		zValidator("json", sharedSchemaPayloadSchema, (result, c) => {
 			if (!result.success) {
 				return c.json(
@@ -53,7 +63,7 @@ export const app = new Hono<{ Bindings: Env } & EvlogVariables>()
 				c.executionCtx.waitUntil(
 					Promise.all(
 						[
-						 c.env.OG_STATUS.put(
+							c.env.OG_STATUS.put(
 								`og:${id}`,
 								JSON.stringify(ogStatus),
 							),
@@ -62,7 +72,7 @@ export const app = new Hono<{ Bindings: Env } & EvlogVariables>()
 									id
 								} satisfies OGQueueMessage
 							)
-							
+
 						]
 					)
 				)
@@ -146,10 +156,7 @@ export const app = new Hono<{ Bindings: Env } & EvlogVariables>()
 			// fallback to default og img
 
 			response = await c.env.ASSETS.fetch(
-				new Request(
-					new URL("/og-image.png", c.req.url),
-					c.req.raw
-				)
+				new URL("/og-image.png", c.req.url).toString(),
 			)
 
 			response = new Response(response.body, {
@@ -162,7 +169,7 @@ export const app = new Hono<{ Bindings: Env } & EvlogVariables>()
 			})
 
 
-		} else  {
+		} else {
 			const headers = new Headers()
 
 			object.writeHttpMetadata(headers)
@@ -197,7 +204,7 @@ export const app = new Hono<{ Bindings: Env } & EvlogVariables>()
 		const ogImage = `${origin}/og/${id}.png`;
 
 		const assetResponse = await c.env.ASSETS.fetch(
-			new Request(`${origin}/`, c.req.raw),
+			`${origin}/`,
 		);
 
 		return new HTMLRewriter()

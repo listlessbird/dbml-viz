@@ -24,6 +24,24 @@
 			}
 		]
 	},
+	"ratelimits": [
+		{
+			"name": "SAVE_IP_RATE_LIMITER",
+			"namespace_id": "730101",
+			"simple": {
+				"limit": 10,
+				"period": 60
+			}
+		},
+		{
+			"name": "SAVE_DEVICE_RATE_LIMITER",
+			"namespace_id": "730102",
+			"simple": {
+				"limit": 3,
+				"period": 60
+			}
+		}
+	],
 	"kv_namespaces": [
 		{
 			"binding": "SCHEMAS",
