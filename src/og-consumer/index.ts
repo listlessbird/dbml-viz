@@ -136,7 +136,7 @@ export default {
                     } satisfies OGStatus),
                 );
 
-                message.retry({ delaySeconds: 30 });
+                message.ack()
 
             }
 
