@@ -95,7 +95,7 @@ async function processMessage(env: Env, id: string, attempts: number) {
 
 
 export default {
-    async queue(batch, env, ctx): Promise<void> {
+    async queue(batch, env): Promise<void> {
         for (const message of batch.messages) {
 
             const body = message.body as Partial<OGQueueMessage>

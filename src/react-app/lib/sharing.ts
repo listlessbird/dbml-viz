@@ -3,15 +3,17 @@ import type { InferRequestType, InferResponseType } from "hono/client";
 
 import type { AppType } from "../../worker/app";
 import type { SchemaPayload } from "@/types";
+import { getOrCreateDeviceId } from "./device-workspace";
 
 const api = hc<AppType>("/");
+const SHARE_DEVICE_ID_HEADER = "x-dbml-viz-device-id";
 
 const loadSharedSchemaRequest = api.api.load[":id"].$get;
-const saveSharedSchemaRequest = api.api.save.$post;
+const saveSharedSchemaPath = "/api/save";
 
 type LoadSharedSchemaResponse = InferResponseType<typeof loadSharedSchemaRequest, 200>;
-type SaveSharedSchemaRequest = InferRequestType<typeof saveSharedSchemaRequest>["json"];
-type SaveSharedSchemaResponse = InferResponseType<typeof saveSharedSchemaRequest, 201>;
+type SaveSharedSchemaRequest = InferRequestType<typeof api.api.save.$post>["json"];
+type SaveSharedSchemaResponse = InferResponseType<typeof api.api.save.$post, 201>;
 type ShareErrorResponse = { readonly error?: string };
 type JsonErrorResponse = Pick<Response, "json" | "status">;
 
@@ -42,8 +44,13 @@ export const saveSharedSchema = async (
 		...payload,
 		notes: [...payload.notes],
 	};
-	const response = await saveSharedSchemaRequest({
-		json: requestPayload,
+	const response = await fetch(saveSharedSchemaPath, {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+			[SHARE_DEVICE_ID_HEADER]: getOrCreateDeviceId(),
+		},
+		body: JSON.stringify(requestPayload),
 	});
 
 	if (!response.ok) {
