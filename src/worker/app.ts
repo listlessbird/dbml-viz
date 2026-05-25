@@ -7,10 +7,11 @@ import { evlog, type EvlogVariables } from "evlog/hono";
 
 import {
 	sharedSchemaPayloadSchema,
-	type OGQueueMessage,
-	type OGStatus,
 	type ShareErrorResponse,
 } from "./domain/schema-share";
+
+import { enqueOgIfPossible } from "./lib/enque";
+
 import {
 	shareSaveDeviceRateLimit,
 	shareSaveRateLimit,
@@ -49,33 +50,15 @@ export const app = new Hono<{ Bindings: Env } & EvlogVariables>()
 			const payload = c.req.valid("json");
 			const id = nanoid(8);
 
-			const ogStatus = {
-				status: "pending" as const,
-				createdAt: new Date().toISOString(),
-				updatedAt: new Date().toISOString(),
-				attempts: 0,
-			} satisfies OGStatus
-
-
 			try {
 				await c.env.SCHEMAS.put(id, JSON.stringify(payload));
 
 				c.executionCtx.waitUntil(
-					Promise.all(
-						[
-							c.env.OG_STATUS.put(
-								`og:${id}`,
-								JSON.stringify(ogStatus),
-							),
-							c.env.OG_QUEUE.send(
-								{
-									id
-								} satisfies OGQueueMessage
-							)
-
-						]
-					)
-				)
+					enqueOgIfPossible(c.env, id)
+						.catch((err) => {
+							c.get("log").error(err instanceof Error ? err : new Error(String(err)));
+						}),
+				);
 
 				return c.json({ id }, 201);
 			} catch (error) {

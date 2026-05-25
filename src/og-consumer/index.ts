@@ -1,6 +1,7 @@
 
 
 import type { OGStatus, OGQueueMessage } from "../worker/domain/schema-share"
+import type { OGBudget } from "../worker/og-budget"
 
 
 
@@ -10,8 +11,16 @@ const OG_HEIGHT = 630
 const statusKey = (id: string) => `og:${id}`
 const imageKeyFor = (id: string) => `og-${id}.png`
 
+// OG_BUDGET binds to a Durable Object defined in the dbml-viz worker. wrangler
+// types can't resolve a cross-script DO class without dragging that worker's
+// whole graph into this project, so the binding is typed as
+// DurableObjectNamespace<undefined>. Cast through the imported class type to
+// recover the RPC method signatures.
+const ogBudget = (env: Env) =>
+    (env.OG_BUDGET as unknown as DurableObjectNamespace<OGBudget>).getByName("global")
 
-async function takeScreenshot(env: Env, id: string): Promise<ArrayBuffer> {
+
+async function takeScreenshot(env: Env, id: string): Promise<{ png: ArrayBuffer, browserMs: number }> {
 
     const res = await fetch(
         `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/browser-rendering/screenshot`,
@@ -33,11 +42,16 @@ async function takeScreenshot(env: Env, id: string): Promise<ArrayBuffer> {
         }
     )
 
+    const browserMs = Number(res.headers.get("x-browser-ms-used") ?? 0)
+
     if (!res.ok) {
         throw new Error(`Browser renderign failed: ${res.status} ${await res.text()}`)
     }
 
-    return res.arrayBuffer()
+    return {
+        png: await res.arrayBuffer(),
+        browserMs
+    }
 
 }
 
@@ -66,7 +80,27 @@ async function processMessage(env: Env, id: string, attempts: number) {
         return
     }
 
-    const png = await takeScreenshot(env, id)
+    const renderDecision = await ogBudget(env).canRender()
+
+    if (!renderDecision.ok) {
+        await env.OG_STATUS.put(
+            statusKey(id),
+            JSON.stringify({
+                status: "skipped",
+                reason: renderDecision.reason,
+                createdAt,
+                updatedAt: new Date().toISOString(),
+                attempts,
+            } satisfies OGStatus),
+        );
+
+        return;
+    }
+
+
+    const { png, browserMs } = await takeScreenshot(env, id)
+
+    await ogBudget(env).recordSuccess(browserMs, Date.now());
 
     await env.OG_IMAGES.put(imageKey, png, {
         httpMetadata: {
@@ -124,6 +158,8 @@ export default {
 
                 const existing = await env.OG_STATUS.get<OGStatus>(statusKey(id), "json");
                 const now = new Date().toISOString();
+
+                await ogBudget(env).recordFailure(Date.now());
 
                 await env.OG_STATUS.put(
                     statusKey(id),

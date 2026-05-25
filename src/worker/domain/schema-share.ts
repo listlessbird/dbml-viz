@@ -32,28 +32,40 @@ export interface ShareErrorResponse {
 }
 
 
-export type OGStatus = 
+export type OGStatus =
 	| {
-			status: "pending";
-			createdAt: string;
-			updatedAt: string;
-			attempts: number;
-	  }
+		status: "pending";
+		createdAt: string;
+		updatedAt: string;
+		attempts: number;
+	}
 	| {
-			status: "ready";
-			imageKey: string;
-			imageUrl: string;
-			createdAt: string;
-			updatedAt: string;
-			attempts: number;
-	  }
+		status: "ready";
+		imageKey: string;
+		imageUrl: string;
+		createdAt: string;
+		updatedAt: string;
+		attempts: number;
+	}
 	| {
-			status: "failed";
-			createdAt: string;
-			updatedAt: string;
-			attempts: number;
-			error: string;
-			nextRetryAt?: string;
-	  };
+		status: "failed";
+		createdAt: string;
+		updatedAt: string;
+		attempts: number;
+		error: string;
+		nextRetryAt?: string;
+	} | {
+		status: "skipped";
+		reason: OGLimitReason;
+		createdAt: string;
+		updatedAt: string;
+		attempts: number;
+	}
 
-export type OGQueueMessage = {id: string}
+export type OGQueueMessage = { id: string }
+
+export type OGLimitReason =
+	| "daily_cap"
+	| "failure_cap"
+	| "daily_browser_ms_cap"
+	| "monthly_browser_ms_cap"
