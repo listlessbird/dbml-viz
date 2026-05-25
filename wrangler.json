@@ -59,6 +59,10 @@
 			{
 				"name": "SchemaWorkspace",
 				"class_name": "SchemaWorkspace"
+			},
+			{
+				"name": "OG_BUDGET",
+				"class_name": "OGBudget"
 			}
 		]
 	},
@@ -76,6 +80,12 @@
 			],
 			"new_sqlite_classes": [
 				"SchemaWorkspace"
+			]
+		},
+		{
+			"tag": "v3",
+			"new_sqlite_classes": [
+				"OGBudget"
 			]
 		}
 	],

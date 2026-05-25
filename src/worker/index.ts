@@ -21,3 +21,5 @@ export default {
 export type { AppType } from "./app";
 
 export { SchemaWorkspace } from "./workspace/schema-workspace";
+
+export { OGBudget } from "./og-budget";

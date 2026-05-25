@@ -39,5 +39,14 @@
             "binding": "OG_IMAGES",
             "remote": true
         }
-    ]
+    ],
+    "durable_objects": {
+        "bindings": [
+            {
+                "name": "OG_BUDGET",
+                "class_name": "OGBudget",
+                "script_name": "dbml-viz"
+            }
+        ]
+    }
 }
