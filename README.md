@@ -4,13 +4,15 @@ Interactive visualizer for DBML and SQL.
 
 Try it at **[dbml-viz.com](https://dbml-viz.com)**
 
+![dbml-viz schema canvas screenshot](./public/og-image.png)
+
 ## Features
 
 ### Sticky Notes
 - Add free-floating notes to the canvas
 
 ### Sharing & Persistence
-- Share by link — one click generates a short URL; stores source, table positions, and sticky notes
+- Share your design with a link
 
 ### Agent / MCP Workspace
 - Connect an MCP client (Claude Code, Codex, Cursor, or any MCP-compatible agent) to the live canvas
