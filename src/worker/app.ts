@@ -6,6 +6,8 @@ import { initWorkersLogger } from "evlog/workers";
 import { evlog, type EvlogVariables } from "evlog/hono";
 
 import {
+	OGQueueMessage,
+	OGStatus,
 	sharedSchemaPayloadSchema,
 	type ShareErrorResponse,
 } from "./domain/schema-share";
@@ -37,8 +39,34 @@ export const app = new Hono<{ Bindings: Env } & EvlogVariables>()
 			const payload = c.req.valid("json");
 			const id = nanoid(8);
 
+			const ogStatus = {
+				status: "pending" as const,
+				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString(),
+				attempts: 0,
+			} satisfies OGStatus
+
+
 			try {
 				await c.env.SCHEMAS.put(id, JSON.stringify(payload));
+
+				c.executionCtx.waitUntil(
+					Promise.all(
+						[
+						 c.env.OG_STATUS.put(
+								`og:${id}`,
+								JSON.stringify(ogStatus),
+							),
+							c.env.OG_QUEUE.send(
+								{
+									id
+								} satisfies OGQueueMessage
+							)
+							
+						]
+					)
+				)
+
 				return c.json({ id }, 201);
 			} catch (error) {
 				c.get("log").error(error instanceof Error ? error : new Error(String(error)));
@@ -88,6 +116,79 @@ export const app = new Hono<{ Bindings: Env } & EvlogVariables>()
 			}
 		},
 	)
+	.get("/og/:id", async (c) => {
+
+		const id = c.req.param("id")
+
+		const cacheKey = new Request(
+			c.req.url,
+			{
+				method: "GET",
+				headers: c.req.raw.headers
+			}
+		)
+
+		const cache = (caches as unknown as { default: Cache }).default;
+
+		const cached = await cache.match(cacheKey)
+
+		if (cached) return cached;
+
+		const objectKey = `og-${id}.png`
+
+		const object = await c.env.OG_IMAGES.get(objectKey)
+
+
+		let response: Response;
+
+
+		if (object === null) {
+			// fallback to default og img
+
+			response = await c.env.ASSETS.fetch(
+				new Request(
+					new URL("/og-image.png", c.req.url),
+					c.req.raw
+				)
+			)
+
+			response = new Response(response.body, {
+				status: 200,
+				headers: {
+					"content-type": "image/png",
+					// if job finishes and a share img is genreated later
+					"cache-control": "public, max-age=60"
+				}
+			})
+
+
+		} else  {
+			const headers = new Headers()
+
+			object.writeHttpMetadata(headers)
+
+			headers.set("etag", object.httpEtag)
+			headers.set("content-type", headers.get("content-type") ?? "image/png")
+
+			headers.set("cache-control",
+				"public, max-age=31536000, immutable"
+			)
+
+			response = new Response(object.body, {
+				headers,
+				status: 200
+			})
+		}
+
+		c.executionCtx.waitUntil(
+			cache.put(
+				cacheKey,
+				response.clone()
+			)
+		)
+
+		return response
+	})
 	.get("/s/:id", async (c) => {
 		const id = c.req.param("id");
 		const origin = new URL(c.req.url).origin;

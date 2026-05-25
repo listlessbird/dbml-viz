@@ -25,6 +25,35 @@ export const sharedSchemaPayloadSchema = z.object({
 	version: z.literal(3),
 });
 
+export type SharedSchemaPayload = z.infer<typeof sharedSchemaPayloadSchema>
+
 export interface ShareErrorResponse {
 	readonly error: string;
 }
+
+
+export type OGStatus = 
+	| {
+			status: "pending";
+			createdAt: string;
+			updatedAt: string;
+			attempts: number;
+	  }
+	| {
+			status: "ready";
+			imageKey: string;
+			imageUrl: string;
+			createdAt: string;
+			updatedAt: string;
+			attempts: number;
+	  }
+	| {
+			status: "failed";
+			createdAt: string;
+			updatedAt: string;
+			attempts: number;
+			error: string;
+			nextRetryAt?: string;
+	  };
+
+export type OGQueueMessage = {id: string}

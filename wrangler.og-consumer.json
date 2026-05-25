@@ -1,0 +1,48 @@
+{
+    "$schema": "node_modules/wrangler/config-schema.json",
+    "name": "dbml-viz-og-consumer",
+    "main": "./src/og-consumer/index.ts",
+    "compatibility_date": "2026-04-02",
+    "compatibility_flags": [
+        "nodejs_compat"
+    ],
+    "observability": {
+        "enabled": true
+    },
+    "upload_source_maps": true,
+    "services": [
+        {
+            "binding": "SCHEMA_PARSER",
+            "service": "dbml-viz-parser"
+        }
+    ],
+    "queues": {
+        "consumers": [
+            {
+                "queue": "dbml-viz-og-img-queue",
+                "max_batch_size": 10,
+                "max_retries": 3,
+                "dead_letter_queue": "dbml-viz-og-img-dlq"
+            }
+        ]
+    },
+    "kv_namespaces": [
+        {
+            "binding": "SCHEMAS",
+            "remote": true,
+            "id": "e15c9a5148d14010a38d5761729f3725"
+        },
+        {
+            "binding": "OG_STATUS",
+            "remote": true,
+            "id": "106ac408c41e43e9a721de058ce72018"
+        }
+    ],
+    "r2_buckets": [
+        {
+            "bucket_name": "dbml-viz-dynamic-ogs",
+            "binding": "OG_IMAGES",
+            "remote": true
+        }
+    ]
+}
