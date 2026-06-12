@@ -9,7 +9,10 @@ import {
 	TEMPORARY_RELATIONSHIP_EDGE_ID,
 	type ProjectionRuntimeState,
 } from "@/canvas-next/canvas-runtime-store";
-import { parseLinksFromText } from "@/canvas-next/sticky-note/link-tokens";
+import {
+	parseLinksFromText,
+	type StickyNoteLinkRef,
+} from "@/canvas-next/sticky-note/link-tokens";
 import { buildSchemaIndexes, type SchemaIndexes } from "@/schema-model/schema-indexes";
 import type { ResolvedRelationship } from "@/schema-model/relation-anchors";
 import type {
@@ -240,6 +243,14 @@ const buildStickyNoteNode = (note: SharedStickyNote): StickyNoteNode => ({
 	selectable: true,
 });
 
+// Parsed link results are valid per (SchemaIndexes, note text) pair: the
+// validator closes over the indexes, and the indexes object is stable per
+// ParsedSchema. Schema changes swap the outer key, invalidating the inner map.
+const cachedStickyLinks = new WeakMap<
+	SchemaIndexes,
+	Map<string, StickyNoteLinkRef[]>
+>();
+
 const buildStickyLinkEdges = (
 	notes: readonly SharedStickyNote[],
 	indexes: SchemaIndexes,
@@ -256,10 +267,20 @@ const buildStickyLinkEdges = (
 		if (columnName === undefined) return true;
 		return indexes.columnsByTableAndName.has(`${table.id}:${columnName}`);
 	};
+	let linksByText = cachedStickyLinks.get(indexes);
+	if (!linksByText) {
+		linksByText = new Map();
+		cachedStickyLinks.set(indexes, linksByText);
+	}
 	const edges: StickyLinkEdge[] = [];
 	for (const note of notes) {
 		if (note.text.trim().length === 0) continue;
-		for (const link of parseLinksFromText(note.text, isValid)) {
+		let links = linksByText.get(note.text);
+		if (!links) {
+			links = parseLinksFromText(note.text, isValid);
+			linksByText.set(note.text, links);
+		}
+		for (const link of links) {
 			const table = tableByName.get(link.table);
 			if (!table) continue;
 			edges.push({

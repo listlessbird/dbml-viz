@@ -44,7 +44,7 @@ const appendForeignKey = (
 	target.set(tableId, new Set(columns));
 };
 
-export const buildSchemaIndexes = (parsed: ParsedSchema): SchemaIndexes => {
+const computeSchemaIndexes = (parsed: ParsedSchema): SchemaIndexes => {
 	const tablesById = new Map<string, TableData>();
 	const columnsByTableAndName = new Map<string, ColumnData>();
 
@@ -92,3 +92,17 @@ export const buildSchemaIndexes = (parsed: ParsedSchema): SchemaIndexes => {
 		relationAnchorsByTableId,
 	};
 };
+
+let cachedIndexes = new WeakMap<ParsedSchema, SchemaIndexes>();
+
+export const buildSchemaIndexes = (parsed: ParsedSchema): SchemaIndexes => {
+	const cached = cachedIndexes.get(parsed);
+	if (cached) return cached;
+	const next = computeSchemaIndexes(parsed);
+	cachedIndexes.set(parsed, next);
+	return next;
+};
+
+export function clearSchemaIndexesCache(): void {
+	cachedIndexes = new WeakMap<ParsedSchema, SchemaIndexes>();
+}

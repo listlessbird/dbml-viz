@@ -1,6 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
-import { buildSchemaIndexes } from "@/schema-model/schema-indexes";
+import {
+	buildSchemaIndexes,
+	clearSchemaIndexesCache,
+} from "@/schema-model/schema-indexes";
 import type { ParsedSchema, RefData, TableData } from "@/types";
 
 const compositeRef: RefData = {
@@ -129,6 +132,34 @@ const buildParsedSchema = (
 	tables,
 	refs,
 	errors: [],
+});
+
+describe("Schema Model index caching", () => {
+	afterEach(() => {
+		clearSchemaIndexesCache();
+	});
+
+	it("returns the same Schema Indexes object for the same Parsed Schema object", () => {
+		const parsed = buildParsedSchema([usersTable, ordersTable], [userOrdersRef]);
+
+		expect(buildSchemaIndexes(parsed)).toBe(buildSchemaIndexes(parsed));
+	});
+
+	it("returns distinct Schema Indexes for structurally equal but distinct Parsed Schemas", () => {
+		const first = buildParsedSchema([usersTable, ordersTable], [userOrdersRef]);
+		const second = buildParsedSchema([usersTable, ordersTable], [userOrdersRef]);
+
+		expect(buildSchemaIndexes(first)).not.toBe(buildSchemaIndexes(second));
+	});
+
+	it("returns a fresh Schema Indexes object after the cache is cleared", () => {
+		const parsed = buildParsedSchema([usersTable, ordersTable], [userOrdersRef]);
+		const before = buildSchemaIndexes(parsed);
+
+		clearSchemaIndexesCache();
+
+		expect(buildSchemaIndexes(parsed)).not.toBe(before);
+	});
 });
 
 describe("Schema Model lookup maps", () => {
