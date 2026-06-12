@@ -680,6 +680,22 @@ describe("Canvas Projection Sticky Notes", () => {
 		expect(after.edges.filter((edge) => edge.type === "stickyLink")).toEqual([]);
 	});
 
+	it("yields equal sticky link edges when the projection is rebuilt with identical inputs", () => {
+		const note: SharedStickyNote = {
+			id: "sticky-1",
+			color: "blue",
+			text: "Review #users.id and #missing",
+		};
+		const diagram = buildDiagram(usersOnly, {}, [note]);
+
+		const first = buildCanvasProjection(diagram, projectionRuntime);
+		const second = buildCanvasProjection(diagram, projectionRuntime);
+
+		expect(second.edges.filter((edge) => edge.type === "stickyLink")).toEqual(
+			first.edges.filter((edge) => edge.type === "stickyLink"),
+		);
+	});
+
 	it("preserves Sticky Note object identity through the projection so memos can skip work", () => {
 		const note: SharedStickyNote = {
 			id: "sticky-stable",

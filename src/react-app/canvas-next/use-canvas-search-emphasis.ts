@@ -29,7 +29,8 @@ export function useCanvasSearchEmphasis(query: string): CanvasSearchEmphasis {
 	);
 	const requestFocus = useCanvasRuntime((state) => state.requestFocus);
 
-	const indexes = useMemo(() => buildSchemaIndexes(parsedSchema), [parsedSchema]);
+	// O(1) cache hit with stable identity per Parsed Schema, so no memo needed.
+	const indexes = buildSchemaIndexes(parsedSchema);
 	const deferredQuery = useDeferredValue(query);
 
 	const result = useMemo(
