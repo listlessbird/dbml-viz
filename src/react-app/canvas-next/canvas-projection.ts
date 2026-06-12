@@ -38,7 +38,7 @@ interface CanvasProjectionInput {
 	readonly stickyNotes: readonly SharedStickyNote[];
 }
 
-interface CanvasProjection {
+export interface CanvasProjection {
 	readonly nodes: CanvasNode[];
 	readonly edges: CanvasEdge[];
 	readonly missingPositionIds: readonly string[];
@@ -471,5 +471,45 @@ export function buildCanvasProjection(
 		nodes: [...nodes, ...stickyNodes, ...temporaryProjection.nodes],
 		edges: [...edges, ...stickyLinkEdges, ...temporaryProjection.edges],
 		missingPositionIds,
+	};
+}
+
+/**
+ * Reapplies Table Positions onto an existing Canvas Projection without
+ * rebuilding it. Untouched nodes and the edges array are returned by
+ * reference; if nothing moved, the input projection itself is returned.
+ * Returns null when membership changed (a table node lost its Table Position
+ * or a missing-position table gained one) — the caller must rebuild
+ * structurally via buildCanvasProjection instead.
+ */
+export function applyTablePositions(
+	projection: CanvasProjection,
+	tablePositions: DiagramPositions,
+): CanvasProjection | null {
+	for (const tableId of projection.missingPositionIds) {
+		if (tablePositions[tableId] !== undefined) return null;
+	}
+	let changed = false;
+	const nodes: CanvasNode[] = new Array(projection.nodes.length);
+	for (let index = 0; index < projection.nodes.length; index++) {
+		const node = projection.nodes[index];
+		if (node.type !== "table") {
+			nodes[index] = node;
+			continue;
+		}
+		const position = tablePositions[node.id];
+		if (position === undefined) return null;
+		if (position.x === node.position.x && position.y === node.position.y) {
+			nodes[index] = node;
+			continue;
+		}
+		nodes[index] = { ...node, position: { x: position.x, y: position.y } };
+		changed = true;
+	}
+	if (!changed) return projection;
+	return {
+		nodes,
+		edges: projection.edges,
+		missingPositionIds: projection.missingPositionIds,
 	};
 }

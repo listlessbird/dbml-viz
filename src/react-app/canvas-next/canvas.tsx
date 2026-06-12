@@ -9,10 +9,13 @@ import {
 	type OnNodesChange,
 	type ReactFlowInstance,
 } from "@xyflow/react";
-import { useCallback, useEffect, useMemo, type MouseEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, type MouseEvent } from "react";
 
 import { useCanvasRuntime } from "@/canvas-next/canvas-runtime-context";
-import { buildCanvasProjection } from "@/canvas-next/canvas-projection";
+import {
+	applyTablePositions,
+	buildCanvasProjection,
+} from "@/canvas-next/canvas-projection";
 import { collectTablePositionChanges } from "@/canvas-next/table-position-changes";
 import { CanvasNextStickyNoteNode } from "@/canvas-next/sticky-note";
 import { useParseDrivenFocus } from "@/canvas-next/use-parse-driven-focus";
@@ -94,8 +97,42 @@ export function CanvasNextCanvas() {
 		() => new Set(stickyNotes.map((note) => note.id)),
 		[stickyNotes],
 	);
+	const tablePositionsRef = useRef(tablePositions);
+	tablePositionsRef.current = tablePositions;
+	const positionedKey = useMemo(
+		() => Object.keys(tablePositions).sort().join(" "),
+		[tablePositions],
+	);
+	const structuralProjection = useMemo(
+		() =>
+			buildCanvasProjection(
+				{
+					parsedSchema,
+					tablePositions: tablePositionsRef.current,
+					stickyNotes,
+				},
+				{
+					selectedRelationshipId,
+					temporaryRelationship,
+					searchHighlight,
+				},
+			),
+		// coordinates are re-applied by applyTablePositions; this memo must
+		// only rebuild on membership changes (positionedKey), not on every
+		// Table Position coordinate move.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+		[
+			parsedSchema,
+			stickyNotes,
+			selectedRelationshipId,
+			temporaryRelationship,
+			searchHighlight,
+			positionedKey,
+		],
+	);
 	const projection = useMemo(
 		() =>
+			applyTablePositions(structuralProjection, tablePositions) ??
 			buildCanvasProjection(
 				{
 					parsedSchema,
@@ -109,6 +146,7 @@ export function CanvasNextCanvas() {
 				},
 			),
 		[
+			structuralProjection,
 			parsedSchema,
 			tablePositions,
 			stickyNotes,

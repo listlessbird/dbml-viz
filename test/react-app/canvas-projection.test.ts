@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { buildCanvasProjection } from "@/canvas-next/canvas-projection";
+import {
+	applyTablePositions,
+	buildCanvasProjection,
+} from "@/canvas-next/canvas-projection";
 import type { Diagram } from "@/diagram-session/diagram-session-context";
 import type {
 	DiagramEdge,
@@ -716,5 +719,77 @@ describe("Canvas Projection Sticky Notes", () => {
 		expect((stickyNode as { data: { note: SharedStickyNote } }).data.note).toBe(
 			note,
 		);
+	});
+});
+
+describe("Canvas Projection applyTablePositions", () => {
+	const positions = {
+		users: { x: 0, y: 0 },
+		orders: { x: 300, y: 0 },
+	};
+	const note: SharedStickyNote = {
+		id: "sticky-1",
+		color: "yellow",
+		text: "Review #users",
+		x: 400,
+		y: 300,
+	};
+
+	it("returns the same projection object when no Table Position changed", () => {
+		const projection = buildCanvasProjection(
+			buildDiagram(usersWithOrders, positions, [note]),
+			projectionRuntime,
+		);
+
+		expect(applyTablePositions(projection, { ...positions })).toBe(projection);
+	});
+
+	it("replaces only the moved table node and keeps every other object by reference", () => {
+		const projection = buildCanvasProjection(
+			buildDiagram(usersWithOrders, positions, [note]),
+			projectionRuntime,
+		);
+
+		const applied = applyTablePositions(projection, {
+			...positions,
+			orders: { x: 320, y: 40 },
+		});
+
+		expect(applied).not.toBeNull();
+		expect(applied).not.toBe(projection);
+		const movedNode = applied!.nodes.find((node) => node.id === "orders");
+		const originalNode = projection.nodes.find((node) => node.id === "orders");
+		expect(movedNode).not.toBe(originalNode);
+		expect(movedNode?.position).toEqual({ x: 320, y: 40 });
+		for (const node of applied!.nodes) {
+			if (node.id === "orders") continue;
+			expect(node).toBe(projection.nodes.find((other) => other.id === node.id));
+		}
+		expect(applied!.edges).toBe(projection.edges);
+	});
+
+	it("reports the cheap path invalid when Table Position membership changes", () => {
+		const projection = buildCanvasProjection(
+			buildDiagram(usersWithOrders, positions),
+			projectionRuntime,
+		);
+
+		expect(applyTablePositions(projection, { users: { x: 0, y: 0 } })).toBeNull();
+
+		const partial = buildCanvasProjection(
+			buildDiagram(usersWithOrders, { users: { x: 0, y: 0 } }),
+			projectionRuntime,
+		);
+		expect(partial.missingPositionIds).toEqual(["orders"]);
+		expect(applyTablePositions(partial, positions)).toBeNull();
+	});
+
+	it("is equivalent to a structural rebuild for unchanged inputs", () => {
+		const diagram = buildDiagram(usersOrdersAndPayments, undefined, [note]);
+		const projection = buildCanvasProjection(diagram, projectionRuntime);
+
+		expect(
+			applyTablePositions(projection, diagram.tablePositions),
+		).toEqual(buildCanvasProjection(diagram, projectionRuntime));
 	});
 });
