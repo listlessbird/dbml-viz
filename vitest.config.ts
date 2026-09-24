@@ -96,6 +96,7 @@ export default defineConfig({
 				plugins: [
 					cloudflareTest({
 						wrangler: { configPath: "./wrangler.json" },
+						remoteBindings: false,
 						miniflare: {
 							serviceBindings: {
 								SCHEMA_PARSER: parserServiceBinding,
